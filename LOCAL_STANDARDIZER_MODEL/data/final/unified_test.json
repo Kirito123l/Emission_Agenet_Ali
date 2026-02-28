@@ -1,0 +1,4114 @@
+[
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 纯电动轻型厢货"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 拖头?"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 18轮的排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 单体长途货车（汽油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 家用MPV?"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算长途大巴排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 电动汽车（国四）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 分析燃油摩托"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 二氧化碳排放?"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 网 约 车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 混动车?"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 一 氧 化 碳"
+      },
+      {
+        "role": "assistant",
+        "content": "CO"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 自驾房车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 旅行车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 卧铺客车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 区域配送半挂（燃油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 查询thc"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查轻型货车的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] Sulfur_Dioxide"
+      },
+      {
+        "role": "assistant",
+        "content": "SO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 面包车（国六）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] combination short-haul truck"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 关于二氧化碳"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 电动轻卡"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查厢式货车的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算豪华大巴排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 买菜车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] refuse truck。"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Single Unit Long-haul Truck的"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 紧凑型轿车是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 乘用车辆的排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] uber？"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查combination_short_haul_truck的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 9.6米货车（国五）"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询Motor Home"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 插电混动环卫垃圾车"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 我想查旅居车"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 混动车的排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于电动汽车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 分析轻卡"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源单体长途货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国五重型货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 旅游大巴（插电混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 纯电动重型货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 帮我查pm2_5的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "PM2.5"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] PM2.5？"
+      },
+      {
+        "role": "assistant",
+        "content": "PM2.5"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 汽油皮卡"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 碳 氢 化 合 物"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 轻型厢货"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 插电混动18轮"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源快速公交"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 长途大巴（电动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 大卡车（插电混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于SUV"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于学校巴士"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] BIKE"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 豪华轿车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算城际客车排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 家用车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] SUV类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查机车的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 插电混动配送货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] pm10的"
+      },
+      {
+        "role": "assistant",
+        "content": "PM10"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国五城际客车"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] carbon monoxide？"
+      },
+      {
+        "role": "assistant",
+        "content": "CO"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] pm10。"
+      },
+      {
+        "role": "assistant",
+        "content": "PM10"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 骑士车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Refuse Truck？"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 中型轿车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Intercity Bus？"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 混动豪华大巴"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于sedan"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 组合短途货车是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 大车（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 自行式房车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 短途货车（燃油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 黄牌货车（燃油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查School Bus的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 快递车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 温室气体"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 我想查蓝牌货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] motor home"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 分析货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] transit bus的信息"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国五家用MPV"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 一氧化碳。"
+      },
+      {
+        "role": "assistant",
+        "content": "CO"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 重型卡车（柴油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] passengertruck"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] PassengerTruck"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] co2的"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 经 济 型 轿 车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国四重卡"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 跑车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 二 氧 化 硫"
+      },
+      {
+        "role": "assistant",
+        "content": "SO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 氮氧化物排放的排放"
+      },
+      {
+        "role": "assistant",
+        "content": "NOx"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 客 运 大 巴"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 私家轿车（汽油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 客运大巴的信息"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 分析city bus"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 环卫作业车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源小汽车（燃油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 骑士车"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查长途货车的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 接送车（汽油）"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] THC?"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Motorcycle。"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] combination_long_haul_truck的信息"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 温室气体的"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 轻客的排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 燃油短途货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] Hydrocarbon"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 城市配送车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 挥发性有机物"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 柴油通勤巴士"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 代 步 车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 重型半挂。"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 帮我查passenger_truck的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 大型货车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Transit Bus。"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] MOTORCYCLE?"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 半挂短途类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询小客车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 露营车（插电混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 市区公交。"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源小汽车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询REFUSE TRUCK"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 混动公交车"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 碳排放？"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 电动轿车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 两轮车（插电混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 计算一氧化碳排放排放"
+      },
+      {
+        "role": "assistant",
+        "content": "CO"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询卧铺客车"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 货车（国六）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询Combination Long-haul Truck"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 粗颗粒物"
+      },
+      {
+        "role": "assistant",
+        "content": "PM10"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算中型货车排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 4.2米货车类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 中型轿车（国六）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 查询particulate matter"
+      },
+      {
+        "role": "assistant",
+        "content": "PM10"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] single_unit_long_haul_truck?"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 轻客（国四）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 金杯（混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 买菜车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 出 租 车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源车（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 半挂长途（纯电动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 长 途 运 输 车"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 小型客车（混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 配送货车的信息"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 混动环卫作业车"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 黄牌货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 帮我查颗粒物的数据"
+      },
+      {
+        "role": "assistant",
+        "content": "PM2.5"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 分析房车"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 颗粒物"
+      },
+      {
+        "role": "assistant",
+        "content": "PM2.5"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] TRANSIT BUS"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 碳的"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 氮氧化物?"
+      },
+      {
+        "role": "assistant",
+        "content": "NOx"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 豪华大巴"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 查询sulfur_dioxide"
+      },
+      {
+        "role": "assistant",
+        "content": "SO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] transitbus"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国五商务车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源城际半挂"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 市内货车（国五）"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国六大型货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 蓝牌货车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] SCHOOL BUS是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 氮氧化物排放"
+      },
+      {
+        "role": "assistant",
+        "content": "NOx"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 4米2"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 豪华轿车（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 分析公交车"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] single_unit_short_haul_truck？"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询校车"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] passenger car"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 柴油城际客车"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 我想查私家轿车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询接送车"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 配 送 货 车"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] NOx是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "NOx"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于公共汽车"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 配送货车是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 区域配送半挂是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 商务Mpv"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国六省际客车"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 计算CO₂排放"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 插电混动奥德赛"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 总 烃"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] SUV?"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 公交车?"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 4米2（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 环卫垃圾车类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] single unit short-haul truck类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 商务MPV（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 我想查garbage truck"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 半挂短途（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Brt"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 配送货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于小型汽车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 长途客车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 查询掀背车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 公交巴士（国五）"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] INTERCITYBUS"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 私家车?"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 经济型轿车（国五）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 汽油厢式货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] Pm25"
+      },
+      {
+        "role": "assistant",
+        "content": "PM2.5"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 垃圾收集车（汽油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 查询二氧化硫"
+      },
+      {
+        "role": "assistant",
+        "content": "SO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 燃油市区公交"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] CO气体。"
+      },
+      {
+        "role": "assistant",
+        "content": "CO"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 掀背车类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 汽油配送货车"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] passenger_car的信息"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 我想查二氧化碳"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 城际半挂的排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 轿车（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] transit bus的"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] hc"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 环卫车（国六）"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 汽油垃圾压缩车"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于混动车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 配送货车类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 新能源车（燃油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 小型汽车的"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] school_bus类型"
+      },
+      {
+        "role": "assistant",
+        "content": "School Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 轻型厢货（柴油）"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 微面（新能源）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] BRT？"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] REFUSETRUCK"
+      },
+      {
+        "role": "assistant",
+        "content": "Refuse Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] Motor Home"
+      },
+      {
+        "role": "assistant",
+        "content": "Motor Home"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 轻客（插电混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国五摩托车"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算BRT排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 分析PM 10"
+      },
+      {
+        "role": "assistant",
+        "content": "PM10"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 我想查Combination Short-haul Truck"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Short-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 配送货车（纯电动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算干线货车排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] carbon dioxide的信息"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 城市配送车（插电混动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 氮氧化物。"
+      },
+      {
+        "role": "assistant",
+        "content": "NOx"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国五电摩"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] 查询总碳氢化合物"
+      },
+      {
+        "role": "assistant",
+        "content": "THC"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 大挂车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Combination Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 计算长途客车排放"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 城配车是什么"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 电动汽车（纯电动）"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] m o t o"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 关于bike"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] single_unit_long_haul_truck。"
+      },
+      {
+        "role": "assistant",
+        "content": "Single Unit Long-haul Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] PM 10。"
+      },
+      {
+        "role": "assistant",
+        "content": "PM10"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 跑车？"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[pollutant] carbon_dioxide？"
+      },
+      {
+        "role": "assistant",
+        "content": "CO2"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 小型汽车类型"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国六小型客车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] light_commercial_truck"
+      },
+      {
+        "role": "assistant",
+        "content": "Light Commercial Truck"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 省际客车。"
+      },
+      {
+        "role": "assistant",
+        "content": "Intercity Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 燃油城市公交"
+      },
+      {
+        "role": "assistant",
+        "content": "Transit Bus"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 纯电动电摩"
+      },
+      {
+        "role": "assistant",
+        "content": "Motorcycle"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是标准化助手。根据任务类型，将用户输入标准化为标准值。\n\n任务类型:\n- [vehicle]: 标准化为以下13种MOVES车型之一\n- [pollutant]: 标准化为以下7种标准污染物之一\n\nMOVES标准车型:\nMotorcycle, Passenger Car, Passenger Truck, Light Commercial Truck,\nIntercity Bus, Transit Bus, School Bus, Refuse Truck,\nSingle Unit Short-haul Truck, Single Unit Long-haul Truck,\nMotor Home, Combination Short-haul Truck, Combination Long-haul Truck\n\n标准污染物:\nCO2, CO, NOx, PM2.5, PM10, THC, SO2\n\n规则:\n1. 只返回标准值，不要其他内容\n2. 如果无法识别，返回最接近的标准值\n3. 忽略修饰词（如\"新能源\"、\"电动\"），只关注核心车型"
+      },
+      {
+        "role": "user",
+        "content": "[vehicle] 国六新能源小汽车"
+      },
+      {
+        "role": "assistant",
+        "content": "Passenger Car"
+      }
+    ]
+  }
+]

@@ -1,0 +1,2402 @@
+[
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"公交%\", \"备注\", \"link_avg_speed_kmh\", \"pc_pct\", \"路段ID\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"pc_pct\": \"Passenger Car\", \"公交%\": \"Transit Bus\", \"路段ID\": \"link_id\", \"link_avg_speed_kmh\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"瞬时速度\", \"acc_mps2\", \"Unnamed: 0\", \"Grade\", \"时间\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间\": \"time_sec\", \"acc_mps2\": \"acceleration_mps2\", \"瞬时速度\": \"speed_kph\", \"Grade\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"road_id\", \"半挂车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"半挂车%\": \"Combination Long-haul Truck\", \"road_id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"avg_speed_kph\", \"小汽车比例\", \"路段长度km\", \"traffic_flow\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小汽车比例\": \"Passenger Car\", \"avg_speed_kph\": \"avg_speed_kph\", \"路段长度km\": \"link_length_km\", \"traffic_flow\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间s\", \"说明\", \"加速度(m/s²)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间s\": \"time_sec\", \"加速度(m/s²)\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration\", \"车速\", \"time(s)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time(s)\": \"time_sec\", \"acceleration\": \"acceleration_mps2\", \"车速\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed\", \"序号\", \"a\", \"坡度%\", \"time_s\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time_s\": \"time_sec\", \"speed\": \"speed_kph\", \"坡度%\": \"grade_pct\", \"a\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"轿车比例\", \"bus_pct\", \"distance\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"bus_pct\": \"Transit Bus\", \"distance\": \"link_length_km\", \"轿车比例\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"TIME\", \"速度km/h\", \"坡度%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度%\": \"grade_pct\", \"TIME\": \"time_sec\", \"速度km/h\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed_kph\", \"acceleration_mps2\", \"序号\", \"坡度%\", \"time_sec\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time_sec\": \"time_sec\", \"speed_kph\": \"speed_kph\", \"坡度%\": \"grade_pct\", \"acceleration_mps2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"avg_speed_kmh\", \"小货车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小货车%\": \"Light Commercial Truck\", \"avg_speed_kmh\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"加速度m/s2\", \"time\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time\": \"time_sec\", \"加速度m/s2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"grade_pct\", \"说明\", \"Acceleration\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Acceleration\": \"acceleration_mps2\", \"grade_pct\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"accel\", \"Speed\", \"时间(秒)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Speed\": \"speed_kph\", \"accel\": \"acceleration_mps2\", \"时间(秒)\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"avg_speed_kph\", \"小汽车\", \"link\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小汽车\": \"Passenger Car\", \"avg_speed_kph\": \"avg_speed_kph\", \"link\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"小货车%\", \"LinkID\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"LinkID\": \"link_id\", \"小货车%\": \"Light Commercial Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Acceleration\", \"grade_pct\", \"实时速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"grade_pct\": \"grade_pct\", \"实时速度\": \"speed_kph\", \"Acceleration\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration\", \"路面坡度\", \"时间s\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路面坡度\": \"grade_pct\", \"时间s\": \"time_sec\", \"acceleration\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"编号\", \"transit_bus\", \"passenger_car_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"transit_bus\": \"Transit Bus\", \"编号\": \"link_id\", \"passenger_car_pct\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"小汽车\", \"重卡%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小汽车\": \"Passenger Car\", \"重卡%\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed_kph\", \"acceleration\", \"时间s\", \"slope\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"speed_kph\": \"speed_kph\", \"时间s\": \"time_sec\", \"acceleration\": \"acceleration_mps2\", \"slope\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration_m_s2\", \"车速\", \"time_s\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"车速\": \"speed_kph\", \"acceleration_m_s2\": \"acceleration_mps2\", \"time_s\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"乘用车%\", \"length_km\", \"小时流量\", \"Transit Bus\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"乘用车%\": \"Passenger Car\", \"小时流量\": \"traffic_flow_vph\", \"length_km\": \"link_length_km\", \"Transit Bus\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"轻型货车比例\", \"流量(辆/h)\", \"平均速度(km/h)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"流量(辆/h)\": \"traffic_flow_vph\", \"轻型货车比例\": \"Light Commercial Truck\", \"平均速度(km/h)\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"速度kph\", \"link_volume_veh_per_hour\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"速度kph\": \"avg_speed_kph\", \"link_volume_veh_per_hour\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"时间(秒)\", \"velocity\", \"GRADE\", \"acceleration_mps2\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"velocity\": \"speed_kph\", \"时间(秒)\": \"time_sec\", \"GRADE\": \"grade_pct\", \"acceleration_mps2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"公交车%\", \"volume_veh_per_hour\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"volume_veh_per_hour\": \"traffic_flow_vph\", \"公交车%\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间\", \"accel_mps2\", \"Speed\", \"Grade\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"accel_mps2\": \"acceleration_mps2\", \"Grade\": \"grade_pct\", \"时间\": \"time_sec\", \"Speed\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration_mps2\", \"grade_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"grade_pct\": \"grade_pct\", \"acceleration_mps2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间(秒)\", \"加速度m/s2\", \"路面坡度\", \"速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间(秒)\": \"time_sec\", \"加速度m/s2\": \"acceleration_mps2\", \"速度\": \"speed_kph\", \"路面坡度\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"length_km\", \"volume_veh_per_hour\", \"说明\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"length_km\": \"link_length_km\", \"id\": \"link_id\", \"volume_veh_per_hour\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"truck_pct\", \"link_ID\", \"巴士%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"巴士%\": \"Transit Bus\", \"link_ID\": \"link_id\", \"truck_pct\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"坡度\", \"accel\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度\": \"grade_pct\", \"accel\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"time\", \"acceleration_m_s2\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time\": \"time_sec\", \"acceleration_m_s2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"gradient\", \"加速度m/s²\", \"speed_kmh\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"加速度m/s²\": \"acceleration_mps2\", \"gradient\": \"grade_pct\", \"speed_kmh\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"v\", \"路面坡度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"v\": \"speed_kph\", \"路面坡度\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"速度(km/h)\", \"Grade\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Grade\": \"grade_pct\", \"速度(km/h)\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"light_truck\", \"轿车比例\", \"distance\", \"Flow\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"轿车比例\": \"Passenger Car\", \"distance\": \"link_length_km\", \"Flow\": \"traffic_flow_vph\", \"light_truck\": \"Light Commercial Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间戳\", \"velocity\", \"路面坡度\", \"序号\", \"加速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路面坡度\": \"grade_pct\", \"加速度\": \"acceleration_mps2\", \"velocity\": \"speed_kph\", \"时间戳\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"time\", \"accel\", \"GRADE\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time\": \"time_sec\", \"GRADE\": \"grade_pct\", \"accel\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"bus_pct\", \"mean_speed\", \"link_length_km\", \"truck_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"mean_speed\": \"avg_speed_kph\", \"link_length_km\": \"link_length_km\", \"truck_pct\": \"Combination Long-haul Truck\", \"bus_pct\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"路段长度km\", \"Unnamed: 0\", \"私家车%\", \"Transit Bus\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Transit Bus\": \"Transit Bus\", \"私家车%\": \"Passenger Car\", \"路段长度km\": \"link_length_km\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed(km/h)\", \"grade\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"grade\": \"grade_pct\", \"speed(km/h)\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"每小时流量\", \"速度(km/h)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"速度(km/h)\": \"avg_speed_kph\", \"每小时流量\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"length\", \"Speed\", \"transit_bus_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"transit_bus_pct\": \"Transit Bus\", \"id\": \"link_id\", \"length\": \"link_length_km\", \"Speed\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration_mps2\", \"TIME\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"TIME\": \"time_sec\", \"acceleration_mps2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"road_id\", \"Transit Bus\", \"小汽车\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小汽车\": \"Passenger Car\", \"Transit Bus\": \"Transit Bus\", \"road_id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"小时流量\", \"路段ID\", \"巴士%\", \"car_ratio\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小时流量\": \"traffic_flow_vph\", \"巴士%\": \"Transit Bus\", \"路段ID\": \"link_id\", \"car_ratio\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"gradient\", \"time_sec\", \"速度(km/h)\", \"a\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time_sec\": \"time_sec\", \"速度(km/h)\": \"speed_kph\", \"gradient\": \"grade_pct\", \"a\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"avg_speed_kmh\", \"长度(km)\", \"路段id\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路段id\": \"link_id\", \"avg_speed_kmh\": \"avg_speed_kph\", \"长度(km)\": \"link_length_km\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"passenger_car_pct\", \"len\", \"公交车%\", \"average_speed\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"公交车%\": \"Transit Bus\", \"average_speed\": \"avg_speed_kph\", \"len\": \"link_length_km\", \"passenger_car_pct\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"路面坡度\", \"Time\", \"acc_mps2\", \"avg_speed_kmh\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acc_mps2\": \"acceleration_mps2\", \"avg_speed_kmh\": \"speed_kph\", \"Time\": \"time_sec\", \"路面坡度\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Grade\", \"speed_kmh\", \"备注\", \"timestamp\", \"加速度m/s²\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"加速度m/s²\": \"acceleration_mps2\", \"speed_kmh\": \"speed_kph\", \"timestamp\": \"time_sec\", \"Grade\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration_m_s2\", \"道路坡度\", \"index\", \"时间戳\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"道路坡度\": \"grade_pct\", \"acceleration_m_s2\": \"acceleration_mps2\", \"时间戳\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"半挂车%\", \"私家车%\", \"road_id\", \"mean_speed\", \"index\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"road_id\": \"link_id\", \"半挂车%\": \"Combination Long-haul Truck\", \"mean_speed\": \"avg_speed_kph\", \"私家车%\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"速度km/h\", \"acceleration_mps2\", \"t\", \"slope\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acceleration_mps2\": \"acceleration_mps2\", \"slope\": \"grade_pct\", \"t\": \"time_sec\", \"速度km/h\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"velocity\", \"acceleration\", \"time\", \"坡度%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度%\": \"grade_pct\", \"velocity\": \"speed_kph\", \"time\": \"time_sec\", \"acceleration\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"spd\", \"accel\", \"时间(秒)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间(秒)\": \"time_sec\", \"spd\": \"speed_kph\", \"accel\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Speed\", \"轻型货车比例\", \"heavy_truck\", \"里程\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"里程\": \"link_length_km\", \"Speed\": \"avg_speed_kph\", \"轻型货车比例\": \"Light Commercial Truck\", \"heavy_truck\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"index\", \"流量vph\", \"Combination Long-haul Truck\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"流量vph\": \"traffic_flow_vph\", \"Combination Long-haul Truck\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"实时速度\", \"加速度m/s²\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"加速度m/s²\": \"acceleration_mps2\", \"实时速度\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Acceleration\", \"时间戳\", \"备注\", \"路面坡度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Acceleration\": \"acceleration_mps2\", \"时间戳\": \"time_sec\", \"路面坡度\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration_mps2\", \"序号\", \"时间(秒)\", \"gradient\", \"瞬时速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acceleration_mps2\": \"acceleration_mps2\", \"瞬时速度\": \"speed_kph\", \"gradient\": \"grade_pct\", \"时间(秒)\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Combination Long-haul Truck\", \"ID\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Combination Long-haul Truck\": \"Combination Long-haul Truck\", \"ID\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"交通量\", \"速度(km/h)\", \"road_id\", \"轻卡%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"速度(km/h)\": \"avg_speed_kph\", \"轻卡%\": \"Light Commercial Truck\", \"road_id\": \"link_id\", \"交通量\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间\", \"速度km/h\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间\": \"time_sec\", \"速度km/h\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed_kmh\", \"加速度(m/s²)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"speed_kmh\": \"speed_kph\", \"加速度(m/s²)\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"grade_pct\", \"link_avg_speed_kmh\", \"TIME\", \"accel_mps2\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"link_avg_speed_kmh\": \"speed_kph\", \"TIME\": \"time_sec\", \"grade_pct\": \"grade_pct\", \"accel_mps2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"TIME\", \"acceleration_m_s2\", \"道路坡度\", \"speed_kmph\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"speed_kmph\": \"speed_kph\", \"道路坡度\": \"grade_pct\", \"acceleration_m_s2\": \"acceleration_mps2\", \"TIME\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"小轿车%\", \"公交%\", \"流量\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"公交%\": \"Transit Bus\", \"流量\": \"traffic_flow_vph\", \"小轿车%\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"TIME\", \"车速\", \"坡度\", \"acc_mps2\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"车速\": \"speed_kph\", \"坡度\": \"grade_pct\", \"TIME\": \"time_sec\", \"acc_mps2\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"路面坡度\", \"acc\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acc\": \"acceleration_mps2\", \"路面坡度\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"里程\", \"私家车%\", \"avg_speed\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"里程\": \"link_length_km\", \"私家车%\": \"Passenger Car\", \"avg_speed\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"volume\", \"重卡%\", \"link\", \"公交\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"公交\": \"Transit Bus\", \"volume\": \"traffic_flow_vph\", \"重卡%\": \"Combination Long-haul Truck\", \"link\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"link_length_km\", \"说明\", \"pc_pct\", \"road_id\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"pc_pct\": \"Passenger Car\", \"link_length_km\": \"link_length_km\", \"road_id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"volume_vph\", \"index\", \"len\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"volume_vph\": \"traffic_flow_vph\", \"len\": \"link_length_km\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"加速度m/s2\", \"GRADE\", \"velocity\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"velocity\": \"speed_kph\", \"加速度m/s2\": \"acceleration_mps2\", \"GRADE\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"路段id\", \"traffic_flow_vph\", \"公交车%\", \"link_length\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"公交车%\": \"Transit Bus\", \"link_length\": \"link_length_km\", \"traffic_flow_vph\": \"traffic_flow_vph\", \"路段id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"traffic_flow\", \"id\", \"重卡%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"重卡%\": \"Combination Long-haul Truck\", \"traffic_flow\": \"traffic_flow_vph\", \"id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"GRADE\", \"时间戳\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间戳\": \"time_sec\", \"GRADE\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间\", \"acc_mps2\", \"Grade\", \"车速\", \"index\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Grade\": \"grade_pct\", \"acc_mps2\": \"acceleration_mps2\", \"车速\": \"speed_kph\", \"时间\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"说明\", \"坡度\", \"时间\", \"加速度(m/s²)\", \"速度(km/h)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度\": \"grade_pct\", \"速度(km/h)\": \"speed_kph\", \"时间\": \"time_sec\", \"加速度(m/s²)\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acceleration_mps2\", \"SPEED\", \"grade\", \"时间s\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"grade\": \"grade_pct\", \"acceleration_mps2\": \"acceleration_mps2\", \"SPEED\": \"speed_kph\", \"时间s\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"truck_pct\", \"路段ID\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路段ID\": \"link_id\", \"truck_pct\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"index\", \"速度(km/h)\", \"accel\", \"路面坡度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路面坡度\": \"grade_pct\", \"accel\": \"acceleration_mps2\", \"速度(km/h)\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"坡度\", \"time_s\", \"加速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度\": \"grade_pct\", \"time_s\": \"time_sec\", \"加速度\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed_kmph\", \"时间戳\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"时间戳\": \"time_sec\", \"speed_kmph\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acc\", \"speed_kph\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acc\": \"acceleration_mps2\", \"speed_kph\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"length_km\", \"公交\", \"交通流量\", \"说明\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"公交\": \"Transit Bus\", \"length_km\": \"link_length_km\", \"交通流量\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"轻型货车比例\", \"Transit Bus\", \"Unnamed: 0\", \"speed\", \"len\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"len\": \"link_length_km\", \"Transit Bus\": \"Transit Bus\", \"轻型货车比例\": \"Light Commercial Truck\", \"speed\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"速度(km/h)\", \"里程\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"里程\": \"link_length_km\", \"速度(km/h)\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"time\", \"a\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"a\": \"acceleration_mps2\", \"time\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"速度km/h\", \"time\", \"坡度%\", \"acc\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"速度km/h\": \"speed_kph\", \"time\": \"time_sec\", \"acc\": \"acceleration_mps2\", \"坡度%\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Time\", \"speed_kmh\", \"acceleration\", \"坡度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度\": \"grade_pct\", \"speed_kmh\": \"speed_kph\", \"Time\": \"time_sec\", \"acceleration\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"车速(km/h)\", \"t\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"车速(km/h)\": \"speed_kph\", \"t\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"avg_speed_kmh\", \"TIME\", \"加速度m/s²\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"TIME\": \"time_sec\", \"avg_speed_kmh\": \"speed_kph\", \"加速度m/s²\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"小时流量\", \"id\", \"轻型货车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"轻型货车%\": \"Light Commercial Truck\", \"id\": \"link_id\", \"小时流量\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"巴士%\", \"小汽车\", \"LinkID\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小汽车\": \"Passenger Car\", \"巴士%\": \"Transit Bus\", \"LinkID\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"路段编号\", \"Combination Long-haul Truck\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Combination Long-haul Truck\": \"Combination Long-haul Truck\", \"路段编号\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"link_length\", \"交通流量\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"link_length\": \"link_length_km\", \"交通流量\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"小轿车%\", \"link_length\", \"road_id\", \"车流量\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小轿车%\": \"Passenger Car\", \"车流量\": \"traffic_flow_vph\", \"link_length\": \"link_length_km\", \"road_id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"坡度%\", \"实时速度\", \"accel\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度%\": \"grade_pct\", \"accel\": \"acceleration_mps2\", \"实时速度\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"TIME\", \"序号\", \"avg_speed_kmh\", \"a\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"avg_speed_kmh\": \"speed_kph\", \"TIME\": \"time_sec\", \"a\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"grade_percent\", \"speed_kph\", \"时间戳\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"grade_percent\": \"grade_pct\", \"时间戳\": \"time_sec\", \"speed_kph\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"t\", \"v\", \"Grade\", \"加速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"t\": \"time_sec\", \"Grade\": \"grade_pct\", \"v\": \"speed_kph\", \"加速度\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"volume_veh_per_hour\", \"路段长度(km)\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路段长度(km)\": \"link_length_km\", \"volume_veh_per_hour\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"passenger_car_pct\", \"LinkID\", \"index\", \"transit_bus_pct\", \"Light Commercial Truck\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"passenger_car_pct\": \"Passenger Car\", \"transit_bus_pct\": \"Transit Bus\", \"Light Commercial Truck\": \"Light Commercial Truck\", \"LinkID\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间(秒)\", \"acceleration_mps2\", \"坡度%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"坡度%\": \"grade_pct\", \"acceleration_mps2\": \"acceleration_mps2\", \"时间(秒)\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"transit_bus\", \"Light Commercial Truck\", \"小轿车%\", \"重型货车比例\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小轿车%\": \"Passenger Car\", \"Light Commercial Truck\": \"Light Commercial Truck\", \"重型货车比例\": \"Combination Long-haul Truck\", \"transit_bus\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Combination Long-haul Truck\", \"light_truck\", \"LENGTH\", \"index\", \"速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"light_truck\": \"Light Commercial Truck\", \"Combination Long-haul Truck\": \"Combination Long-haul Truck\", \"LENGTH\": \"link_length_km\", \"速度\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"重型货车比例\", \"car_ratio\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"重型货车比例\": \"Combination Long-haul Truck\", \"car_ratio\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"time_sec\", \"加速度m/s2\", \"速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"速度\": \"speed_kph\", \"加速度m/s2\": \"acceleration_mps2\", \"time_sec\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"velocity\", \"加速度\", \"路面坡度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"velocity\": \"speed_kph\", \"加速度\": \"acceleration_mps2\", \"路面坡度\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"公交%\", \"小轿车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小轿车%\": \"Passenger Car\", \"公交%\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间(秒)\", \"avg_speed_kmh\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"avg_speed_kmh\": \"speed_kph\", \"时间(秒)\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"大货车%\", \"小货车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"小货车%\": \"Light Commercial Truck\", \"大货车%\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"passenger_car_pct\", \"公交\", \"LENGTH\", \"平均速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"LENGTH\": \"link_length_km\", \"passenger_car_pct\": \"Passenger Car\", \"公交\": \"Transit Bus\", \"平均速度\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Grade\", \"速度km/h\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Grade\": \"grade_pct\", \"速度km/h\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"slope\", \"index\", \"加速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"加速度\": \"acceleration_mps2\", \"slope\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"transit_bus\", \"路段长度(km)\", \"segment_id\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路段长度(km)\": \"link_length_km\", \"segment_id\": \"link_id\", \"transit_bus\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"link_avg_speed_kmh\", \"Grade\", \"加速度\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Grade\": \"grade_pct\", \"link_avg_speed_kmh\": \"speed_kph\", \"加速度\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"traffic_flow_vph\", \"速度kph\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"速度kph\": \"avg_speed_kph\", \"traffic_flow_vph\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间(秒)\", \"grade_percent\", \"Acceleration\", \"速度km/h\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Acceleration\": \"acceleration_mps2\", \"时间(秒)\": \"time_sec\", \"速度km/h\": \"speed_kph\", \"grade_percent\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"交通量\", \"小汽车比例\", \"light_truck_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"交通量\": \"traffic_flow_vph\", \"小汽车比例\": \"Passenger Car\", \"light_truck_pct\": \"Light Commercial Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Transit Bus\", \"长度km\", \"交通流量\", \"路段id\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"交通流量\": \"traffic_flow_vph\", \"路段id\": \"link_id\", \"长度km\": \"link_length_km\", \"Transit Bus\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"avg_speed\", \"Passenger Car\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Passenger Car\": \"Passenger Car\", \"avg_speed\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"重卡%\", \"路段编号\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路段编号\": \"link_id\", \"重卡%\": \"Combination Long-haul Truck\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"speed_kmh\", \"时间戳\", \"grade\", \"acceleration\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acceleration\": \"acceleration_mps2\", \"时间戳\": \"time_sec\", \"grade\": \"grade_pct\", \"speed_kmh\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"slope\", \"speed_kmh\", \"acceleration\", \"time\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"time\": \"time_sec\", \"slope\": \"grade_pct\", \"speed_kmh\": \"speed_kph\", \"acceleration\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"id\", \"volume_vph\", \"Combination Long-haul Truck\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"volume_vph\": \"traffic_flow_vph\", \"Combination Long-haul Truck\": \"Combination Long-haul Truck\", \"id\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Time\", \"加速度\", \"Unnamed: 0\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"加速度\": \"acceleration_mps2\", \"Time\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"轻卡%\", \"passenger_car_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"轻卡%\": \"Light Commercial Truck\", \"passenger_car_pct\": \"Passenger Car\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"加速度m/s2\", \"Time\", \"grade_pct\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Time\": \"time_sec\", \"加速度m/s2\": \"acceleration_mps2\", \"grade_pct\": \"grade_pct\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"坡度\", \"时间s\", \"velocity\", \"index\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"velocity\": \"speed_kph\", \"坡度\": \"grade_pct\", \"时间s\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"公交\", \"pc_pct\", \"road_id\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"road_id\": \"link_id\", \"pc_pct\": \"Passenger Car\", \"公交\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间(秒)\", \"坡度\", \"车速\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"车速\": \"speed_kph\", \"坡度\": \"grade_pct\", \"时间(秒)\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"acc\", \"Grade\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Grade\": \"grade_pct\", \"acc\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"流量(辆/h)\", \"pc_pct\", \"Speed\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"pc_pct\": \"Passenger Car\", \"Speed\": \"avg_speed_kph\", \"流量(辆/h)\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"加速度(m/s²)\", \"speed_kmh\", \"time\", \"Grade\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Grade\": \"grade_pct\", \"time\": \"time_sec\", \"speed_kmh\": \"speed_kph\", \"加速度(m/s²)\": \"acceleration_mps2\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"公交%\", \"light_truck_pct\", \"速度(km/h)\", \"Combination Long-haul Truck\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"公交%\": \"Transit Bus\", \"Combination Long-haul Truck\": \"Combination Long-haul Truck\", \"light_truck_pct\": \"Light Commercial Truck\", \"速度(km/h)\": \"avg_speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Time\", \"加速度m/s2\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"加速度m/s2\": \"acceleration_mps2\", \"Time\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"link_id\", \"transit_bus\", \"轻型货车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"link_id\": \"link_id\", \"轻型货车%\": \"Light Commercial Truck\", \"transit_bus\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"编号\", \"volume_vph\", \"average_speed\", \"轻型货车比例\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"轻型货车比例\": \"Light Commercial Truck\", \"average_speed\": \"avg_speed_kph\", \"volume_vph\": \"traffic_flow_vph\", \"编号\": \"link_id\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"Light Commercial Truck\", \"bus_pct\", \"路段编号\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"路段编号\": \"link_id\", \"Light Commercial Truck\": \"Light Commercial Truck\", \"bus_pct\": \"Transit Bus\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"时间\", \"grade_pct\", \"速度km/h\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"grade_pct\": \"grade_pct\", \"速度km/h\": \"speed_kph\", \"时间\": \"time_sec\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"流量\", \"SPEED\", \"length_km\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"SPEED\": \"avg_speed_kph\", \"length_km\": \"link_length_km\", \"流量\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"v\", \"slope\", \"acc\", \"TIME\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"acc\": \"acceleration_mps2\", \"TIME\": \"time_sec\", \"slope\": \"grade_pct\", \"v\": \"speed_kph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"备注\", \"流量(辆/h)\", \"Length\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"Length\": \"link_length_km\", \"流量(辆/h)\": \"traffic_flow_vph\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: macro_emission\n\n宏观排放标准字段:\n- link_id: 路段编号\n- link_length_km: 路段长度（km）\n- traffic_flow_vph: 交通流量（辆/小时）\n- avg_speed_kph: 平均速度（km/h）\n- [车型名]: 车队比例（%），如 Passenger Car, Transit Bus 等\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 如果列名包含车型信息，映射到对应的MOVES车型\n4. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"car_ratio\", \"avg_speed\", \"Length\", \"公交车%\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"car_ratio\": \"Passenger Car\", \"公交车%\": \"Transit Bus\", \"avg_speed\": \"avg_speed_kph\", \"Length\": \"link_length_km\"}"
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是列名映射助手。分析Excel表格列名，将其映射到标准字段。\n\n任务类型: micro_emission\n\n微观排放标准字段:\n- time_sec: 时间（秒）\n- speed_kph: 速度（km/h）\n- acceleration_mps2: 加速度（m/s²）\n- grade_pct: 坡度（%）\n\n规则:\n1. 返回JSON格式: {\"原列名\": \"标准字段名\", ...}\n2. 只返回能识别的列，忽略无关列\n3. 确保JSON格式正确"
+      },
+      {
+        "role": "user",
+        "content": "[\"velocity\", \"时间s\", \"序号\"]"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"velocity\": \"speed_kph\", \"时间s\": \"time_sec\"}"
+      }
+    ]
+  }
+]

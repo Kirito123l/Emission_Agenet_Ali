@@ -1,0 +1,27 @@
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.env
+node_modules/
+*.png
+*.jpg
+*.jpeg
+.git/
+.claude/
+*.log
+outputs/
+logs/
+data/sessions/history/
+data/learning/
+
+# Dev/docs files not needed at runtime
+LOCAL_STANDARDIZER_MODEL/
+docs/
+scripts/deprecated/
+web/app.js.backup
+web/app_origin.js
+web/diagnostic.html
+web/UI_FIXES_SUMMARY.txt
+prompt.md
+AGENTS.md

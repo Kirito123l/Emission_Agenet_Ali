@@ -1,0 +1,57 @@
+ChatGPT-Style UI Fixes - Scrollbar Positioning
+================================================
+
+Problem Diagnosed:
+------------------
+The scrollbar was not flush with the right edge because:
+1. #messages-container had max-width: 768px with margin: auto (centering)
+2. This caused the container itself to be centered, placing scrollbar in the middle
+3. The container had inherited padding from Tailwind classes (p-4 md:p-8)
+
+Solutions Applied:
+------------------
+
+1. REMOVED Container Centering (Lines 73-96):
+   - Removed max-width from #messages-container
+   - Removed margin-left: auto and margin-right: auto
+   - Container now spans full width, scrollbar at viewport edge
+
+2. REMOVED Container Padding (Line 474):
+   - Changed from: class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 scroll-smooth pb-32"
+   - Changed to: class="flex-1 overflow-y-auto space-y-4 scroll-smooth pb-32"
+   - Padding moved to individual messages instead
+
+3. ADDED Explicit Container Rules (CSS):
+   #messages-container {
+     padding: 0 !important;
+     margin: 0 !important;
+     width: 100% !important;
+     box-sizing: border-box !important;
+     padding-top: 2rem !important;
+     padding-bottom: 10rem !important;
+   }
+
+4. ADDED Message Width Control:
+   - AI messages: max-width: 48rem (768px)
+   - User messages: max-width: 42rem (672px)
+   - Messages have margin-left/right for spacing (1rem mobile, 2rem desktop)
+
+5. ADDED Main Element Rules:
+   main {
+     padding: 0 !important;
+     margin: 0 !important;
+   }
+
+Result:
+-------
+✓ Scrollbar now sits flush with right edge of viewport
+✓ Messages are properly centered with controlled widths
+✓ Spacing maintained through message margins, not container padding
+✓ ChatGPT-like visual hierarchy achieved
+
+Testing:
+--------
+1. Hard refresh browser (Ctrl+F5 or Cmd+Shift+R)
+2. Verify scrollbar is at absolute right edge
+3. Check message cards have proper width and spacing
+4. Test both light and dark modes

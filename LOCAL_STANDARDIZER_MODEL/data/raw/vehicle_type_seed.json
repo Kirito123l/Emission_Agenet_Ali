@@ -1,0 +1,1182 @@
+[
+  {
+    "input": "Motorcycle",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "motorcycle",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "MOTORCYCLE",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "摩托车",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "机车",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "两轮车",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "电动摩托",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "燃油摩托",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "踏板车",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "骑士车",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "重机",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "电摩",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "motorbike",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "moto",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "bike",
+    "output": "Motorcycle",
+    "category": "vehicle"
+  },
+  {
+    "input": "Passenger Car",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "passenger car",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "PASSENGER CAR",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "乘用车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "小汽车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "私家车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "出租车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "网约车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "滴滴",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "uber",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "私家轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "家用车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "紧凑型轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "中型轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "豪华轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "经济型轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "SUV",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "越野车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "旅行车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "掀背车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "三厢车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "两厢车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "跑车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "轿跑",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "新能源车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "电动汽车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "混动车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "乘用车辆",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "小型汽车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "家庭用车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "代步车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "买菜车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "新能源小汽车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "电动轿车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "插电混动",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "纯电动车",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "sedan",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "car",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "passenger_car",
+    "output": "Passenger Car",
+    "category": "vehicle"
+  },
+  {
+    "input": "Passenger Truck",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "passenger truck",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "PASSENGER TRUCK",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "客货两用车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "皮卡",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "客货车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "小型客车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "面包车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "商务车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "MPV",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "7座车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "五菱",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "金杯",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "微面",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "小客车",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "轻客",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "商务MPV",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "家用MPV",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "GL8",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "奥德赛",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "艾力绅",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "pickup",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "pickup truck",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "passenger_truck",
+    "output": "Passenger Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "Light Commercial Truck",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "light commercial truck",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "LIGHT COMMERCIAL TRUCK",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "轻型货车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "小货车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "轻卡",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "厢式货车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "微卡",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "轻型卡车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "城市配送车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "快递车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "物流车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "小型货运",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "4米2",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "蓝牌货车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "轻型厢货",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "城配车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "配送货车",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "light truck",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "light_commercial_truck",
+    "output": "Light Commercial Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "Intercity Bus",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "intercity bus",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "INTERCITY BUS",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "城际客车",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "长途客车",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "大巴",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "长途大巴",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "客运大巴",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "旅游大巴",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "省际客车",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "豪华大巴",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "卧铺客车",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "长途汽车",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "省际大巴",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "跨城客车",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "intercity_bus",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "intercity coach",
+    "output": "Intercity Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "Transit Bus",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "transit bus",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "TRANSIT BUS",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "公交车",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "公共汽车",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "市内公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "城市公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "BRT",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "快速公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "电动公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "新能源公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "巴士",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "公交巴士",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "市区公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "常规公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "通勤巴士",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "公交",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "公汽",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "无轨电车",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "city bus",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "transit_bus",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "trolleybus",
+    "output": "Transit Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "School Bus",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "school bus",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "SCHOOL BUS",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "校车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "学生校车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "幼儿园校车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "接送车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "通勤班车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "学校巴士",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "接送校车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "黄色校车",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "school_bus",
+    "output": "School Bus",
+    "category": "vehicle"
+  },
+  {
+    "input": "Refuse Truck",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "refuse truck",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "REFUSE TRUCK",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "垃圾车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "环卫车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "清运车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "垃圾清运",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "压缩垃圾车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "环卫垃圾车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "垃圾压缩车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "垃圾收集车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "环卫作业车",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "garbage truck",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "refuse_truck",
+    "output": "Refuse Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "Single Unit Short-haul Truck",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "single unit short-haul truck",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "单体短途货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "短途货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "城市货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "配送货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "中型货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "4.2米货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "箱货",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "城市配送",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "短途配送车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "市内货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "中卡",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "黄牌货车",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "single_unit_short_haul_truck",
+    "output": "Single Unit Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "Single Unit Long-haul Truck",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "single unit long-haul truck",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "单体长途货车",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "中长途货车",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "9.6米货车",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "厢式长途货车",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "长途货运",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "干线货车",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "single_unit_long_haul_truck",
+    "output": "Single Unit Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "Motor Home",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "motor home",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "MOTOR HOME",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "房车",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "旅居车",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "RV",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "露营车",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "自行式房车",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "旅行房车",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "自驾房车",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "motorhome",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "recreational vehicle",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "motor_home",
+    "output": "Motor Home",
+    "category": "vehicle"
+  },
+  {
+    "input": "Combination Short-haul Truck",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "combination short-haul truck",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "组合短途货车",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "半挂短途",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "短途半挂",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "城际半挂",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "区域配送半挂",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "短途挂车",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "combination_short_haul_truck",
+    "output": "Combination Short-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "Combination Long-haul Truck",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "combination long-haul truck",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "重型货车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "重型卡车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "大货车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "半挂车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "拖头",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "18轮",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "重卡",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "长途货车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "半挂长途",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "挂车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "牵引车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "大型货车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "集装箱卡车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "大挂车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "重型半挂",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "长途运输车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "干线运输车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "大卡车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "大车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "大挂",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "半挂牵引车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "集卡",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "货车",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  },
+  {
+    "input": "combination_long_haul_truck",
+    "output": "Combination Long-haul Truck",
+    "category": "vehicle"
+  }
+]

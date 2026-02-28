@@ -1,0 +1,950 @@
+[
+  {
+    "input": "time",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "t",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "时间",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "time_sec",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "time_s",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "秒",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "timestamp",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "时间戳",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "time(s)",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "时间(秒)",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Time",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "TIME",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "时间s",
+    "output": "time_sec",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "speed",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "车速",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "speed_kph",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "speed_kmh",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度km/h",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "velocity",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "v",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "speed(km/h)",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "车速(km/h)",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "瞬时速度",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "实时速度",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "spd",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Speed",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "SPEED",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度(km/h)",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "speed_kmph",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "车速km/h",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度kmh",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_avg_speed_kmh",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "avg_speed_kmh",
+    "output": "speed_kph",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "acceleration",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "加速度",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "acc",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "a",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "accel",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "acceleration_mps2",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "加速度m/s2",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "加速度(m/s²)",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "accel_mps2",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "acc_mps2",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Acceleration",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "加速度m/s²",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "acceleration_m_s2",
+    "output": "acceleration_mps2",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "grade",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "坡度",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "slope",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "gradient",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "坡度%",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "grade_pct",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "grade_percent",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "道路坡度",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路面坡度",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Grade",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "GRADE",
+    "output": "grade_pct",
+    "task_type": "micro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_id",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路段ID",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路段编号",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "id",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "segment_id",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "road_id",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "编号",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "LinkID",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "ID",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路段id",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_ID",
+    "output": "link_id",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "length",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "长度",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_length",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路段长度",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "距离",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "length_km",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_length_km",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "len",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路段长度(km)",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "distance",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "里程",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Length",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "LENGTH",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "路段长度km",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "长度km",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "长度(km)",
+    "output": "link_length_km",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "flow",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "流量",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "traffic_flow",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "交通流量",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "volume",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "traffic_flow_vph",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "vol",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "车流量",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "小时流量",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_volume_veh_per_hour",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "volume_vph",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "流量(辆/h)",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Flow",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "FLOW",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "交通量",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "hourly_volume",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "流量vph",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "volume_veh_per_hour",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "每小时流量",
+    "output": "traffic_flow_vph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "speed",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "avg_speed",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "平均速度",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "mean_speed",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "avg_speed_kph",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "link_avg_speed_kmh",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "平均车速",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "average_speed",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度(km/h)",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "Speed",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "SPEED",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "avg_speed_kmh",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "平均速度(km/h)",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "速度kph",
+    "output": "avg_speed_kph",
+    "task_type": "macro_emission",
+    "category": "column_mapping"
+  },
+  {
+    "input": "小汽车%",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "passenger_car",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "car_pct",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "小汽车比例",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "pc_pct",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "乘用车%",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "轿车比例",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "私家车%",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "小汽车",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "Passenger Car",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "passenger_car_pct",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "car_ratio",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "小轿车%",
+    "output": "Passenger Car",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "公交车%",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "transit_bus",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "bus_pct",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "公交比例",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "公交车比例",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "巴士%",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "Transit Bus",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "transit_bus_pct",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "公交",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "公交%",
+    "output": "Transit Bus",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "轻型货车%",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "light_truck",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "light_truck_pct",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "轻卡%",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "Light Commercial Truck",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "小货车%",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "轻型货车比例",
+    "output": "Light Commercial Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "重型货车%",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "heavy_truck",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "truck_pct",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "重卡%",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "大货车%",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "Combination Long-haul Truck",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "半挂车%",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  },
+  {
+    "input": "重型货车比例",
+    "output": "Combination Long-haul Truck",
+    "task_type": "macro_emission",
+    "category": "fleet_mix_column"
+  }
+]

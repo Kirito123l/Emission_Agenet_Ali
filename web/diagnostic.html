@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>诊断测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #10b77f; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #10b77f;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        button {
+            background: #10b77f;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #059669; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .log-info { color: #4ec9b0; }
+        .log-error { color: #f48771; }
+        .log-success { color: #b5cea8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌿 Emission Agent 诊断测试</h1>
+
+        <div class="test-section">
+            <h2>1. API连接测试</h2>
+            <button onclick="testHealth()">测试健康检查</button>
+            <button onclick="testSession()">测试会话创建</button>
+            <button onclick="testChat()">测试发送消息</button>
+            <div id="api-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. 前端DOM测试</h2>
+            <button onclick="testDOM()">测试DOM元素</button>
+            <div id="dom-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. 浏览器Console日志</h2>
+            <button onclick="clearLogs()">清空日志</button>
+            <button onclick="window.location.href='/'">打开主页面</button>
+            <div id="console-logs" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. 网络请求监控</h2>
+            <div id="network-monitor" class="result">
+                <p>打开浏览器开发者工具 (F12) → Network 标签查看网络请求</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let sessionId = null;
+
+        // 捕获console日志
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('console-logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog(args.join(' '), 'info');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog('ERROR: ' + args.join(' '), 'error');
+        };
+
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog('WARN: ' + args.join(' '), 'info');
+        };
+
+        function clearLogs() {
+            document.getElementById('console-logs').innerHTML = '';
+        }
+
+        async function testHealth() {
+            const resultsDiv = document.getElementById('api-results');
+            resultsDiv.innerHTML = '<p>测试中...</p>';
+
+            try {
+                console.log('测试健康检查端点...');
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultsDiv.innerHTML = `
+                        <p class="pass">✓ 健康检查通过</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.log('健康检查成功:', data);
+                } else {
+                    resultsDiv.innerHTML = `<p class="fail">✗ 健康检查失败: ${response.status}</p>`;
+                    console.error('健康检查失败:', response.status);
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="fail">✗ 连接失败: ${error.message}</p>`;
+                console.error('连接失败:', error);
+            }
+        }
+
+        async function testSession() {
+            const resultsDiv = document.getElementById('api-results');
+            resultsDiv.innerHTML = '<p>测试中...</p>';
+
+            try {
+                console.log('测试会话创建...');
+                const response = await fetch(`${API_BASE}/sessions/new`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    sessionId = data.session_id;
+                    resultsDiv.innerHTML = `
+                        <p class="pass">✓ 会话创建成功</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.log('会话创建成功:', data);
+                } else {
+                    resultsDiv.innerHTML = `<p class="fail">✗ 会话创建失败: ${response.status}</p>`;
+                    console.error('会话创建失败:', response.status);
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="fail">✗ 请求失败: ${error.message}</p>`;
+                console.error('请求失败:', error);
+            }
+        }
+
+        async function testChat() {
+            const resultsDiv = document.getElementById('api-results');
+
+            if (!sessionId) {
+                resultsDiv.innerHTML = '<p class="fail">✗ 请先创建会话</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p>测试中...</p>';
+
+            try {
+                console.log('测试发送消息...');
+                const formData = new FormData();
+                formData.append('message', '测试消息');
+                formData.append('session_id', sessionId);
+
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultsDiv.innerHTML = `
+                        <p class="pass">✓ 消息发送成功</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.log('消息发送成功:', data);
+                } else {
+                    resultsDiv.innerHTML = `<p class="fail">✗ 消息发送失败: ${response.status}</p>`;
+                    console.error('消息发送失败:', response.status);
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="fail">✗ 请求失败: ${error.message}</p>`;
+                console.error('请求失败:', error);
+            }
+        }
+
+        async function testDOM() {
+            const resultsDiv = document.getElementById('dom-results');
+
+            // 在新窗口打开主页面并测试DOM
+            const mainWindow = window.open('/', '_blank');
+
+            setTimeout(() => {
+                try {
+                    const messagesContainer = mainWindow.document.getElementById('messages-container');
+                    const inputArea = mainWindow.document.getElementById('input-area');
+
+                    let html = '<h3>DOM元素检查结果：</h3>';
+
+                    if (messagesContainer) {
+                        html += '<p class="pass">✓ messages-container 存在</p>';
+                        console.log('messages-container 找到');
+                    } else {
+                        html += '<p class="fail">✗ messages-container 不存在</p>';
+                        console.error('messages-container 未找到');
+                    }
+
+                    if (inputArea) {
+                        html += '<p class="pass">✓ input-area 存在</p>';
+                        console.log('input-area 找到');
+                    } else {
+                        html += '<p class="fail">✗ input-area 不存在</p>';
+                        console.error('input-area 未找到');
+                    }
+
+                    resultsDiv.innerHTML = html;
+                } catch (error) {
+                    resultsDiv.innerHTML = `<p class="fail">✗ 无法访问主页面DOM: ${error.message}</p>`;
+                    console.error('DOM测试失败:', error);
+                }
+            }, 2000);
+
+            resultsDiv.innerHTML = '<p>已打开主页面，2秒后检查DOM...</p>';
+        }
+
+        // 页面加载时自动运行健康检查
+        window.addEventListener('load', () => {
+            console.log('诊断页面已加载');
+            testHealth();
+        });
+    </script>
+</body>
+</html>

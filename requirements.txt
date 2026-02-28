@@ -1,0 +1,19 @@
+openai>=1.0.0
+python-dotenv>=1.0.0
+click>=8.0.0
+rich>=13.0.0
+pandas>=2.0.0
+fastapi>=0.100.0
+uvicorn>=0.22.0
+python-multipart>=0.0.6
+openpyxl>=3.0.0
+httpx>=0.24.0
+pyyaml>=6.0
+
+# RAG相关依赖
+faiss-cpu>=1.7.0  # 或 faiss-gpu（如果有GPU）
+numpy>=1.24.0
+dashscope>=1.14.0  # DashScope SDK（用于embedding和rerank API）
+
+# 可选依赖（本地embedding模式需要）
+# FlagEmbedding>=1.2.0  # 取消注释以启用本地BGE-M3模型

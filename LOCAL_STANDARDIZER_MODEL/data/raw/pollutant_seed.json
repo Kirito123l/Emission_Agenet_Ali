@@ -1,0 +1,332 @@
+[
+  {
+    "input": "CO2",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "co2",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "CO₂",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "二氧化碳",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "碳排放",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "碳",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "温室气体",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "二氧化碳排放",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "碳dioxide",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "carbon dioxide",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "carbon_dioxide",
+    "output": "CO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "CO",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "co",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "一氧化碳",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "CO气体",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "一氧化碳排放",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "carbon monoxide",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "carbon_monoxide",
+    "output": "CO",
+    "category": "pollutant"
+  },
+  {
+    "input": "NOx",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "nox",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "NOX",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "氮氧化物",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "氮氧化合物",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "NO和NO2",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "氮氧",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "氮氧化物排放",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "nitrogen oxides",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "nitrogen_oxides",
+    "output": "NOx",
+    "category": "pollutant"
+  },
+  {
+    "input": "PM2.5",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "pm2.5",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "PM 2.5",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "pm2_5",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "PM25",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "pm25",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "细颗粒物",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "2.5微米颗粒物",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "细粒子",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "颗粒物",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "fine particulate matter",
+    "output": "PM2.5",
+    "category": "pollutant"
+  },
+  {
+    "input": "PM10",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "pm10",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "PM 10",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "pm_10",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "可吸入颗粒物",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "10微米颗粒物",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "粗颗粒物",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "particulate matter",
+    "output": "PM10",
+    "category": "pollutant"
+  },
+  {
+    "input": "THC",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "thc",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "总碳氢化合物",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "碳氢化合物",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "HC",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "VOC",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "挥发性有机物",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "总烃",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "烃类",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "hydrocarbon",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "total hydrocarbon",
+    "output": "THC",
+    "category": "pollutant"
+  },
+  {
+    "input": "SO2",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "so2",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "SO₂",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "二氧化硫",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "硫化物",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "硫排放",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "sulfur dioxide",
+    "output": "SO2",
+    "category": "pollutant"
+  },
+  {
+    "input": "sulfur_dioxide",
+    "output": "SO2",
+    "category": "pollutant"
+  }
+]

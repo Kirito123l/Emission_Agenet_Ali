@@ -1,0 +1,460 @@
+# Unified Mappings Configuration
+# Version: 2.0
+# Date: 2026-02-04
+# Purpose: Consolidate all hardcoded mappings into a single configuration file
+
+version: "2.0"
+
+# ============ Vehicle Types (13 MOVES Standard Types) ============
+vehicle_types:
+  - id: 11
+    standard_name: "Motorcycle"
+    display_name_zh: "摩托车"
+    aliases:
+      - "摩托车"
+      - "电动摩托"
+      - "机车"
+      - "motorcycle"
+    vsp_params:
+      A: 0.0251
+      B: 0.0
+      C: 0.000315
+      M: 0.285
+      m: 0.285
+
+  - id: 21
+    standard_name: "Passenger Car"
+    display_name_zh: "乘用车"
+    aliases:
+      - "小汽车"
+      - "轿车"
+      - "私家车"
+      - "SUV"
+      - "网约车"
+      - "出租车"
+      - "滴滴"
+      - "passenger car"
+      - "car"
+      - "轻型汽油车"
+      - "汽油车"
+      - "乘用车"
+      - "轻型车"
+    vsp_params:
+      A: 0.156461
+      B: 0.002001
+      C: 0.000492
+      M: 1.4788
+      m: 1.4788
+
+  - id: 31
+    standard_name: "Passenger Truck"
+    display_name_zh: "皮卡"
+    aliases:
+      - "皮卡"
+      - "轻型客货车"
+      - "pickup"
+      - "客车"
+    vsp_params:
+      A: 0.22112
+      B: 0.002837
+      C: 0.000698
+      M: 1.86686
+      m: 1.8668
+
+  - id: 32
+    standard_name: "Light Commercial Truck"
+    display_name_zh: "轻型货车"
+    aliases:
+      - "小货车"
+      - "面包车"
+      - "轻卡"
+      - "轻型商用车"
+      - "light commercial truck"
+    vsp_params:
+      A: 0.235008
+      B: 0.003038
+      C: 0.000747
+      M: 2.05979
+      m: 2.0597
+
+  - id: 41
+    standard_name: "Intercity Bus"
+    display_name_zh: "城际客车"
+    aliases:
+      - "长途大巴"
+      - "旅游巴士"
+      - "长途客车"
+      - "intercity bus"
+    vsp_params:
+      A: 1.23039
+      B: 0.0
+      C: 0.003714
+      M: 17.1
+      m: 19.593
+
+  - id: 42
+    standard_name: "Transit Bus"
+    display_name_zh: "公交车"
+    aliases:
+      - "城市公交"
+      - "公交"
+      - "巴士"
+      - "市内公交"
+      - "transit bus"
+      - "bus"
+    vsp_params:
+      A: 1.03968
+      B: 0.0
+      C: 0.003587
+      M: 17.1
+      m: 16.556
+
+  - id: 43
+    standard_name: "School Bus"
+    display_name_zh: "校车"
+    aliases:
+      - "学生巴士"
+      - "school bus"
+    vsp_params:
+      A: 0.709382
+      B: 0.0
+      C: 0.002175
+      M: 17.1
+      m: 9.0698
+
+  - id: 51
+    standard_name: "Refuse Truck"
+    display_name_zh: "垃圾车"
+    aliases:
+      - "环卫车"
+      - "refuse truck"
+    vsp_params:
+      A: 1.50429
+      B: 0.0
+      C: 0.003572
+      M: 17.1
+      m: 23.113
+
+  - id: 52
+    standard_name: "Single Unit Short-haul Truck"
+    display_name_zh: "中型货车"
+    aliases:
+      - "城配货车"
+      - "中卡"
+      - "单体短途货车"
+      - "短途货车"
+    vsp_params:
+      A: 0.596526
+      B: 0.0
+      C: 0.001603
+      M: 17.1
+      m: 8.5389
+
+  - id: 53
+    standard_name: "Single Unit Long-haul Truck"
+    display_name_zh: "长途货车"
+    aliases:
+      - "单体长途货车"
+      - "long-haul truck"
+    vsp_params:
+      A: 0.529399
+      B: 0.0
+      C: 0.001473
+      M: 17.1
+      m: 6.9844
+
+  - id: 54
+    standard_name: "Motor Home"
+    display_name_zh: "房车"
+    aliases:
+      - "旅居车"
+      - "motor home"
+      - "rv"
+    vsp_params:
+      A: 0.655376
+      B: 0.0
+      C: 0.002105
+      M: 17.1
+      m: 7.5257
+
+  - id: 61
+    standard_name: "Combination Short-haul Truck"
+    display_name_zh: "半挂短途"
+    aliases:
+      - "组合短途货车"
+      - "combination short-haul"
+    vsp_params:
+      A: 1.43052
+      B: 0.0
+      C: 0.003792
+      M: 17.1
+      m: 22.828
+
+  - id: 62
+    standard_name: "Combination Long-haul Truck"
+    display_name_zh: "重型货车"
+    aliases:
+      - "重卡"
+      - "大货车"
+      - "挂车"
+      - "组合长途货车"
+      - "半挂长途"
+      - "货车"
+      - "combination long-haul"
+      - "heavy truck"
+    vsp_params:
+      A: 1.47389
+      B: 0.0
+      C: 0.003681
+      M: 17.1
+      m: 24.419
+
+# ============ Pollutants ============
+pollutants:
+  - id: 90
+    standard_name: "CO2"
+    display_name_zh: "二氧化碳"
+    aliases:
+      - "碳排放"
+      - "温室气体"
+      - "co2"
+      - "carbon dioxide"
+
+  - id: 2
+    standard_name: "CO"
+    display_name_zh: "一氧化碳"
+    aliases:
+      - "co"
+      - "carbon monoxide"
+
+  - id: 3
+    standard_name: "NOx"
+    display_name_zh: "氮氧化物"
+    aliases:
+      - "氮氧"
+      - "nox"
+      - "nitrogen oxides"
+
+  - id: 110
+    standard_name: "PM2.5"
+    display_name_zh: "细颗粒物"
+    aliases:
+      - "颗粒物"
+      - "pm2.5"
+      - "pm25"
+      - "fine particulate matter"
+
+  - id: 111
+    standard_name: "PM10"
+    display_name_zh: "可吸入颗粒物"
+    aliases:
+      - "pm10"
+      - "particulate matter"
+
+  - id: 1
+    standard_name: "THC"
+    display_name_zh: "总碳氢化合物"
+    aliases:
+      - "总烃"
+      - "thc"
+      - "total hydrocarbons"
+
+# ============ Seasons ============
+seasons:
+  - standard_name: "春季"
+    aliases:
+      - "春"
+      - "春天"
+      - "spring"
+
+  - standard_name: "夏季"
+    aliases:
+      - "夏"
+      - "夏天"
+      - "summer"
+
+  - standard_name: "秋季"
+    aliases:
+      - "秋"
+      - "秋天"
+      - "fall"
+      - "autumn"
+
+  - standard_name: "冬季"
+    aliases:
+      - "冬"
+      - "冬天"
+      - "winter"
+
+# ============ Column Patterns ============
+column_patterns:
+  micro_emission:
+    speed:
+      standard: "speed_kph"
+      required: true
+      patterns:
+        - "speed_kph"
+        - "speed_kmh"
+        - "speed"
+        - "车速"
+        - "速度"
+        - "velocity"
+      description: "Vehicle speed in km/h"
+
+    time:
+      standard: "time"
+      required: false  # Can be auto-generated
+      patterns:
+        - "t"
+        - "time"
+        - "time_sec"
+        - "时间"
+      description: "Time in seconds"
+
+    acceleration:
+      standard: "acceleration_mps2"
+      required: false  # Can be calculated from speed
+      patterns:
+        - "acceleration"
+        - "acc"
+        - "acceleration_mps2"
+        - "acceleration_m_s2"
+        - "加速度"
+      description: "Acceleration in m/s²"
+
+    grade:
+      standard: "grade_pct"
+      required: false  # Defaults to 0
+      patterns:
+        - "grade_pct"
+        - "grade"
+        - "坡度"
+        - "slope"
+      description: "Road grade in percentage"
+
+  macro_emission:
+    length:
+      standard: "link_length_km"
+      required: true
+      patterns:
+        - "link_length_km"
+        - "length_km"
+        - "length"
+        - "路段长度"
+        - "长度"
+        - "distance_km"
+        - "road_length"
+      description: "Link length in kilometers"
+
+    flow:
+      standard: "traffic_flow_vph"
+      required: true
+      patterns:
+        - "traffic_flow_vph"
+        - "flow_vph"
+        - "flow"
+        - "traffic"
+        - "daily_traffic"
+        - "traffic_flow"
+        - "traffic_count"
+        - "link_volume_veh_per_hour"
+        - "volume_veh_per_hour"
+        - "volume"
+        - "交通流量"
+        - "流量"
+        - "traffic_volume"
+        - "vehicle_flow"
+        - "aadt"
+        - "vph"
+      description: "Traffic flow in vehicles per hour"
+
+    speed:
+      standard: "avg_speed_kph"
+      required: true
+      patterns:
+        - "avg_speed_kph"
+        - "avg_speed"
+        - "speed_kph"
+        - "speed"
+        - "link_avg_speed_kmh"
+        - "avg_speed_kmh"
+        - "speed_kmh"
+        - "mean_speed"
+        - "平均速度"
+        - "速度"
+        - "average_speed"
+      description: "Average speed in km/h"
+
+    link_id:
+      standard: "link_id"
+      required: false  # Auto-generated if missing
+      patterns:
+        - "link_id"
+        - "segment_id"
+        - "road_id"
+        - "id"
+        - "路段ID"
+        - "路段编号"
+      description: "Link identifier"
+
+# ============ Default Values ============
+defaults:
+  season: "夏季"
+  road_type: "快速路"
+  model_year: 2020
+  pollutants:
+    - "CO2"
+    - "NOx"
+    - "PM2.5"
+
+  fleet_mix:
+    "Passenger Car": 70.0
+    "Passenger Truck": 20.0
+    "Light Commercial Truck": 5.0
+    "Transit Bus": 3.0
+    "Combination Long-haul Truck": 2.0
+
+# ============ VSP Bins ============
+vsp_bins:
+  1:
+    min: -999999  # -inf
+    max: -2
+  2:
+    min: -2
+    max: 0
+  3:
+    min: 0
+    max: 1
+  4:
+    min: 1
+    max: 4
+  5:
+    min: 4
+    max: 7
+  6:
+    min: 7
+    max: 10
+  7:
+    min: 10
+    max: 13
+  8:
+    min: 13
+    max: 16
+  9:
+    min: 16
+    max: 19
+  10:
+    min: 19
+    max: 23
+  11:
+    min: 23
+    max: 28
+  12:
+    min: 28
+    max: 33
+  13:
+    min: 33
+    max: 39
+  14:
+    min: 39
+    max: 999999  # +inf
