@@ -124,22 +124,33 @@ def _sanitize_headers(headers: dict) -> dict:
 
 
 async def _extract_request_body(request: Request) -> Optional[dict]:
-    """提取请求体（仅对特定端点）
+    """提取请求体（从 request.state 缓存读取）
 
-    注意：对于 multipart/form-data 请求，不能调用 await request.form()
-    因为这会消费请求体流，导致后续路由处理器无法读取。
-    因此只记录元数据信息，不读取实际内容。
+    CachedBodyMiddleware 已经将请求体缓存到 request.state._cached_body
+    这里直接读取缓存的数据并格式化为日志友好的格式。
     """
-    # 跳过使用表单数据的端点，避免消费请求体
-    if request.url.path in ["/api/chat", "/api/chat/stream", "/api/file/preview"]:
-        content_type = request.headers.get("content-type", "")
-        if content_type.startswith("multipart/form-data"):
-            # 只记录有文件上传的标志，不读取具体内容
-            return {
-                "content_type": content_type,
-                "has_body": True,
-                "note": "Form data not logged to avoid consuming request stream"
-            }
+    cached = getattr(request.state, "_cached_body", None)
+    if cached is None:
+        return None
+
+    # 根据缓存的数据类型返回相应的日志格式
+    if cached["type"] == "json":
+        # JSON 请求，返回完整数据
+        return cached["data"]
+
+    elif cached["type"] == "form":
+        # 表单请求，提取关键字段
+        data = cached["data"]
+        return {
+            "message": data.get("message"),
+            "session_id": data.get("session_id"),
+            "has_file": "file" in data,
+            "file_info": data.get("file") if "file" in data else None
+        }
+
+    elif cached["type"] == "form_urlencoded":
+        # URL 编码表单
+        return cached["data"]
 
     return None
 
@@ -149,6 +160,79 @@ def _format_response_time(ms: float) -> str:
     if ms < 1000:
         return f"{ms:.0f}ms"
     return f"{ms/1000:.2f}s"
+
+
+# ==================== 请求体缓存中间件 ====================
+class CachedBodyMiddleware(BaseHTTPMiddleware):
+    """缓存请求体中间件 - 必须在 AccessLogMiddleware 之前运行
+
+    将请求体内容缓存到 request.state._cached_body 和 request._body，
+    避免重复读取流。这样日志中间件可以记录完整的请求内容，
+    同时不影响后续处理器的 Form() 参数读取。
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # 只对 POST/PUT/PATCH 请求缓存请求体
+        if request.method in ["POST", "PUT", "PATCH"]:
+            content_type = request.headers.get("content-type", "")
+            cached_data = None
+
+            try:
+                # 处理表单格式（multipart/form-data 或 application/x-www-form-urlencoded）
+                if "form" in content_type:
+                    # 先读取原始请求体字节
+                    body_bytes = await request.body()
+
+                    # 缓存原始字节到 request._body
+                    # 这样 Starlette 后续调用 request.form() 时会从缓存读取
+                    if body_bytes:
+                        request._body = body_bytes
+
+                    # 现在可以安全地调用 form() 解析数据用于日志
+                    form = await request.form()
+
+                    # 提取字段信息用于日志记录
+                    form_data = {}
+                    for key, value in form.items():
+                        if key == "file":
+                            # 文件字段，只记录元数据
+                            form_data[key] = {
+                                "filename": value.filename,
+                                "content_type": value.content_type,
+                                "size": getattr(value, 'size', 'unknown')
+                            }
+                        elif key == "message":
+                            # 消息字段，截断过长的内容
+                            form_data[key] = value[:500] if value else None
+                        else:
+                            # 其他字段
+                            form_data[key] = value
+
+                    if "multipart" in content_type:
+                        cached_data = {"type": "form", "data": form_data}
+                    else:
+                        cached_data = {"type": "form_urlencoded", "data": dict(form)}
+
+                # 处理 JSON 格式
+                elif "application/json" in content_type:
+                    body = await request.body()
+                    if body:
+                        import json
+                        parsed = json.loads(body.decode())
+                        cached_data = {"type": "json", "data": parsed}
+                        # JSON 也缓存，防止后续读取失败
+                        request._body = body
+
+                # 存储解析后的数据到 request.state，供日志中间件使用
+                if cached_data:
+                    request.state._cached_body = cached_data
+
+            except Exception as e:
+                # 缓存失败不影响请求处理
+                access_logger.debug(f"Failed to cache request body: {e}")
+
+        # 继续处理请求
+        return await call_next(request)
 
 
 # ==================== HTTP访问日志中间件 ====================
