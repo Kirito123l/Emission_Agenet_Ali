@@ -5,10 +5,18 @@ let currentFile = null;
 const USE_STREAMING = true;  // 是否使用流式输出
 
 // ==================== 用户标识 ====================
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 function getUserId() {
     let uid = localStorage.getItem('emission_user_id');
     if (!uid) {
-        uid = crypto.randomUUID();
+        uid = generateUUID();
         localStorage.setItem('emission_user_id', uid);
     }
     return uid;

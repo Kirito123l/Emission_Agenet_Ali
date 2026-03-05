@@ -8,29 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .routes import router
+from .logging_config import AccessLogMiddleware, access_logger, log_request_summary
 
-LOG_DIR = Path(__file__).parent.parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-REQUEST_LOG_FILE = LOG_DIR / "requests.log"
-
-
-def _write_request_log(line: str) -> None:
-    try:
-        with open(REQUEST_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-    except Exception:
-        # Avoid crashing on logging failures
-        pass
-
-
+# 简单的控制台日志（用于启动/关闭事件）
 logging.basicConfig(
     level=logging.INFO,
-    format="%(message)s",
+    format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
-request_logger = logging.getLogger("request")
-request_logger.setLevel(logging.INFO)
 
 app = FastAPI(
     title="Emission Agent API",
@@ -38,21 +24,8 @@ app = FastAPI(
     version="2.2.0",
 )
 
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    print("\n" + "=" * 60, flush=True)
-    print(f"[REQUEST] {request.method} {request.url.path}", flush=True)
-    print("=" * 60, flush=True)
-    _write_request_log(f"[REQUEST] {request.method} {request.url.path}")
-
-    response = await call_next(request)
-
-    print(f"[RESPONSE] {response.status_code}", flush=True)
-    print("=" * 60 + "\n", flush=True)
-    _write_request_log(f"[RESPONSE] {response.status_code} {request.url.path}")
-
-    return response
+# 添加访问日志中间件（记录所有HTTP请求/响应）
+app.add_middleware(AccessLogMiddleware)
 
 
 app.add_middleware(
@@ -68,7 +41,7 @@ app.include_router(router, prefix="/api")
 
 @app.get("/test")
 async def root_test():
-    _write_request_log("[TEST] /test called")
+    access_logger.info("[TEST] /test endpoint called")
     return {"status": "ok", "message": "root test ok"}
 
 
@@ -83,8 +56,7 @@ async def startup_event():
     print("Emission Agent API started")
     print("=" * 60)
     print("If you see no request logs, ensure you access http://localhost:8000")
-    print(f"Request log file: {REQUEST_LOG_FILE}")
-    print("=" * 60 + "\n")
+    log_request_summary()
     logger.info("=" * 60)
     logger.info("Emission Agent API started")
     logger.info("=" * 60)
