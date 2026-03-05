@@ -124,19 +124,22 @@ def _sanitize_headers(headers: dict) -> dict:
 
 
 async def _extract_request_body(request: Request) -> Optional[dict]:
-    """提取请求体（仅对特定端点）"""
-    if request.url.path in ["/api/chat", "/api/chat/stream"]:
-        try:
-            # 对于表单数据
-            if request.headers.get("content-type", "").startswith("multipart/form-data"):
-                form = await request.form()
-                return {
-                    "message": form.get("message", "")[:200] if form.get("message") else None,
-                    "session_id": form.get("session_id"),
-                    "has_file": "file" in form
-                }
-        except Exception:
-            pass
+    """提取请求体（仅对特定端点）
+
+    注意：对于 multipart/form-data 请求，不能调用 await request.form()
+    因为这会消费请求体流，导致后续路由处理器无法读取。
+    因此只记录元数据信息，不读取实际内容。
+    """
+    # 跳过使用表单数据的端点，避免消费请求体
+    if request.url.path in ["/api/chat", "/api/chat/stream", "/api/file/preview"]:
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("multipart/form-data"):
+            # 只记录有文件上传的标志，不读取具体内容
+            return {
+                "content_type": content_type,
+                "has_body": True,
+                "note": "Form data not logged to avoid consuming request stream"
+            }
 
     return None
 
