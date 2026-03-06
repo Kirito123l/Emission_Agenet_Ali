@@ -16,8 +16,11 @@ from urllib.parse import quote
 
 from .models import (
     ChatRequest, ChatResponse, FilePreviewResponse,
-    SessionInfo, SessionListResponse, HistoryResponse, UpdateSessionTitleRequest
+    SessionInfo, SessionListResponse, HistoryResponse, UpdateSessionTitleRequest,
+    RegisterRequest, LoginRequest, AuthResponse, UserInfo
 )
+from .database import db
+from .auth import auth_service
 
 
 from .session import SessionRegistry
@@ -905,3 +908,125 @@ async def test_endpoint():
         "message": "测试成功 - 如果你在终端看到这条消息的日志，说明日志系统正常工作",
         "timestamp": datetime.now().isoformat()
     }
+
+
+# ==================== 认证相关路由 ====================
+
+@router.post("/register", response_model=AuthResponse)
+async def register(request_data: RegisterRequest):
+    """
+    用户注册
+
+    - username: 用户名（3-50字符，唯一）
+    - password: 密码（至少6字符）
+    - email: 邮箱（可选）
+    """
+    logger.info(f"注册请求: username={request_data.username}")
+
+    # 检查用户名是否已存在
+    existing_user = await db.get_user_by_username(request_data.username)
+    if existing_user:
+        logger.warning(f"注册失败: 用户名已存在 - {request_data.username}")
+        raise HTTPException(status_code=400, detail="用户名已存在")
+
+    # 哈希密码
+    password_hash = auth_service.hash_password(request_data.password)
+
+    # 生成用户 ID
+    user_id = auth_service.generate_user_id()
+
+    # 创建用户
+    success = await db.create_user(
+        user_id=user_id,
+        username=request_data.username,
+        password_hash=password_hash,
+        email=request_data.email
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail="用户创建失败")
+
+    # 生成 Token
+    access_token = auth_service.create_access_token(
+        data={"sub": user_id, "username": request_data.username}
+    )
+
+    logger.info(f"用户注册成功: {request_data.username} ({user_id})")
+
+    return AuthResponse(
+        access_token=access_token,
+        user_id=user_id,
+        username=request_data.username
+    )
+
+
+@router.post("/login", response_model=AuthResponse)
+async def login(request_data: LoginRequest):
+    """
+    用户登录
+
+    - username: 用户名
+    - password: 密码
+    """
+    logger.info(f"登录请求: username={request_data.username}")
+
+    # 获取用户
+    user = await db.get_user_by_username(request_data.username)
+    if not user:
+        logger.warning(f"登录失败: 用户不存在 - {request_data.username}")
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+    # 验证密码
+    if not auth_service.verify_password(request_data.password, user["password_hash"]):
+        logger.warning(f"登录失败: 密码错误 - {request_data.username}")
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+    # 更新最后登录时间
+    await db.update_last_login(user["id"])
+
+    # 生成 Token
+    access_token = auth_service.create_access_token(
+        data={"sub": user["id"], "username": user["username"]}
+    )
+
+    logger.info(f"用户登录成功: {request_data.username} ({user['id']})")
+
+    return AuthResponse(
+        access_token=access_token,
+        user_id=user["id"],
+        username=user["username"]
+    )
+
+
+@router.get("/me", response_model=UserInfo)
+async def get_current_user(request: Request):
+    """
+    获取当前用户信息
+
+    需要在请求头中提供 Authorization: Bearer <token>
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未提供认证令牌")
+
+    token = auth_header.split(" ")[1]
+    payload = auth_service.decode_token(token)
+
+    if not payload:
+        raise HTTPException(status_code=401, detail="无效或过期的令牌")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="令牌格式无效")
+
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    return UserInfo(
+        id=user["id"],
+        username=user["username"],
+        email=user.get("email"),
+        created_at=user["created_at"],
+        last_login=user.get("last_login")
+    )

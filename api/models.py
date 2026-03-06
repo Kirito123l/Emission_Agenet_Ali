@@ -1,7 +1,42 @@
 """API数据模型"""
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+
+
+# ==================== 认证相关模型 ====================
+
+class RegisterRequest(BaseModel):
+    """用户注册请求"""
+    username: str = Field(..., min_length=3, max_length=50, description="用户名")
+    password: str = Field(..., min_length=6, max_length=100, description="密码")
+    email: Optional[EmailStr] = Field(None, description="邮箱（可选）")
+
+
+class LoginRequest(BaseModel):
+    """用户登录请求"""
+    username: str = Field(..., description="用户名")
+    password: str = Field(..., description="密码")
+
+
+class AuthResponse(BaseModel):
+    """认证响应"""
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    username: str
+
+
+class UserInfo(BaseModel):
+    """用户信息"""
+    id: str
+    username: str
+    email: Optional[str] = None
+    created_at: str
+    last_login: Optional[str] = None
+
+
+# ==================== 聊天相关模型 ====================
 
 class ChatRequest(BaseModel):
     """聊天请求"""

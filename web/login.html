@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>EmissionAgent - 登录/注册</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#d97959",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#1f1613",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-blur {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .form-input {
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            transform: translateY(-1px);
+        }
+        .btn-primary {
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px -5px rgba(217, 121, 89, 0.3);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display min-h-screen relative overflow-hidden">
+    <!-- Blurred Background Dashboard Mockup -->
+    <div class="absolute inset-0 z-0 flex flex-col opacity-40 grayscale-[0.5]">
+        <!-- TopNavBar Component (Background version) -->
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e4dedc] dark:border-b-[#3d2e2a] px-10 py-3 bg-white dark:bg-background-dark/50">
+            <div class="flex items-center gap-4 text-[#171312] dark:text-white">
+                <div class="size-6 text-primary">
+                    <span class="material-symbols-outlined text-3xl">eco</span>
+                </div>
+                <h2 class="text-[#171312] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">EmissionAgent</h2>
+            </div>
+            <div class="flex flex-1 justify-end gap-8">
+                <div class="flex items-center gap-9 opacity-50">
+                    <div class="text-[#171312] dark:text-white text-sm font-medium">Dashboard</div>
+                    <div class="text-[#171312] dark:text-white text-sm font-medium">Analytics</div>
+                </div>
+                <div class="rounded-full size-10 bg-gray-200 dark:bg-gray-700"></div>
+            </div>
+        </header>
+        <!-- Main Content Area (Background) -->
+        <main class="flex-1 p-10 grid grid-cols-3 gap-6">
+            <div class="col-span-2 space-y-6">
+                <div class="h-64 bg-white dark:bg-[#2d211d] rounded-xl shadow-sm border border-[#e4dedc] dark:border-[#3d2e2a] p-6">
+                    <div class="h-4 w-1/4 bg-gray-100 dark:bg-gray-800 rounded mb-4"></div>
+                    <div class="h-40 w-full bg-gray-50 dark:bg-gray-800/50 rounded-lg"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="h-40 bg-white dark:bg-[#2d211d] rounded-xl border border-[#e4dedc] dark:border-[#3d2e2a]"></div>
+                    <div class="h-40 bg-white dark:bg-[#2d211d] rounded-xl border border-[#e4dedc] dark:border-[#3d2e2a]"></div>
+                </div>
+            </div>
+            <div class="col-span-1 h-full bg-white dark:bg-[#2d211d] rounded-xl border border-[#e4dedc] dark:border-[#3d2e2a]"></div>
+        </main>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/10 dark:bg-black/40 glass-blur p-4">
+        <!-- Auth Modal Card -->
+        <div class="w-full max-w-[480px] bg-white dark:bg-[#2d211d] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden border border-[#e4dedc] dark:border-[#3d2e2a]">
+
+            <!-- Modal Header -->
+            <div class="px-8 pt-10 pb-6 text-center">
+                <div class="inline-flex items-center justify-center size-14 bg-primary/10 rounded-xl text-primary mb-4">
+                    <span class="material-symbols-outlined text-4xl">eco</span>
+                </div>
+                <h1 class="text-[#171312] dark:text-white text-2xl font-bold leading-tight tracking-tight" id="modal-title">Welcome to EmissionAgent</h1>
+                <p class="text-[#856e66] dark:text-[#a39089] text-base mt-2">Vehicle Emission Intelligence Agent</p>
+            </div>
+
+            <!-- Alert Message Container -->
+            <div id="alert-container" class="px-8 hidden">
+                <div id="alert-message" class="p-4 rounded-lg text-sm"></div>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="px-8 pb-10 space-y-5">
+                <!-- Username Field -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-[#171312] dark:text-white text-sm font-semibold leading-normal">用户名</label>
+                    <div class="relative group">
+                        <input
+                            id="login-username"
+                            class="form-input flex w-full rounded-lg text-[#171312] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e4dedc] dark:border-[#4d3d38] bg-white dark:bg-[#1f1613] focus:border-primary h-12 placeholder:text-[#856e66] dark:placeholder:text-[#6b5a54] px-4 text-base font-normal transition-colors"
+                            placeholder="请输入用户名"
+                            required
+                            type="text"
+                        />
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-[#171312] dark:text-white text-sm font-semibold leading-normal">密码</label>
+                        <a class="text-primary text-sm font-medium hover:underline decoration-2 underline-offset-4" href="#" onclick="showAlert('info', '功能开发中')">忘记密码？</a>
+                    </div>
+                    <div class="relative group">
+                        <input
+                            id="login-password"
+                            class="form-input flex w-full rounded-lg text-[#171312] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e4dedc] dark:border-[#4d3d38] bg-white dark:bg-[#1f1613] focus:border-primary h-12 placeholder:text-[#856e66] dark:placeholder:text-[#6b5a54] px-4 text-base font-normal transition-colors"
+                            placeholder="请输入密码"
+                            required
+                            type="password"
+                        />
+                    </div>
+                </div>
+
+                <!-- Sign In Button -->
+                <div class="pt-4">
+                    <button
+                        id="login-btn"
+                        class="btn-primary w-full flex cursor-pointer items-center justify-center rounded-lg h-12 px-4 bg-primary hover:bg-[#c4694d] text-white text-base font-semibold transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
+                        type="submit"
+                    >
+                        <span id="login-btn-text">登录</span>
+                        <span id="login-btn-loading" class="hidden material-symbols-outlined animate-spin ml-2">refresh</span>
+                    </button>
+                </div>
+
+                <!-- Footer Links -->
+                <div class="pt-6 text-center border-t border-[#f4f1f1] dark:border-[#3d2e2a]">
+                    <p class="text-[#856e66] dark:text-[#a39089] text-sm">
+                        还没有账号？
+                        <a class="text-primary font-semibold hover:underline decoration-2 underline-offset-4 ml-1 cursor-pointer" onclick="toggleForm('register')">立即注册</a>
+                    </p>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="px-8 pb-10 space-y-5 hidden">
+                <!-- Username Field -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-[#171312] dark:text-white text-sm font-semibold leading-normal">用户名</label>
+                    <div class="relative group">
+                        <input
+                            id="register-username"
+                            class="form-input flex w-full rounded-lg text-[#171312] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e4dedc] dark:border-[#4d3d38] bg-white dark:bg-[#1f1613] focus:border-primary h-12 placeholder:text-[#856e66] dark:placeholder:text-[#6b5a54] px-4 text-base font-normal transition-colors"
+                            placeholder="3-50个字符"
+                            required
+                            minlength="3"
+                            maxlength="50"
+                            type="text"
+                        />
+                    </div>
+                </div>
+
+                <!-- Email Field (Optional) -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-[#171312] dark:text-white text-sm font-semibold leading-normal">邮箱（可选）</label>
+                    <div class="relative group">
+                        <input
+                            id="register-email"
+                            class="form-input flex w-full rounded-lg text-[#171312] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e4dedc] dark:border-[#4d3d38] bg-white dark:bg-[#1f1613] focus:border-primary h-12 placeholder:text-[#856e66] dark:placeholder:text-[#6b5a54] px-4 text-base font-normal transition-colors"
+                            placeholder="name@example.com"
+                            type="email"
+                        />
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-[#171312] dark:text-white text-sm font-semibold leading-normal">密码</label>
+                    <div class="relative group">
+                        <input
+                            id="register-password"
+                            class="form-input flex w-full rounded-lg text-[#171312] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e4dedc] dark:border-[#4d3d38] bg-white dark:bg-[#1f1613] focus:border-primary h-12 placeholder:text-[#856e66] dark:placeholder:text-[#6b5a54] px-4 text-base font-normal transition-colors"
+                            placeholder="至少6个字符"
+                            required
+                            minlength="6"
+                            type="password"
+                        />
+                    </div>
+                </div>
+
+                <!-- Confirm Password Field -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-[#171312] dark:text-white text-sm font-semibold leading-normal">确认密码</label>
+                    <div class="relative group">
+                        <input
+                            id="register-confirm-password"
+                            class="form-input flex w-full rounded-lg text-[#171312] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e4dedc] dark:border-[#4d3d38] bg-white dark:bg-[#1f1613] focus:border-primary h-12 placeholder:text-[#856e66] dark:placeholder:text-[#6b5a54] px-4 text-base font-normal transition-colors"
+                            placeholder="再次输入密码"
+                            required
+                            type="password"
+                        />
+                    </div>
+                </div>
+
+                <!-- Sign Up Button -->
+                <div class="pt-4">
+                    <button
+                        id="register-btn"
+                        class="btn-primary w-full flex cursor-pointer items-center justify-center rounded-lg h-12 px-4 bg-primary hover:bg-[#c4694d] text-white text-base font-semibold transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
+                        type="submit"
+                    >
+                        <span id="register-btn-text">注册</span>
+                        <span id="register-btn-loading" class="hidden material-symbols-outlined animate-spin ml-2">refresh</span>
+                    </button>
+                </div>
+
+                <!-- Footer Links -->
+                <div class="pt-6 text-center border-t border-[#f4f1f1] dark:border-[#3d2e2a]">
+                    <p class="text-[#856e66] dark:text-[#a39089] text-sm">
+                        已有账号？
+                        <a class="text-primary font-semibold hover:underline decoration-2 underline-offset-4 ml-1 cursor-pointer" onclick="toggleForm('login')">立即登录</a>
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- UI Background Decoration elements (hidden behind modal) -->
+    <div class="absolute bottom-10 right-10 z-10 opacity-20 dark:opacity-40">
+        <div class="p-4 @container bg-white dark:bg-[#2d211d] rounded-lg shadow-xl border border-[#e4dedc] dark:border-[#3d2e2a] max-w-sm">
+            <div class="flex flex-col gap-3">
+                <div class="w-full h-32 bg-primary/20 rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary text-4xl">monitoring</span>
+                </div>
+                <div class="space-y-2">
+                    <div class="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div class="h-3 w-1/2 bg-gray-100 dark:bg-gray-800 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        // 切换登录/注册表单
+        function toggleForm(form) {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const modalTitle = document.getElementById('modal-title');
+
+            hideAlert();
+
+            if (form === 'register') {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                modalTitle.textContent = '创建账号';
+            } else {
+                registerForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+                modalTitle.textContent = 'Welcome to EmissionAgent';
+            }
+        }
+
+        // 显示提示消息
+        function showAlert(type, message) {
+            const container = document.getElementById('alert-container');
+            const alertDiv = document.getElementById('alert-message');
+
+            container.classList.remove('hidden');
+
+            // 重置类名
+            alertDiv.className = 'p-4 rounded-lg text-sm';
+
+            if (type === 'success') {
+                alertDiv.classList.add('bg-emerald-50', 'text-emerald-800', 'dark:bg-emerald-900/30', 'dark:text-emerald-200', 'border', 'border-emerald-200', 'dark:border-emerald-800');
+            } else if (type === 'error') {
+                alertDiv.classList.add('bg-red-50', 'text-red-800', 'dark:bg-red-900/30', 'dark:text-red-200', 'border', 'border-red-200', 'dark:border-red-800');
+            } else if (type === 'info') {
+                alertDiv.classList.add('bg-blue-50', 'text-blue-800', 'dark:bg-blue-900/30', 'dark:text-blue-200', 'border', 'border-blue-200', 'dark:border-blue-800');
+            }
+
+            alertDiv.textContent = message;
+        }
+
+        // 隐藏提示消息
+        function hideAlert() {
+            const container = document.getElementById('alert-container');
+            container.classList.add('hidden');
+        }
+
+        // 设置按钮加载状态
+        function setButtonLoading(btnType, loading) {
+            const btn = document.getElementById(`${btnType}-btn`);
+            const btnText = document.getElementById(`${btnType}-btn-text`);
+            const btnLoading = document.getElementById(`${btnType}-btn-loading`);
+
+            if (loading) {
+                btn.disabled = true;
+                btnText.classList.add('hidden');
+                btnLoading.classList.remove('hidden');
+            } else {
+                btn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+            }
+        }
+
+        // 登录处理
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                showAlert('error', '请填写所有必填字段');
+                return;
+            }
+
+            setButtonLoading('login', true);
+            hideAlert();
+
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // 保存 Token 和用户信息
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('user_id', data.user_id);
+                    localStorage.setItem('username', data.username);
+
+                    showAlert('success', '登录成功！正在跳转...');
+
+                    // 延迟跳转，让用户看到成功提示
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showAlert('error', data.detail || '登录失败，请检查用户名和密码');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('error', '网络错误，请稍后重试');
+            } finally {
+                setButtonLoading('login', false);
+            }
+        });
+
+        // 注册处理
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('register-username').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+
+            if (!username || !password) {
+                showAlert('error', '请填写所有必填字段');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showAlert('error', '两次输入的密码不一致');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAlert('error', '密码长度至少为6个字符');
+                return;
+            }
+
+            setButtonLoading('register', true);
+            hideAlert();
+
+            try {
+                const requestBody = { username, password };
+                if (email) {
+                    requestBody.email = email;
+                }
+
+                const response = await fetch(`${API_BASE}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // 保存 Token 和用户信息
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('user_id', data.user_id);
+                    localStorage.setItem('username', data.username);
+
+                    showAlert('success', '注册成功！正在跳转...');
+
+                    // 延迟跳转
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showAlert('error', data.detail || '注册失败');
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                showAlert('error', '网络错误，请稍后重试');
+            } finally {
+                setButtonLoading('register', false);
+            }
+        });
+
+        // 页面加载时检查是否已登录
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                // 如果已登录，直接跳转到主页
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>
