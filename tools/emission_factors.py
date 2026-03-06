@@ -4,10 +4,17 @@ Emission Factors Query Tool
 Simplified tool for querying emission factors from MOVES database.
 Standardization is handled by the executor layer.
 """
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from pathlib import Path
+import pandas as pd
+import logging
+from datetime import datetime
+import os
+
 from .base import BaseTool, ToolResult
 from calculators.emission_factors import EmissionFactorCalculator
+
+logger = logging.getLogger(__name__)
 
 
 class EmissionFactorsTool(BaseTool):
@@ -23,6 +30,63 @@ class EmissionFactorsTool(BaseTool):
     @property
     def description(self) -> str:
         return "Query emission factors for specific vehicle types and pollutants"
+
+    def _generate_emission_factor_excel(
+        self,
+        query_data: Dict,
+        outputs_dir: str
+    ) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+        """
+        生成排放因子查询结果的 Excel 文件
+
+        Args:
+            query_data: 查询结果数据
+            outputs_dir: 输出目录
+
+        Returns:
+            (success, output_path, filename, error_message)
+        """
+        try:
+            # 提取 speed_curve 数据
+            speed_curve = query_data.get("speed_curve", [])
+            if not speed_curve:
+                return False, None, None, "没有速度曲线数据可导出"
+
+            # 构建数据框架
+            df_data = []
+            for item in speed_curve:
+                df_data.append({
+                    "速度": item.get("speed_kph"),
+                    "单位": "km/h",
+                    "排放因子": item.get("emission_rate"),
+                    "排放单位": item.get("unit", "g/mile"),
+                    "原始速度": item.get("speed_mph"),
+                    "原始单位": "mph"
+                })
+
+            df = pd.DataFrame(df_data)
+
+            # 生成文件名
+            vehicle_type = query_data.get("query_summary", {}).get("vehicle_type", "unknown").replace(" ", "_")
+            pollutant = query_data.get("query_summary", {}).get("pollutant", "unknown")
+            model_year = query_data.get("query_summary", {}).get("model_year", "2020")
+            season = query_data.get("query_summary", {}).get("season", "夏季").replace("夏", "summer").replace("春", "spring").replace("秋", "autumn").replace("冬", "winter")
+            road_type = query_data.get("query_summary", {}).get("road_type", "快速路").replace("/", "_")
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"emission_factors_{vehicle_type}_{pollutant}_{model_year}_{timestamp}.xlsx"
+            output_path = os.path.join(outputs_dir, filename)
+
+            # 保存 Excel
+            df.to_excel(output_path, index=False, engine='openpyxl')
+
+            logger.info(f"生成排放因子 Excel 文件: {output_path}")
+            return True, output_path, filename, None
+
+        except Exception as e:
+            error_msg = f"生成 Excel 文件失败: {str(e)}"
+            logger.error(error_msg)
+            return False, None, None, error_msg
 
     async def execute(self, **kwargs) -> ToolResult:
         """
@@ -106,11 +170,35 @@ class EmissionFactorsTool(BaseTool):
                 else:
                     summary = f"Found {pollutant} emission data for {vehicle_type} ({model_year}). Season: {season}, Road type: {road_type}."
 
+                # Generate download file
+                download_file_info = None
+                if "speed_curve" in data and len(data["speed_curve"]) > 0:
+                    try:
+                        from config import get_config
+                        config = get_config()
+                        outputs_dir = str(config.outputs_dir)
+
+                        success, output_path, filename, error = self._generate_emission_factor_excel(
+                            data, outputs_dir
+                        )
+
+                        if success:
+                            download_file_info = {
+                                "path": output_path,
+                                "filename": filename
+                            }
+                            logger.info(f"生成排放因子下载文件: {filename}")
+                        else:
+                            logger.warning(f"生成下载文件失败: {error}")
+                    except Exception as e:
+                        logger.warning(f"生成下载文件时出错: {e}")
+
                 return ToolResult(
                     success=True,
                     error=None,
                     data=data,
-                    summary=summary
+                    summary=summary,
+                    download_file=download_file_info
                 )
             else:
                 # Multiple pollutants or curve format
