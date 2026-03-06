@@ -4,7 +4,12 @@ let currentSessionId = null;
 let currentFile = null;
 const USE_STREAMING = true;  // 是否使用流式输出
 
-// ==================== 用户标识 ====================
+// ==================== 用户认证与标识 ====================
+// 游客模式状态
+let isGuest = true;
+let authToken = null;
+let username = null;
+
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
@@ -14,28 +19,107 @@ function generateUUID() {
 }
 
 function getUserId() {
-    let uid = localStorage.getItem('emission_user_id');
+    // 如果已登录且有 Token，从 Token 中解析 user_id
+    if (authToken) {
+        try {
+            const payload = parseJWT(authToken);
+            return payload.sub;
+        } catch (e) {
+            console.error('解析 Token 失败:', e);
+        }
+    }
+
+    // 游客模式：使用 sessionStorage 存储临时 ID（刷新页面会重置）
+    let uid = sessionStorage.getItem('guest_user_id');
     if (!uid) {
         uid = generateUUID();
-        localStorage.setItem('emission_user_id', uid);
+        sessionStorage.setItem('guest_user_id', uid);
     }
     return uid;
+}
+
+function parseJWT(token) {
+    // 简单的 JWT 解析（仅解码 payload，不验证签名）
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        throw new Error('Invalid token format');
+    }
+    const payload = parts[1];
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decoded);
 }
 
 function fetchWithUser(url, options = {}) {
     const headers = options.headers instanceof Headers
         ? options.headers
         : new Headers(options.headers || {});
+
+    // 添加 X-User-ID 头
     headers.set('X-User-ID', getUserId());
+
+    // 如果有 Token，添加 Authorization 头
+    if (authToken) {
+        headers.set('Authorization', `Bearer ${authToken}`);
+    }
+
     return fetch(url, { ...options, headers });
 }
 
-// 页面加载时显示用户短ID
-document.addEventListener('DOMContentLoaded', () => {
-    const el = document.getElementById('user-display-name');
-    if (el) {
-        el.textContent = '用户 ' + getUserId().substring(0, 8);
+// 初始化认证状态
+function initAuthState() {
+    authToken = localStorage.getItem('auth_token');
+    username = localStorage.getItem('username');
+
+    if (authToken && username) {
+        // 已登录
+        isGuest = false;
+        console.log('✅ 已登录用户:', username);
+    } else {
+        // 游客模式
+        isGuest = true;
+        console.log('🔵 游客模式');
     }
+
+    // 更新用户界面
+    updateUserDisplay();
+}
+
+// 更新用户信息显示
+function updateUserDisplay() {
+    const userDisplayName = document.getElementById('user-display-name');
+    if (!userDisplayName) return;
+
+    if (isGuest) {
+        // 游客模式
+        userDisplayName.innerHTML = `
+            <span class="text-slate-500">Guest</span>
+            <span class="mx-2 text-slate-300">|</span>
+            <a href="/login" class="text-primary hover:underline font-medium">登录 / 注册</a>
+        `;
+    } else {
+        // 已登录
+        userDisplayName.innerHTML = `
+            <span class="font-medium">${escapeHtml(username)}</span>
+            <span class="mx-2 text-slate-300">|</span>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors text-sm">退出</button>
+        `;
+    }
+}
+
+// 退出登录
+function logout() {
+    if (confirm('确定要退出登录吗？')) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('username');
+        // 刷新页面进入游客模式
+        window.location.reload();
+    }
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', () => {
+    initAuthState();
 });
 
 // ==================== DOM元素 ====================
@@ -480,20 +564,82 @@ async function startNewChat() {
 
 async function loadSessionList() {
     console.log('📋 loadSessionList 被调用');
+
+    // 游客模式：显示提示信息
+    if (isGuest) {
+        renderGuestModeBanner();
+        return;
+    }
+
     console.log('🌐 API_BASE:', API_BASE);
     try {
         console.log('⏳ 开始获取会话列表...');
         const response = await fetchWithUser(`${API_BASE}/sessions`);
         console.log('✅ 会话列表请求完成，状态码:', response.status);
+
+        // 游客模式下 API 返回 401，不显示错误
+        if (response.status === 401) {
+            renderGuestModeBanner();
+            return;
+        }
+
         const data = await response.json();
         console.log('📥 会话列表数据:', data);
 
         if (data.sessions && data.sessions.length > 0) {
             renderSessionList(data.sessions);
+        } else {
+            renderEmptySessionList();
         }
     } catch (error) {
         console.error('❌ 加载会话列表失败:', error);
     }
+}
+
+// 渲染游客模式提示
+function renderGuestModeBanner() {
+    if (!sessionListContainer) return;
+
+    sessionListContainer.innerHTML = `
+        <div class="px-4 py-6 mx-3 mt-2 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="flex flex-col items-center text-center space-y-4">
+                <!-- 图标 -->
+                <div class="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                    <span class="material-symbols-outlined" style="font-size: 28px;">person_outline</span>
+                </div>
+
+                <!-- 标题 -->
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">游客模式</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">当前会话数据不会被持久化保存</p>
+                </div>
+
+                <!-- 描述 -->
+                <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-[200px]">
+                    刷新页面后，当前的分析轨迹将会丢失。<br/>
+                    登录后可启用历史追溯与数据持久化功能。
+                </p>
+
+                <!-- 登录按钮 -->
+                <a href="/login" class="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">login</span>
+                    <span>登录 / 注册</span>
+                </a>
+            </div>
+        </div>
+    `;
+}
+
+// 渲染空会话列表
+function renderEmptySessionList() {
+    if (!sessionListContainer) return;
+
+    sessionListContainer.innerHTML = `
+        <div class="px-4 py-6 mx-3 mt-2 text-center">
+            <p class="text-sm text-slate-500 dark:text-slate-400">暂无历史对话</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">开始新的对话来创建记录</p>
+        </div>
+    `;
 }
 
 function renderSessionList(sessions) {

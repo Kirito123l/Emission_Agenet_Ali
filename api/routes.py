@@ -27,8 +27,31 @@ from .session import SessionRegistry
 
 
 def get_user_id(request: Request) -> str:
-    """Extract user_id from X-User-ID header, fall back to 'default'."""
-    return (request.headers.get("X-User-ID") or "default").strip() or "default"
+    """Extract user_id from JWT Token or X-User-ID header.
+
+    Priority:
+    1. JWT Token (Authorization header) - for authenticated users
+    2. X-User-ID header (for guest mode) - sent by frontend
+    3. Generate temporary UUID - fallback for guests without frontend ID
+    """
+    # 1. Try to extract from JWT Token
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = auth_service.decode_token(token)
+            if payload and "sub" in payload:
+                return payload["sub"]
+        except Exception:
+            pass  # Fall through to other methods
+
+    # 2. Try X-User-ID header (sent by frontend)
+    user_id = request.headers.get("X-User-ID")
+    if user_id:
+        return user_id.strip()
+
+    # 3. Generate temporary UUID for guest
+    return str(uuid.uuid4())
 
 # 配置日志
 logger = logging.getLogger(__name__)
