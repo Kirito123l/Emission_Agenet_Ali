@@ -763,11 +763,13 @@ class UnifiedRouter:
         """Format emission factors data for chart display"""
         # Check if it's multi-pollutant format
         if "pollutants" in data:
-            # 转换多污染物数据格式：speed_curve -> curve
+            # 转换多污染物数据格式：支持 speed_curve (return_curve=False) 和 curve (return_curve=True)
             formatted_pollutants = {}
             for pollutant, pol_data in data["pollutants"].items():
+                # 优先尝试 speed_curve，如果为空则尝试 curve
+                curve_data = pol_data.get("speed_curve", []) or pol_data.get("curve", [])
                 formatted_pollutants[pollutant] = {
-                    "curve": pol_data.get("speed_curve", []),  # 重命名 speed_curve 为 curve
+                    "curve": curve_data,
                     "unit": pol_data.get("unit", "g/mile")
                 }
 
@@ -779,8 +781,9 @@ class UnifiedRouter:
                 "metadata": data.get("metadata", {})
             }
 
-        # Single pollutant format
-        if "speed_curve" in data:
+        # Single pollutant format - 支持 speed_curve (return_curve=False) 和 curve (return_curve=True)
+        curve_data = data.get("speed_curve", []) or data.get("curve", [])
+        if curve_data:
             # Extract pollutant name from query_summary if available
             pollutant = data.get("query_summary", {}).get("pollutant", "Unknown")
             vehicle_type = data.get("query_summary", {}).get("vehicle_type", "Unknown")
@@ -792,7 +795,7 @@ class UnifiedRouter:
                 "model_year": model_year,
                 "pollutants": {
                     pollutant: {
-                        "curve": data["speed_curve"],
+                        "curve": curve_data,
                         "unit": data.get("unit", "g/mile")
                     }
                 },
@@ -820,7 +823,7 @@ class UnifiedRouter:
                 data = r["result"].get("data", {})
                 logger.info(f"[DEBUG TABLE] Data keys: {list(data.keys())}")
 
-                # 多污染物格式
+                # 多污染物格式 - 支持 speed_curve (return_curve=False) 和 curve (return_curve=True)
                 if "pollutants" in data:
                     logger.info(f"[DEBUG TABLE] Multi-pollutant format detected")
                     pollutants_data = data["pollutants"]
@@ -828,18 +831,14 @@ class UnifiedRouter:
                     first_pollutant = list(pollutants_data.keys())[0]
                     logger.info(f"[DEBUG TABLE] First pollutant: {first_pollutant}")
                     logger.info(f"[DEBUG TABLE] First pollutant data keys: {list(pollutants_data[first_pollutant].keys())}")
-                    # 注意：原始数据使用 speed_curve，不是 curve
-                    curve = pollutants_data[first_pollutant].get("speed_curve", [])
-                    logger.info(f"[DEBUG TABLE] Curve length: {len(curve)}")
-                    # 如果 speed_curve 为空，尝试 curve
-                    if not curve:
-                        curve = pollutants_data[first_pollutant].get("curve", [])
-                        logger.info(f"[DEBUG TABLE] Trying 'curve' field, length: {len(curve)}")
+                    # 支持 speed_curve 和 curve 两种格式
+                    first_curve = pollutants_data[first_pollutant].get("speed_curve", []) or pollutants_data[first_pollutant].get("curve", [])
+                    logger.info(f"[DEBUG TABLE] Curve length: {len(first_curve)}")
 
-                    if curve:
+                    if first_curve:
                         # 提取关键点（每10个点取1个）
-                        step = max(1, len(curve) // MAX_PREVIEW_ROWS)
-                        key_points = curve[::step][:MAX_PREVIEW_ROWS]
+                        step = max(1, len(first_curve) // MAX_PREVIEW_ROWS)
+                        key_points = first_curve[::step][:MAX_PREVIEW_ROWS]
 
                         # 构建列名：速度 + 各污染物
                         columns = ["速度 (km/h)"] + [f"{p} (g/km)" for p in pollutants_data.keys()]
@@ -850,8 +849,8 @@ class UnifiedRouter:
                             row_data = {"速度 (km/h)": f"{point['speed_kph']:.1f}"}
                             # 添加每个污染物在该速度下的排放率
                             for pollutant, pol_data in pollutants_data.items():
-                                # 注意：原始数据使用 speed_curve，不是 curve
-                                pol_curve = pol_data.get("speed_curve", [])
+                                # 支持 speed_curve 和 curve 两种格式
+                                pol_curve = pol_data.get("speed_curve", []) or pol_data.get("curve", [])
                                 # 找到对应速度的排放率
                                 idx = i * step
                                 if idx < len(pol_curve):
@@ -864,7 +863,7 @@ class UnifiedRouter:
                             "type": "query_emission_factors",
                             "columns": columns,
                             "preview_rows": preview_rows,
-                            "total_rows": len(curve),
+                            "total_rows": len(first_curve),
                             "total_columns": len(columns),
                             "summary": {
                                 "vehicle_type": data.get("vehicle_type", "Unknown"),
@@ -876,10 +875,10 @@ class UnifiedRouter:
                         logger.info(f"[DEBUG TABLE] Returning table data")
                         return table_result
 
-                # 单污染物格式
-                elif "speed_curve" in data:
+                # 单污染物格式 - 支持 speed_curve (return_curve=False) 和 curve (return_curve=True)
+                elif "speed_curve" in data or "curve" in data:
                     logger.info(f"[DEBUG TABLE] Single-pollutant format detected")
-                    curve = data["speed_curve"]
+                    curve = data.get("speed_curve", []) or data.get("curve", [])
                     pollutant = data.get("query_summary", {}).get("pollutant", "Unknown")
 
                     # 提取关键点
