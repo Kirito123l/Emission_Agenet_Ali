@@ -23,3 +23,18 @@ outputs/
 *.jpg
 *.jpeg
 .DS_Store
+
+# Debug and test files (local development only)
+debug_*.js
+test_*.py
+*_test.py
+
+# Configuration files (server-specific)
+*.service
+*.conf
+systemd/
+
+# Temporary files
+*.tmp
+*.temp
+CLEANUP_PLAN.md
