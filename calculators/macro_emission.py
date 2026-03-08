@@ -155,8 +155,22 @@ class MacroEmissionCalculator:
                 fleet_mix[vehicle_name] = (fleet_mix[vehicle_name] / total_percentage) * 100.0
 
         # 初始化结果
+        # Note: link_id should always be provided by the tool layer
+        # If still missing, use a placeholder but log a warning
+        link_id = link.get("link_id")
+        if not link_id or str(link_id).strip() == "" or str(link_id).strip() == "unknown":
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Missing or invalid link_id in link data: {link.get('link_id')}")
+            # Fallback: generate a sequential ID (though this should not happen if tool layer works correctly)
+            # We can't generate a proper sequential ID here without context, so use a hash-based fallback
+            import hashlib
+            link_str = str(link)
+            link_hash = hashlib.md5(link_str.encode()).hexdigest()[:8]
+            link_id = f"Link_{link_hash}"
+
         link_result = {
-            "link_id": link.get("link_id", "unknown"),
+            "link_id": link_id,
             "link_length_km": link["link_length_km"],
             "traffic_flow_vph": link["traffic_flow_vph"],
             "avg_speed_kph": link["avg_speed_kph"],

@@ -42,7 +42,7 @@ class MacroEmissionTool(BaseTool):
         """Auto-fix common parameter errors"""
         fixed_links = []
 
-        for link in links_data:
+        for idx, link in enumerate(links_data):
             fixed_link = {}
 
             # Field name mapping: correct_name -> possible_wrong_names
@@ -81,6 +81,35 @@ class MacroEmissionTool(BaseTool):
                     if fixed_fleet_mix:
                         fixed_link["fleet_mix"] = fixed_fleet_mix
                         logger.info("Auto-fixed fleet_mix format: array -> object")
+
+            # Generate link_id if missing or empty (FIX for "unknown" LINK_ID issue)
+            if not fixed_link.get("link_id"):
+                # Check if original link had any ID-like field
+                original_id = (
+                    link.get("id") or
+                    link.get("road_id") or
+                    link.get("segment_id") or
+                    link.get("link_id") or
+                    None
+                )
+
+                if original_id and str(original_id).strip():
+                    # Use the original ID if it exists and is not empty
+                    fixed_link["link_id"] = str(original_id).strip()
+                    logger.info(f"Using existing ID from field: {fixed_link['link_id']}")
+                else:
+                    # Generate a meaningful ID: Link_1, Link_2, Link_3...
+                    fixed_link["link_id"] = f"Link_{idx + 1}"
+                    logger.info(f"Generated link_id: {fixed_link['link_id']} for link at index {idx}")
+            else:
+                # If link_id exists but is empty string, also generate a new one
+                link_id = fixed_link.get("link_id", "")
+                if isinstance(link_id, str) and not link_id.strip():
+                    fixed_link["link_id"] = f"Link_{idx + 1}"
+                    logger.info(f"Replaced empty link_id with: {fixed_link['link_id']}")
+                elif link_id == "unknown":
+                    fixed_link["link_id"] = f"Link_{idx + 1}"
+                    logger.info(f"Replaced 'unknown' link_id with: {fixed_link['link_id']}")
 
             fixed_links.append(fixed_link)
 
