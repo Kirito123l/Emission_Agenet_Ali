@@ -38,3 +38,9 @@ systemd/
 *.tmp
 *.temp
 CLEANUP_PLAN.md
+GIS文件/
+test_data/test_shanghai_allroads.*
+test_data/*.zip
+data/users.db
+__pycache__/
+*.pyc
