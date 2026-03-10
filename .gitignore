@@ -1,4 +1,9 @@
+# ============ Environment & Secrets ============
 .env
+.env.*
+!.env.example
+
+# ============ Python Cache ============
 __pycache__/
 **/__pycache__/
 *.pyc
@@ -6,41 +11,51 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# ============ Virtual Environment ============
 .venv/
 venv/
-.env.*
-!.env.example
-data/sessions/
-logs/
-outputs/
+env/
+
+# ============ Runtime Data (Server-Specific) ============
+data/sessions/          # User session data
+data/users.db           # User database
+logs/                   # Application logs
+outputs/                # Generated outputs
+*.log
+
+# ============ Large Static Files (Excluded) ============
+GIS文件/                # Original Shapefiles (replaced by static_gis/)
+test_data/test_shanghai_allroads.*
+test_data/*.zip
+static_gis.tar.gz       # Compressed archive
+
+# ============ Development Files ============
 .claude/
 .git_backup_*/
-*.log
-*:Zone.Identifier
-*.backup
-*.bak
-*.png
-*.jpg
-*.jpeg
-.DS_Store
-
-# Debug and test files (local development only)
 debug_*.js
 test_*.py
 *_test.py
+CLEANUP_PLAN.md
+*.backup
+*.bak
+*.tmp
+*.temp
 
-# Configuration files (server-specific)
+# ============ OS & Editor Files ============
+.DS_Store
+*:Zone.Identifier
+Thumbs.db
+
+# ============ Server Configuration (Deploy Separately) ============
 *.service
 *.conf
 systemd/
+nginx/
+deploy/
 
-# Temporary files
-*.tmp
-*.temp
-CLEANUP_PLAN.md
-GIS文件/
-test_data/test_shanghai_allroads.*
-test_data/*.zip
-data/users.db
-__pycache__/
-*.pyc
+# ============ Media Files (If Not Required) ============
+# Uncomment if you don't need images in repo
+# *.png
+# *.jpg
+# *.jpeg

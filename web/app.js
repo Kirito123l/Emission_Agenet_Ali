@@ -1554,7 +1554,7 @@ function renderEmissionMap(mapData, msgContainer) {
                     <p class="text-slate-500 text-sm">显示 ${mapData.links.length} 个路段的 ${defaultPollutant} 排放</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <select id="${mapId}-pollutant" class="px-3 py-1.5 pr-8 rounded-md text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 min-w-[80px]" style="appearance: auto; -webkit-appearance: auto; -moz-appearance: auto;">
+                    <select id="${mapId}-pollutant" class="px-3 py-1.5 rounded-md text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 min-w-[80px] focus:outline-none focus:ring-2 focus:ring-primary">
                         ${pollutantOptions}
                     </select>
                 </div>
@@ -1643,6 +1643,46 @@ async function loadGISRoadNetwork() {
     return null;
 }
 
+// Helper function to update map polylines when switching pollutants (without recreating map)
+function updateMapPollutant(map, emissionLayer, mapData, pollutant) {
+    console.log(`[Map] Updating to pollutant: ${pollutant}`);
+
+    // Get color scale
+    const colorScale = mapData.color_scale || {};
+    const minVal = colorScale.min || 0;
+    const maxVal = colorScale.max || 100;
+
+    // Update each polyline's color and popup
+    emissionLayer.eachLayer(polyline => {
+        const link = polyline._linkData;
+        if (!link) return;
+
+        // Get emission value for new pollutant
+        const emission = link.emissions?.[pollutant] || 0;
+        const color = getEmissionColor(emission, minVal, maxVal);
+
+        // Update polyline color
+        polyline.setStyle({ color: color });
+
+        // Update popup content
+        const popupContent = `
+            <div style="min-width: 200px;">
+                <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(link.link_id)}</h3>
+                <div style="font-size: 13px; line-height: 1.6;">
+                    <div><strong>${pollutant}:</strong> ${emission.toFixed(2)} kg/(h·km)</div>
+                    <div><strong>单位排放率:</strong> ${(link.emission_rate?.[pollutant] || 0).toFixed(2)} g/(veh·km)</div>
+                    <div><strong>速度:</strong> ${link.avg_speed_kph || 0} km/h</div>
+                    <div><strong>流量:</strong> ${link.traffic_flow_vph || 0} veh/h</div>
+                    <div><strong>长度:</strong> ${link.link_length_km || 0} km</div>
+                </div>
+            </div>
+        `;
+        polyline.setPopupContent(popupContent);
+    });
+
+    console.log(`[Map] Updated ${emissionLayer.getLayers().length} polylines`);
+}
+
 function initLeafletMap(mapData, mapId, pollutant) {
     if (typeof L === 'undefined') {
         console.error('[Map] Leaflet not loaded');
@@ -1655,9 +1695,11 @@ function initLeafletMap(mapData, mapId, pollutant) {
         return;
     }
 
-    // Remove existing map if any
-    if (mapContainer._leaflet_map) {
-        mapContainer._leaflet_map.remove();
+    // Check if map already exists - if so, just update polylines
+    if (mapContainer._leaflet_map && mapContainer._emission_layer) {
+        console.log('[Map] Updating existing map with new pollutant');
+        updateMapPollutant(mapContainer._leaflet_map, mapContainer._emission_layer, mapData, pollutant);
+        return;
     }
 
     // Set white background for clean academic style
@@ -1665,9 +1707,12 @@ function initLeafletMap(mapData, mapId, pollutant) {
 
     // Initialize map WITHOUT setting initial view
     // The view will be set later based on emission data bounds
+    // Use Canvas renderer for better performance with many polylines
     const map = L.map(mapId, {
         attributionControl: true,
-        zoomControl: true
+        zoomControl: true,
+        preferCanvas: true,  // Use Canvas renderer for better performance
+        renderer: L.canvas({ padding: 0.5 })
     });
 
     // Store map reference for cleanup
@@ -1699,8 +1744,8 @@ function initLeafletMap(mapData, mapId, pollutant) {
         }
     });
 
-    // Load road network as optional overlay (hidden by default)
-    const roadLayerGroup = L.layerGroup();
+    // Load road network as optional overlay (shown by default)
+    const roadLayerGroup = L.layerGroup().addTo(map);  // Add to map by default
     loadGISRoadNetwork().then(roadData => {
         if (roadData && !roadData.error) {
             L.geoJSON(roadData, {
@@ -1747,7 +1792,7 @@ function initLeafletMap(mapData, mapId, pollutant) {
 
     // Draw links
     const bounds = [];
-    const polylines = [];
+    const emissionLayer = L.layerGroup();  // Create layer group for emission polylines
 
     mapData.links.forEach(link => {
         const coords = link.geometry || link.coordinates || [];
@@ -1764,8 +1809,12 @@ function initLeafletMap(mapData, mapId, pollutant) {
         const polyline = L.polyline(latLngs, {
             color: color,
             weight: lineWeight,
-            opacity: 0.8
-        }).addTo(map);
+            opacity: 0.9,  // Increased opacity for clearer visualization
+            smoothFactor: 1.0  // Smooth rendering
+        });
+
+        // Store link data for later updates
+        polyline._linkData = link;
 
         // Build popup content
         const popupContent = `
@@ -1783,11 +1832,19 @@ function initLeafletMap(mapData, mapId, pollutant) {
 
         // Add popup to polyline
         polyline.bindPopup(popupContent);
-        polylines.push(polyline);
+        emissionLayer.addLayer(polyline);
 
         // Extend bounds with converted coordinates
         latLngs.forEach(latlng => bounds.push(latlng));
     });
+
+    // Add emission layer to map
+    emissionLayer.addTo(map);
+
+    // Store emission layer and map data for later updates
+    mapContainer._emission_layer = emissionLayer;
+    mapContainer._map_data = mapData;
+    mapContainer._line_weight = lineWeight;
 
     // Fit map to show all emission links (ONLY based on emission data, not GIS basemap)
     if (bounds.length > 0) {
@@ -1795,8 +1852,8 @@ function initLeafletMap(mapData, mapId, pollutant) {
         // This ensures the map focuses on the emission data area, not the entire city
         const boundsObj = L.latLngBounds(bounds);
         map.fitBounds(boundsObj, {
-            padding: [10, 10],
-            maxZoom: 15  // Prevent zooming in too much for small areas
+            padding: [5, 5],
+            maxZoom: 16  // Allow closer zoom for better detail
         });
 
         // Invalidate size after a short delay to ensure proper rendering
@@ -1808,7 +1865,7 @@ function initLeafletMap(mapData, mapId, pollutant) {
         map.setView([31.2304, 121.4737], 12);
     }
 
-    console.log(`[Map] Initialized with ${polylines.length} links`);
+    console.log(`[Map] Initialized with ${emissionLayer.getLayers().length} links`);
 }
 
 function getEmissionColor(value, minVal, maxVal) {
