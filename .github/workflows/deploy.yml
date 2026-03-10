@@ -1,0 +1,88 @@
+name: Deploy to Alibaba Cloud
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts
+          echo "SSH setup completed"
+
+      - name: Deploy to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << 'ENDSSH'
+            set -e
+
+            echo "=========================================="
+            echo "🚀 Starting Deployment"
+            echo "=========================================="
+
+            # Navigate to project directory
+            cd /opt/emission_agent
+
+            # Pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git fetch origin
+            git reset --hard origin/main
+
+            # Activate virtual environment
+            echo "🐍 Activating virtual environment..."
+            source venv/bin/activate
+
+            # Install/update dependencies
+            echo "📦 Installing dependencies..."
+            pip install -r requirements.txt --upgrade
+
+            # Restart service
+            echo "🔄 Restarting service..."
+            sudo systemctl restart emission-agent
+
+            # Wait for service to start
+            sleep 3
+
+            # Check service status
+            echo "🔍 Checking service status..."
+            sudo systemctl status emission-agent --no-pager || true
+
+            echo "=========================================="
+            echo "✅ Deployment completed successfully!"
+            echo "=========================================="
+          ENDSSH
+
+      - name: Verify deployment
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << 'ENDSSH'
+            # Check if service is running
+            if sudo systemctl is-active --quiet emission-agent; then
+              echo "✅ Service is running"
+              exit 0
+            else
+              echo "❌ Service is not running"
+              exit 1
+            fi
+          ENDSSH
