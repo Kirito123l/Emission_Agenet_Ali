@@ -52,7 +52,7 @@ Thumbs.db
 *.conf
 systemd/
 nginx/
-deploy/
+# deploy/  # Now included in repo for CI/CD scripts
 
 # ============ Media Files (If Not Required) ============
 # Uncomment if you don't need images in repo
