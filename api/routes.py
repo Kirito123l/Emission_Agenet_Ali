@@ -700,6 +700,7 @@ async def get_gis_basemap():
     获取上海市行政区划底图（GeoJSON格式）
 
     返回16个行政区划的多边形边界，用作地图底图参考层
+    使用预处理的 GeoJSON 文件，无需实时读取 Shapefile
     """
     global _GIS_BASEMAP_CACHE
 
@@ -708,38 +709,30 @@ async def get_gis_basemap():
         return _GIS_BASEMAP_CACHE
 
     try:
-        import geopandas as gpd
         from pathlib import Path
 
-        # Path to Shanghai basemap Shapefile
-        shp_path = Path("GIS文件/上海市底图/上海市.shp")
+        # Path to preprocessed GeoJSON file
+        geojson_path = Path("static_gis/basemap.geojson")
 
-        if not shp_path.exists():
+        if not geojson_path.exists():
             return JSONResponse(
                 content={"error": "GIS底图文件不存在", "available": False},
                 status_code=200  # Return 200 to prevent frontend errors
             )
 
-        # Read Shapefile
-        gdf = gpd.read_file(shp_path)
-
-        # Convert to GeoJSON
-        geojson = gdf.to_json()
+        # Read preprocessed GeoJSON file
+        with open(geojson_path, 'r', encoding='utf-8') as f:
+            geojson_content = f.read()
 
         # Cache the result
         _GIS_BASEMAP_CACHE = Response(
-            content=geojson,
+            content=geojson_content,
             media_type="application/geo+json",
             headers={"Cache-Control": "public, max-age=86400"}  # Cache for 24 hours
         )
 
         return _GIS_BASEMAP_CACHE
 
-    except ImportError:
-        return JSONResponse(
-            content={"error": "geopandas未安装，无法读取GIS数据", "available": False},
-            status_code=200
-        )
     except Exception as e:
         logger.exception(f"[GIS] Failed to load basemap: {e}")
         return JSONResponse(
@@ -754,6 +747,7 @@ async def get_gis_roadnetwork():
     获取上海市路网底图（简化版GeoJSON格式）
 
     返回简化后的道路网络，用作地图底图参考层
+    使用预处理的 GeoJSON 文件，无需实时读取 Shapefile
     """
     global _GIS_ROADNETWORK_CACHE
 
@@ -762,48 +756,30 @@ async def get_gis_roadnetwork():
         return _GIS_ROADNETWORK_CACHE
 
     try:
-        import geopandas as gpd
         from pathlib import Path
 
-        # Path to Shanghai road network Shapefile
-        shp_path = Path("GIS文件/上海市路网/opt_link.shp")
+        # Path to preprocessed GeoJSON file
+        geojson_path = Path("static_gis/roadnetwork.geojson")
 
-        if not shp_path.exists():
+        if not geojson_path.exists():
             return JSONResponse(
                 content={"error": "GIS路网文件不存在", "available": False},
                 status_code=200
             )
 
-        # Read Shapefile
-        gdf = gpd.read_file(shp_path)
-
-        # Simplify geometry to reduce file size
-        # Only keep essential fields
-        essential_fields = ['geometry', 'highway', 'name']
-        available_fields = [f for f in essential_fields if f in gdf.columns]
-        gdf_simplified = gdf[available_fields].copy()
-
-        # Simplify geometry (tolerance 0.001 degrees ≈ 100m)
-        if hasattr(gdf_simplified.geometry, 'simplify'):
-            gdf_simplified['geometry'] = gdf_simplified.geometry.simplify(tolerance=0.001, preserve_topology=True)
-
-        # Convert to GeoJSON
-        geojson = gdf_simplified.to_json()
+        # Read preprocessed GeoJSON file
+        with open(geojson_path, 'r', encoding='utf-8') as f:
+            geojson_content = f.read()
 
         # Cache the result
         _GIS_ROADNETWORK_CACHE = Response(
-            content=geojson,
+            content=geojson_content,
             media_type="application/geo+json",
             headers={"Cache-Control": "public, max-age=86400"}  # Cache for 24 hours
         )
 
         return _GIS_ROADNETWORK_CACHE
 
-    except ImportError:
-        return JSONResponse(
-            content={"error": "geopandas未安装，无法读取GIS数据", "available": False},
-            status_code=200
-        )
     except Exception as e:
         logger.exception(f"[GIS] Failed to load road network: {e}")
         return JSONResponse(
