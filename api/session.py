@@ -44,7 +44,7 @@ class Session:
         异步聊天接口
 
         Returns:
-            Dict with keys: text, chart_data, table_data, download_file
+            Dict with keys: text, chart_data, table_data, map_data, download_file
         """
         result = await self.router.chat(user_message=message, file_path=file_path)
 
@@ -52,6 +52,7 @@ class Session:
             "text": result.text,
             "chart_data": result.chart_data,
             "table_data": result.table_data,
+            "map_data": result.map_data,
             "download_file": result.download_file
         }
 
@@ -61,6 +62,7 @@ class Session:
         assistant_response: str,
         chart_data: Optional[Dict] = None,
         table_data: Optional[Dict] = None,
+        map_data: Optional[Dict] = None,
         data_type: Optional[str] = None,
         file_id: Optional[str] = None,  # 添加 file_id 参数
         download_file: Optional[Dict] = None,
@@ -78,6 +80,7 @@ class Session:
             "content": assistant_response,
             "chart_data": chart_data,
             "table_data": table_data,
+            "map_data": map_data,
             "data_type": data_type,
             "message_id": assistant_message_id,
             "file_id": file_id,  # 保存 file_id

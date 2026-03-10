@@ -24,6 +24,7 @@ class ToolResult:
     chart_data: Optional[Dict] = None  # Chart data for visualization
     table_data: Optional[Dict] = None  # Table data for display
     download_file: Optional[str] = None  # File path for download
+    map_data: Optional[Dict[str, Any]] = None  # Map data for geographic visualization
 
 
 class BaseTool(ABC):
@@ -60,7 +61,8 @@ class BaseTool(ABC):
         summary: str,
         chart_data: Optional[Dict] = None,
         table_data: Optional[Dict] = None,
-        download_file: Optional[str] = None
+        download_file: Optional[str] = None,
+        map_data: Optional[Dict[str, Any]] = None
     ) -> ToolResult:
         """Helper to create success result"""
         return ToolResult(
@@ -69,7 +71,8 @@ class BaseTool(ABC):
             summary=summary,
             chart_data=chart_data,
             table_data=table_data,
-            download_file=download_file
+            download_file=download_file,
+            map_data=map_data
         )
 
     def _error(self, message: str, suggestions: Optional[list] = None) -> ToolResult:

@@ -100,6 +100,7 @@ class ToolExecutor:
                 "summary": result.summary,
                 "chart_data": result.chart_data,
                 "table_data": result.table_data,
+                "map_data": result.map_data,
                 "download_file": result.download_file,
                 "message": result.error if result.error else result.summary
             }

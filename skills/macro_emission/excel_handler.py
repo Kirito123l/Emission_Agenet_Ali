@@ -18,7 +18,7 @@ class ExcelHandler:
     """Excel文件处理器"""
 
     REQUIRED_FIELDS = ("link_length_km", "traffic_flow_vph", "avg_speed_kph")
-    OPTIONAL_FIELDS = ("link_id",)
+    OPTIONAL_FIELDS = ("link_id", "geometry")
     ALL_FIELDS = REQUIRED_FIELDS + OPTIONAL_FIELDS
 
     # 用于 direct match / 语义 fallback 的通用短语，不针对单一样本文件硬编码
@@ -27,6 +27,7 @@ class ExcelHandler:
         "traffic_flow_vph": ["traffic_flow_vph", "flow_vph", "flow", "traffic", "volume", "veh_per_hour", "交通流量", "流量", "交通量"],
         "avg_speed_kph": ["avg_speed_kph", "speed_kph", "speed_kmh", "speed", "avg_speed", "velocity", "平均速度", "速度"],
         "link_id": ["link_id", "segment_id", "id", "link", "路段id", "路段编号", "编号", "名称", "name"],
+        "geometry": ["geometry", "geom", "wkt", "shape", "几何", "路段几何", "坐标"],
     }
 
     STANDARD_VEHICLE_TYPES = [
@@ -154,6 +155,13 @@ class ExcelHandler:
                 fleet_mix = self._parse_fleet_mix(row, vehicle_columns)
                 if fleet_mix:
                     link_data["fleet_mix"] = fleet_mix
+
+                # Preserve geometry column if present
+                geometry_col = field_to_column.get("geometry")
+                if geometry_col is not None and pd.notna(row[geometry_col]):
+                    geom_value = str(row[geometry_col]).strip()
+                    if geom_value:
+                        link_data["geometry"] = geom_value
 
                 links_data.append(link_data)
 
@@ -574,7 +582,41 @@ class ExcelHandler:
 
             # 1. 读取原始文件
             path = Path(original_file_path)
-            if path.suffix.lower() == '.csv':
+
+            # Handle ZIP files: extract and read the contained file
+            if path.suffix.lower() == '.zip':
+                import zipfile
+                import tempfile
+
+                with zipfile.ZipFile(original_file_path, 'r') as zip_ref:
+                    file_list = zip_ref.namelist()
+
+                    # Check for Shapefile first
+                    shp_files = [f for f in file_list if f.endswith('.shp')]
+                    if shp_files:
+                        # For Shapefile, create a DataFrame from emission_results
+                        # since we can't easily read the original Shapefile structure
+                        df_original = pd.DataFrame(emission_results)
+                        # Remove emission columns to get original structure
+                        emission_cols = [col for col in df_original.columns if any(p in col for p in pollutants)]
+                        df_original = df_original.drop(columns=emission_cols, errors='ignore')
+                    else:
+                        # Check for Excel/CSV files
+                        excel_files = [f for f in file_list if f.endswith(('.xlsx', '.xls', '.csv'))]
+                        if excel_files:
+                            with tempfile.TemporaryDirectory() as tmp_dir:
+                                extracted_path = os.path.join(tmp_dir, excel_files[0])
+                                with zip_ref.open(excel_files[0]) as source:
+                                    with open(extracted_path, 'wb') as target:
+                                        target.write(source.read())
+
+                                if excel_files[0].endswith('.csv'):
+                                    df_original = pd.read_csv(extracted_path)
+                                else:
+                                    df_original = pd.read_excel(extracted_path)
+                        else:
+                            return False, None, None, "ZIP文件中未找到支持的数据文件"
+            elif path.suffix.lower() == '.csv':
                 df_original = pd.read_csv(original_file_path)
             elif path.suffix.lower() in ['.xlsx', '.xls']:
                 df_original = pd.read_excel(original_file_path)

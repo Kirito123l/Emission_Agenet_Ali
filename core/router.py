@@ -37,6 +37,7 @@ class RouterResponse:
     text: str
     chart_data: Optional[Dict] = None
     table_data: Optional[Dict] = None
+    map_data: Optional[Dict] = None
     download_file: Optional[str] = None
     executed_tool_calls: Optional[List[Dict[str, Any]]] = None
 
@@ -269,17 +270,22 @@ class UnifiedRouter:
         # Extract data for frontend
         chart_data = self._extract_chart_data(tool_results)
         table_data = self._extract_table_data(tool_results)
+        map_data = self._extract_map_data(tool_results)
         download_file = self._extract_download_file(tool_results)
 
         logger.info(f"[DEBUG EXTRACT] chart_data: {bool(chart_data)}")
         logger.info(f"[DEBUG EXTRACT] table_data: {bool(table_data)}")
+        logger.info(f"[DEBUG EXTRACT] map_data: {bool(map_data)}")
         if table_data:
             logger.info(f"[DEBUG EXTRACT] table_data type: {table_data.get('type')}, rows: {len(table_data.get('preview_rows', []))}")
+        if map_data:
+            logger.info(f"[DEBUG EXTRACT] map_data links: {len(map_data.get('links', []))}")
 
         return RouterResponse(
             text=synthesis_text,
             chart_data=chart_data,
             table_data=table_data,
+            map_data=map_data,
             download_file=download_file,
             executed_tool_calls=self._build_memory_tool_calls(tool_results),
         )
@@ -1048,6 +1054,35 @@ class UnifiedRouter:
                 return metadata["download_file"]
 
         logger.warning("[DEBUG] No download_file found in any tool result")
+        return None
+
+    def _extract_map_data(self, tool_results: list) -> Optional[Dict]:
+        """
+        Extract map data from macro emission calculation results
+
+        Returns:
+            Map data dict or None if no geometry found
+        """
+        logger.info(f"[DEBUG] Extracting map_data from {len(tool_results)} tool results")
+
+        for r in tool_results:
+            result = r["result"]
+            logger.info(f"[DEBUG] Checking tool: {r['name']}")
+
+            # Check for map_data at tool result level
+            if result.get("map_data"):
+                map_data = result["map_data"]
+                logger.info(f"[DEBUG] Found map_data with {len(map_data.get('links', []))} links")
+                return map_data
+
+            # Also check data.map_data (for compatibility)
+            data = result.get("data", {})
+            if data and data.get("map_data"):
+                map_data = data["map_data"]
+                logger.info(f"[DEBUG] Found map_data in data with {len(map_data.get('links', []))} links")
+                return map_data
+
+        logger.info("[DEBUG] No map_data found in any tool result")
         return None
 
     def clear_history(self):

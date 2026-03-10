@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, Response, JSONResponse
 from typing import Optional, Dict, Any
 from urllib.parse import quote
 
@@ -361,6 +361,7 @@ async def chat(
         reply_text = result.get("text", "")
         chart_data = result.get("chart_data")
         table_data = result.get("table_data")
+        map_data = result.get("map_data")
         assistant_message_id = uuid.uuid4().hex[:12]
         download_file = normalize_download_file(
             result.get("download_file"),
@@ -372,13 +373,18 @@ async def chat(
         logger.info(f"[DEBUG API] download_file from router: {download_file}")
         logger.info(f"[DEBUG API] download_file type: {type(download_file)}")
         logger.info(f"[DEBUG API] download_file bool: {bool(download_file)}")
+        logger.info(f"[DEBUG API] map_data from router: {bool(map_data)}")
 
         # 确定数据类型
         data_type = None
         if chart_data:
             data_type = "chart"
+        elif table_data and map_data:
+            data_type = "table_and_map"
         elif table_data:
             data_type = "table"
+        elif map_data:
+            data_type = "map"
 
         # 将下载信息绑定到表格数据，确保历史消息也能渲染下载按钮
         table_data = attach_download_to_table_data(table_data, download_file)
@@ -395,6 +401,7 @@ async def chat(
             data_type=data_type,
             chart_data=chart_data,
             table_data=table_data,
+            map_data=map_data,
             file_id=session.session_id if download_file else None,
             download_file=download_file,
             message_id=assistant_message_id
@@ -406,6 +413,7 @@ async def chat(
             assistant_response=reply_text,
             chart_data=chart_data,
             table_data=table_data,
+            map_data=map_data,
             data_type=data_type,
             file_id=session.session_id if download_file else None,  # 添加 file_id
             download_file=download_file,
@@ -515,9 +523,10 @@ async def chat_stream(
                 }, ensure_ascii=False) + "\n"
                 await asyncio.sleep(0.05)  # 模拟打字效果
 
-            # 7. 处理图表/表格数据（从RouterResponse直接获取）
+            # 7. 处理图表/表格/地图数据（从RouterResponse直接获取）
             chart_data = result.get("chart_data")
             table_data = result.get("table_data")
+            map_data = result.get("map_data")
             assistant_message_id = uuid.uuid4().hex[:12]
             download_file = normalize_download_file(
                 result.get("download_file"),
@@ -529,8 +538,10 @@ async def chat_stream(
             logger.info(f"[DEBUG STREAM] download_file from router: {download_file}")
             logger.info(f"[DEBUG STREAM] download_file type: {type(download_file)}")
             logger.info(f"[DEBUG STREAM] download_file bool: {bool(download_file)}")
+            logger.info(f"[DEBUG STREAM] table_data from router: {bool(table_data)}")
+            logger.info(f"[DEBUG STREAM] map_data from router: {bool(map_data)}")
 
-            # 确定数据类型（优先级：chart > table）
+            # 确定数据类型（优先级：chart > table > map）
             data_type = None
             if chart_data:
                 data_type = "chart"
@@ -543,10 +554,24 @@ async def chat_stream(
             if table_data:
                 if not data_type:  # 如果没有图表，设置 data_type 为 table
                     data_type = "table"
+                logger.info(f"[DEBUG STREAM] About to send table event, data_type={data_type}")
                 table_data = attach_download_to_table_data(table_data, download_file)
+                logger.info(f"[DEBUG STREAM] After attach_download, table_data keys: {list(table_data.keys()) if table_data else 'None'}")
                 yield json.dumps({
                     "type": "table",
                     "content": table_data
+                }, ensure_ascii=False) + "\n"
+                logger.info(f"[DEBUG STREAM] Table event sent successfully")
+
+            # 发送地图数据
+            if map_data:
+                if not data_type:
+                    data_type = "map"
+                elif data_type == "table":
+                    data_type = "table_and_map"
+                yield json.dumps({
+                    "type": "map",
+                    "content": map_data
                 }, ensure_ascii=False) + "\n"
 
             # 如果有下载文件，更新session
@@ -564,6 +589,7 @@ async def chat_stream(
                 assistant_response=reply_text,
                 chart_data=chart_data,
                 table_data=table_data,
+                map_data=map_data,
                 data_type=data_type,
                 file_id=session.session_id if download_file else None,  # 添加 file_id
                 download_file=download_file,
@@ -577,6 +603,7 @@ async def chat_stream(
                 "session_id": session.session_id,
                 "file_id": session.session_id if download_file else None,
                 "download_file": download_file,
+                "map_data": map_data,
                 "message_id": assistant_message_id
             }, ensure_ascii=False) + "\n"
 
@@ -600,7 +627,7 @@ async def chat_stream(
 @router.post("/file/preview", response_model=FilePreviewResponse)
 async def preview_file(file: UploadFile = File(...)):
     """
-    预览上传的Excel文件（前5行）
+    预览上传的Excel文件（前5行）或 Shapefile 压缩包
 
     用于在发送前让用户确认文件内容
     """
@@ -613,6 +640,20 @@ async def preview_file(file: UploadFile = File(...)):
 
         # 根据文件类型读取
         suffix = Path(file.filename).suffix.lower()
+
+        # 处理 zip 文件（Shapefile）
+        if suffix == ".zip":
+            return FilePreviewResponse(
+                filename=file.filename,
+                size_kb=len(content) / 1024,
+                rows_total=None,
+                columns=[],
+                preview_rows=[],
+                detected_type="shapefile",
+                warnings=["Shapefile 压缩包，将自动提取几何信息"]
+            )
+
+        # 处理 CSV 和 Excel 文件
         if suffix == ".csv":
             df = pd.read_csv(pd.io.common.BytesIO(content))
         else:
@@ -647,6 +688,129 @@ async def preview_file(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"文件解析失败: {str(e)}")
+
+# GIS底图缓存
+_GIS_BASEMAP_CACHE = None
+_GIS_ROADNETWORK_CACHE = None
+
+
+@router.get("/gis/basemap")
+async def get_gis_basemap():
+    """
+    获取上海市行政区划底图（GeoJSON格式）
+
+    返回16个行政区划的多边形边界，用作地图底图参考层
+    """
+    global _GIS_BASEMAP_CACHE
+
+    # Return cached data if available
+    if _GIS_BASEMAP_CACHE is not None:
+        return _GIS_BASEMAP_CACHE
+
+    try:
+        import geopandas as gpd
+        from pathlib import Path
+
+        # Path to Shanghai basemap Shapefile
+        shp_path = Path("GIS文件/上海市底图/上海市.shp")
+
+        if not shp_path.exists():
+            return JSONResponse(
+                content={"error": "GIS底图文件不存在", "available": False},
+                status_code=200  # Return 200 to prevent frontend errors
+            )
+
+        # Read Shapefile
+        gdf = gpd.read_file(shp_path)
+
+        # Convert to GeoJSON
+        geojson = gdf.to_json()
+
+        # Cache the result
+        _GIS_BASEMAP_CACHE = Response(
+            content=geojson,
+            media_type="application/geo+json",
+            headers={"Cache-Control": "public, max-age=86400"}  # Cache for 24 hours
+        )
+
+        return _GIS_BASEMAP_CACHE
+
+    except ImportError:
+        return JSONResponse(
+            content={"error": "geopandas未安装，无法读取GIS数据", "available": False},
+            status_code=200
+        )
+    except Exception as e:
+        logger.exception(f"[GIS] Failed to load basemap: {e}")
+        return JSONResponse(
+            content={"error": f"加载GIS底图失败: {str(e)}", "available": False},
+            status_code=200
+        )
+
+
+@router.get("/gis/roadnetwork")
+async def get_gis_roadnetwork():
+    """
+    获取上海市路网底图（简化版GeoJSON格式）
+
+    返回简化后的道路网络，用作地图底图参考层
+    """
+    global _GIS_ROADNETWORK_CACHE
+
+    # Return cached data if available
+    if _GIS_ROADNETWORK_CACHE is not None:
+        return _GIS_ROADNETWORK_CACHE
+
+    try:
+        import geopandas as gpd
+        from pathlib import Path
+
+        # Path to Shanghai road network Shapefile
+        shp_path = Path("GIS文件/上海市路网/opt_link.shp")
+
+        if not shp_path.exists():
+            return JSONResponse(
+                content={"error": "GIS路网文件不存在", "available": False},
+                status_code=200
+            )
+
+        # Read Shapefile
+        gdf = gpd.read_file(shp_path)
+
+        # Simplify geometry to reduce file size
+        # Only keep essential fields
+        essential_fields = ['geometry', 'highway', 'name']
+        available_fields = [f for f in essential_fields if f in gdf.columns]
+        gdf_simplified = gdf[available_fields].copy()
+
+        # Simplify geometry (tolerance 0.001 degrees ≈ 100m)
+        if hasattr(gdf_simplified.geometry, 'simplify'):
+            gdf_simplified['geometry'] = gdf_simplified.geometry.simplify(tolerance=0.001, preserve_topology=True)
+
+        # Convert to GeoJSON
+        geojson = gdf_simplified.to_json()
+
+        # Cache the result
+        _GIS_ROADNETWORK_CACHE = Response(
+            content=geojson,
+            media_type="application/geo+json",
+            headers={"Cache-Control": "public, max-age=86400"}  # Cache for 24 hours
+        )
+
+        return _GIS_ROADNETWORK_CACHE
+
+    except ImportError:
+        return JSONResponse(
+            content={"error": "geopandas未安装，无法读取GIS数据", "available": False},
+            status_code=200
+        )
+    except Exception as e:
+        logger.exception(f"[GIS] Failed to load road network: {e}")
+        return JSONResponse(
+            content={"error": f"加载GIS路网失败: {str(e)}", "available": False},
+            status_code=200
+        )
+
 
 @router.get("/file/download/{file_id}")
 async def download_file(file_id: str, request: Request, user_id: Optional[str] = Query(None)):

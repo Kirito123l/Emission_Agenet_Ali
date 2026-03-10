@@ -133,7 +133,7 @@ const sessionListContainer = document.querySelector('aside .flex.flex-col.gap-1'
 // 创建隐藏的文件输入
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
-fileInput.accept = '.xlsx,.xls,.csv';
+fileInput.accept = '.xlsx,.xls,.csv,.zip';
 fileInput.style.display = 'none';
 document.body.appendChild(fileInput);
 
@@ -339,12 +339,27 @@ async function sendMessageStream(message, file) {
                         case 'table':
                             // 渲染表格
                             hideTypingIndicator();
+                            console.log('[DEBUG] Table event received:', {
+                                content: data.content,
+                                assistantMsgId,
+                                download_file: data.download_file,
+                                file_id: data.file_id
+                            });
                             renderTable(
                                 data.content,
                                 assistantMsgId,
                                 data.download_file || null,
                                 data.file_id || null
                             );
+                            break;
+
+                        case 'map':
+                            // 渲染地图
+                            hideTypingIndicator();
+                            const container = document.getElementById(assistantMsgId);
+                            if (container) {
+                                renderEmissionMap(data.content, container);
+                            }
                             break;
 
                         case 'done':
@@ -500,11 +515,30 @@ function renderChart(chartData, msgId) {
 }
 
 function renderTable(tableData, msgId, downloadFile = null, fileId = null) {
+    console.log('[DEBUG] renderTable called:', {
+        msgId,
+        tableData,
+        downloadFile,
+        fileId
+    });
+
     const container = document.getElementById(msgId);
-    if (!container) return;
+    if (!container) {
+        console.error('[DEBUG] Container not found for msgId:', msgId);
+        return;
+    }
 
     const tableHtml = renderResultTable(tableData, fileId || tableData.file_id, downloadFile);
-    container.querySelector('.message-content').insertAdjacentHTML('beforeend', tableHtml);
+    console.log('[DEBUG] Table HTML generated, length:', tableHtml.length);
+
+    const messageContent = container.querySelector('.message-content');
+    if (!messageContent) {
+        console.error('[DEBUG] .message-content not found in container');
+        return;
+    }
+
+    messageContent.insertAdjacentHTML('beforeend', tableHtml);
+    console.log('[DEBUG] Table inserted successfully');
 }
 
 async function handleFileSelect(e) {
@@ -867,6 +901,7 @@ function renderHistory(messages) {
             console.log('[DEBUG] 渲染历史消息:', {
                 has_chart_data: !!msg.chart_data,
                 has_table_data: !!msg.table_data,
+                has_map_data: !!msg.map_data,
                 data_type: msg.data_type,
                 file_id: msg.file_id,  // 添加调试日志
                 has_download_file: !!msg.download_file
@@ -877,6 +912,7 @@ function renderHistory(messages) {
                 data_type: msg.data_type,
                 chart_data: msg.chart_data,
                 table_data: msg.table_data,
+                map_data: msg.map_data,
                 has_data: msg.has_data,
                 file_id: msg.file_id,  // 添加 file_id
                 download_file: msg.download_file
@@ -937,13 +973,19 @@ function addAssistantMessage(data) {
                                typeof data.table_data === 'object' &&
                                Object.keys(data.table_data).length > 0;
 
+    const hasValidMapData = data.map_data &&
+                            data.map_data.links &&
+                            data.map_data.links.length > 0;
+
     // 调试日志
     console.log('[DEBUG] addAssistantMessage:', {
         data_type: data.data_type,
         hasValidChartData,
         hasValidTableData,
+        hasValidMapData,
         chart_data_keys: data.chart_data ? Object.keys(data.chart_data) : null,
-        table_data_keys: data.table_data ? Object.keys(data.table_data) : null
+        table_data_keys: data.table_data ? Object.keys(data.table_data) : null,
+        map_data_links: data.map_data ? data.map_data.links?.length : 0
     });
 
     // 添加图表（排放因子曲线）
@@ -982,18 +1024,29 @@ function addAssistantMessage(data) {
             </div>
             <div class="flex flex-col gap-4 flex-1 min-w-0">
                 <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-                    ${contentHtml}
+                    <div class="message-content">${contentHtml}</div>
                 </div>
             </div>
         </div>
     `;
     messagesContainer.insertAdjacentHTML('beforeend', html);
-    scrollToBottom();
+
+    // Get message container for map/chart rendering
+    const msgContainers = messagesContainer.querySelectorAll('.flex.justify-start');
+    const msgContainer = msgContainers[msgContainers.length - 1];
 
     // 初始化图表（如果有）
     if (data.data_type === 'chart' && data.chart_data && chartId) {
         initEmissionChart(data.chart_data, chartId);
     }
+
+    // 初始化地图（如果有）
+    if (hasValidMapData) {
+        console.log('[DEBUG] 显示排放地图');
+        renderEmissionMap(data.map_data, msgContainer);
+    }
+
+    scrollToBottom();
 }
 
 function addLoadingMessage() {
@@ -1464,6 +1517,337 @@ function initEmissionChart(chartData, chartId) {
             });
         });
     });
+}
+
+// ==================== 地图渲染函数 ====================
+
+function renderEmissionMap(mapData, msgContainer) {
+    if (!mapData || !mapData.links || mapData.links.length === 0) {
+        console.warn('[Map] No valid map data provided');
+        return;
+    }
+
+    console.log(`[Map] renderEmissionMap called with ${mapData.links.length} links`);
+
+    const mapId = `emission-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const pollutants = Object.keys(mapData.links[0].emissions || {});
+    const defaultPollutant = mapData.pollutant || (pollutants[0] || 'CO2');
+
+    // Create pollutant selector options
+    const pollutantOptions = pollutants.map(p =>
+        `<option value="${p}" ${p === defaultPollutant ? 'selected' : ''}>${p}</option>`
+    ).join('');
+
+    // Create color scale legend
+    const colorScale = mapData.color_scale || {};
+    const minVal = colorScale.min || 0;
+    const maxVal = colorScale.max || 100;
+    const colors = colorScale.colors || ['#fee5d9', '#fcae91', '#fb6a4a', '#de2d26', '#a50f15'];
+    const legendGradient = `linear-gradient(to right, ${colors.join(', ')})`;
+
+    // Build map HTML
+    const mapHtml = `
+        <div class="w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-slate-900 dark:text-white font-bold text-lg">路段排放地图</h3>
+                    <p class="text-slate-500 text-sm">显示 ${mapData.links.length} 个路段的 ${defaultPollutant} 排放</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <select id="${mapId}-pollutant" class="px-3 py-1.5 pr-8 rounded-md text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 min-w-[80px]" style="appearance: auto; -webkit-appearance: auto; -moz-appearance: auto;">
+                        ${pollutantOptions}
+                    </select>
+                </div>
+            </div>
+            <div id="${mapId}" style="height: 480px;" class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
+            <div class="mt-4 flex items-center gap-4 text-sm">
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-600 dark:text-slate-400">低排放</span>
+                    <div class="w-40 h-3 rounded" style="background: ${legendGradient}"></div>
+                    <span class="text-slate-600 dark:text-slate-400">高排放</span>
+                </div>
+                <div class="ml-auto text-slate-500 dark:text-slate-400">
+                    <span>${minVal.toFixed(2)} - ${maxVal.toFixed(2)} kg/(h·km)</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Insert map into message content
+    const contentDiv = msgContainer.querySelector('.message-content');
+    console.log('[Map] msgContainer:', msgContainer);
+    console.log('[Map] contentDiv found:', !!contentDiv);
+
+    if (contentDiv) {
+        contentDiv.insertAdjacentHTML('beforeend', mapHtml);
+        scrollToBottom();
+
+        // Initialize map after a delay to ensure DOM is ready
+        setTimeout(() => {
+            console.log(`[Map] Initializing map ${mapId}`);
+            const mapContainer = document.getElementById(mapId);
+            if (!mapContainer) {
+                console.error(`[Map] Map container ${mapId} not found in DOM`);
+                return;
+            }
+
+            initLeafletMap(mapData, mapId, defaultPollutant);
+
+            // Add pollutant change listener
+            const select = document.getElementById(`${mapId}-pollutant`);
+            if (select) {
+                select.addEventListener('change', (e) => {
+                    const newPollutant = e.target.value;
+                    console.log(`[Map] Switching to pollutant: ${newPollutant}`);
+                    initLeafletMap(mapData, mapId, newPollutant);
+                });
+            }
+        }, 150);  // Increased delay to 150ms for better reliability
+    } else {
+        console.error('[Map] Message content div not found');
+    }
+}
+
+// ==================== GIS 底图加载 ====================
+
+let GIS_BASEMAP_DATA = null;
+let GIS_ROADNETWORK_DATA = null;
+
+async function loadGISBasemap() {
+    if (GIS_BASEMAP_DATA !== null) return GIS_BASEMAP_DATA;
+
+    try {
+        const response = await fetch(`${API_BASE}/gis/basemap`);
+        if (response.ok) {
+            GIS_BASEMAP_DATA = await response.json();
+            return GIS_BASEMAP_DATA;
+        }
+    } catch (e) {
+        console.warn('[GIS] Failed to load basemap:', e);
+    }
+    return null;
+}
+
+async function loadGISRoadNetwork() {
+    if (GIS_ROADNETWORK_DATA !== null) return GIS_ROADNETWORK_DATA;
+
+    try {
+        const response = await fetch(`${API_BASE}/gis/roadnetwork`);
+        if (response.ok) {
+            GIS_ROADNETWORK_DATA = await response.json();
+            return GIS_ROADNETWORK_DATA;
+        }
+    } catch (e) {
+        console.warn('[GIS] Failed to load road network:', e);
+    }
+    return null;
+}
+
+function initLeafletMap(mapData, mapId, pollutant) {
+    if (typeof L === 'undefined') {
+        console.error('[Map] Leaflet not loaded');
+        return;
+    }
+
+    const mapContainer = document.getElementById(mapId);
+    if (!mapContainer) {
+        console.error(`[Map] Map container not found: ${mapId}`);
+        return;
+    }
+
+    // Remove existing map if any
+    if (mapContainer._leaflet_map) {
+        mapContainer._leaflet_map.remove();
+    }
+
+    // Set white background for clean academic style
+    mapContainer.style.backgroundColor = '#ffffff';
+
+    // Initialize map WITHOUT setting initial view
+    // The view will be set later based on emission data bounds
+    const map = L.map(mapId, {
+        attributionControl: true,
+        zoomControl: true
+    });
+
+    // Store map reference for cleanup
+    mapContainer._leaflet_map = map;
+
+    // Track if GIS basemap loaded successfully
+    let gisBasemapLoaded = false;
+
+    // Load GIS basemap as primary background (administrative boundaries)
+    loadGISBasemap().then(basemapData => {
+        if (basemapData && !basemapData.error) {
+            gisBasemapLoaded = true;
+            L.geoJSON(basemapData, {
+                style: {
+                    color: '#cccccc',
+                    weight: 1.5,
+                    fillColor: '#f8f8f8',
+                    fillOpacity: 0.3
+                }
+            }).addTo(map);
+        } else {
+            // Fallback: use CartoDB Positron if GIS basemap not available
+            console.warn('[Map] GIS basemap not available, using CartoDB Positron');
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+        }
+    });
+
+    // Load road network as optional overlay (hidden by default)
+    const roadLayerGroup = L.layerGroup();
+    loadGISRoadNetwork().then(roadData => {
+        if (roadData && !roadData.error) {
+            L.geoJSON(roadData, {
+                style: {
+                    color: '#e0e0e0',
+                    weight: 0.5,
+                    opacity: 0.5
+                }
+            }).addTo(roadLayerGroup);
+        }
+    });
+
+    // Add layer control (only road network as optional overlay)
+    L.control.layers(null, {
+        "路网": roadLayerGroup
+    }, {
+        position: 'topright',
+        collapsed: true
+    }).addTo(map);
+
+    // Custom attribution
+    map.attributionControl.setPrefix('© Emission Agent');
+
+    // Get color scale
+    const colorScale = mapData.color_scale || {};
+    const minVal = colorScale.min || 0;
+    const maxVal = colorScale.max || 100;
+
+    // Determine line weight based on number of links (adaptive scaling)
+    const linkCount = mapData.links ? mapData.links.length : 0;
+    let lineWeight;
+    if (linkCount > 10000) {
+        lineWeight = 1;      // Very large scale: very thin lines
+    } else if (linkCount > 1000) {
+        lineWeight = 1.5;    // Large scale: thin lines
+    } else if (linkCount > 100) {
+        lineWeight = 2.5;    // Medium scale
+    } else if (linkCount > 20) {
+        lineWeight = 3.5;    // Small scale
+    } else {
+        lineWeight = 5;      // Few links: thick lines
+    }
+    console.log(`[Map] Adaptive line weight: ${lineWeight} for ${linkCount} links`);
+
+    // Draw links
+    const bounds = [];
+    const polylines = [];
+
+    mapData.links.forEach(link => {
+        const coords = link.geometry || link.coordinates || [];
+        if (!coords || coords.length < 2) return;
+
+        // Get emission value for current pollutant
+        const emission = link.emissions?.[pollutant] || 0;
+        const color = getEmissionColor(emission, minVal, maxVal);
+
+        // Convert [lon, lat] to [lat, lon] for Leaflet
+        const latLngs = coords.map(c => [c[1], c[0]]);
+
+        // Create polyline with adaptive weight
+        const polyline = L.polyline(latLngs, {
+            color: color,
+            weight: lineWeight,
+            opacity: 0.8
+        }).addTo(map);
+
+        // Build popup content
+        const popupContent = `
+            <div style="min-width: 200px;">
+                <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(link.link_id)}</h3>
+                <div style="font-size: 13px; line-height: 1.6;">
+                    <div><strong>${pollutant}:</strong> ${emission.toFixed(2)} kg/(h·km)</div>
+                    <div><strong>单位排放率:</strong> ${(link.emission_rate?.[pollutant] || 0).toFixed(2)} g/(veh·km)</div>
+                    <div><strong>速度:</strong> ${link.avg_speed_kph || 0} km/h</div>
+                    <div><strong>流量:</strong> ${link.traffic_flow_vph || 0} veh/h</div>
+                    <div><strong>长度:</strong> ${link.link_length_km || 0} km</div>
+                </div>
+            </div>
+        `;
+
+        // Add popup to polyline
+        polyline.bindPopup(popupContent);
+        polylines.push(polyline);
+
+        // Extend bounds with converted coordinates
+        latLngs.forEach(latlng => bounds.push(latlng));
+    });
+
+    // Fit map to show all emission links (ONLY based on emission data, not GIS basemap)
+    if (bounds.length > 0) {
+        // Use fitBounds immediately to set the initial view based on emission data
+        // This ensures the map focuses on the emission data area, not the entire city
+        const boundsObj = L.latLngBounds(bounds);
+        map.fitBounds(boundsObj, {
+            padding: [10, 10],
+            maxZoom: 15  // Prevent zooming in too much for small areas
+        });
+
+        // Invalidate size after a short delay to ensure proper rendering
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+    } else {
+        // Fallback: if no emission data, use default Shanghai center
+        map.setView([31.2304, 121.4737], 12);
+    }
+
+    console.log(`[Map] Initialized with ${polylines.length} links`);
+}
+
+function getEmissionColor(value, minVal, maxVal) {
+    // Handle edge case: all values are the same
+    if (maxVal <= minVal) {
+        return '#a6d96a'; // Return middle-low green color
+    }
+
+    // Use logarithmic scaling to make small values visible
+    // This is critical for NOx where values are very small (0.00-0.04 kg/h)
+    const safeMin = Math.max(minVal, 0.001);
+    const safeVal = Math.max(value, 0.001);
+    const safeMax = Math.max(maxVal, 0.002);
+
+    const logMin = Math.log(safeMin);
+    const logMax = Math.log(safeMax);
+    const logVal = Math.log(safeVal);
+
+    // Normalize to 0-1 range
+    const ratio = (logVal - logMin) / (logMax - logMin);
+    const clampedRatio = Math.max(0, Math.min(1, ratio));
+
+    // Green (low) → Yellow (mid) → Red (high) gradient
+    let r, g, b;
+    if (clampedRatio < 0.5) {
+        // Green to Yellow transition
+        const t = clampedRatio * 2;
+        r = Math.round(255 * t);
+        g = Math.round(200 - 50 * t);
+        b = 0;
+    } else {
+        // Yellow to Red transition
+        const t = (clampedRatio - 0.5) * 2;
+        r = 255;
+        g = Math.round(150 * (1 - t));
+        b = 0;
+    }
+
+    return `rgb(${r},${g},${b})`;
 }
 
 // ==================== 工具函数 ====================

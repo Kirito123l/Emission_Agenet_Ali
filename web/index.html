@@ -23,6 +23,10 @@
     <script src="marked.min.js"></script>
     <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Leaflet JS -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Theme Config -->
     <script id="tailwind-config">
         tailwind.config = {
@@ -326,7 +330,7 @@
         }
 
         :root {
-            --chat-max-width: 60rem;
+            --chat-max-width: 75rem;  /* Increased from 60rem to 75rem (1200px) for wider content area */
         }
 
         /* 5. Message wrapper - centered with responsive margins (increased width) */
@@ -404,7 +408,7 @@
 
         @media (min-width: 1536px) {
             :root {
-                --chat-max-width: 64rem;
+                --chat-max-width: 80rem;  /* Increased from 64rem to 80rem for extra-wide screens */
             }
         }
 
@@ -650,7 +654,7 @@
             </div>
         </main>
     </div>
-    <script src="app.js?v=12"></script>
+    <script src="app.js?v=18"></script>
 </body>
 
 </html>

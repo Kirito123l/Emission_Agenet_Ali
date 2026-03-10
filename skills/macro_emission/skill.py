@@ -5,7 +5,7 @@ from ..base import BaseSkill, SkillResult, HealthCheckResult
 from shared.standardizer.vehicle import get_vehicle_standardizer
 from shared.standardizer.pollutant import get_pollutant_standardizer
 from shared.standardizer.constants import SEASON_MAPPING
-from .calculator import MacroEmissionCalculator
+from calculators.macro_emission import MacroEmissionCalculator
 from .excel_handler import ExcelHandler
 from llm.client import get_llm
 

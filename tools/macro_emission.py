@@ -4,6 +4,9 @@ Macro Emission Calculation Tool
 Simplified tool for calculating road link-level emissions using MOVES-Matrix method.
 Standardization is handled by the executor layer.
 """
+import os
+import tempfile
+import zipfile
 from typing import Dict, Optional, List
 from pathlib import Path
 import logging
@@ -13,6 +16,14 @@ from calculators.macro_emission import MacroEmissionCalculator
 from skills.macro_emission.excel_handler import ExcelHandler
 
 logger = logging.getLogger(__name__)
+
+# Try importing geopandas for Shapefile support
+try:
+    import geopandas as gpd
+    GEOPANDAS_AVAILABLE = True
+except ImportError:
+    GEOPANDAS_AVAILABLE = False
+    logger.warning("[MacroEmission] geopandas not available, Shapefile support disabled")
 
 
 class MacroEmissionTool(BaseTool):
@@ -110,6 +121,13 @@ class MacroEmissionTool(BaseTool):
                 elif link_id == "unknown":
                     fixed_link["link_id"] = f"Link_{idx + 1}"
                     logger.info(f"Replaced 'unknown' link_id with: {fixed_link['link_id']}")
+
+            # Preserve geometry field for map visualization
+            for key in link.keys():
+                key_lower = key.lower()
+                if key_lower in ["geometry", "geom", "wkt", "shape", "几何", "路段几何", "坐标"]:
+                    fixed_link[key] = link[key]
+                    break
 
             fixed_links.append(fixed_link)
 
@@ -211,6 +229,320 @@ class MacroEmissionTool(BaseTool):
             "filled_row_indices": filled_row_indices,
         }
 
+    def _build_map_data(
+        self,
+        original_links: List[Dict],
+        calculated_results: List[Dict],
+        pollutants: List[str],
+        summary: str
+    ) -> Optional[Dict]:
+        """
+        Build map data for visualization if geometry is available
+
+        Note: If geometry only contains 2 coordinate points, links will render as
+        straight lines. This is a data limitation, not a bug. To show curved roads
+        following actual paths, the input geometry must contain multiple intermediate
+        coordinates (e.g., LINESTRING with more than 2 points).
+
+        Args:
+            original_links: Original input links (may contain geometry)
+            calculated_results: Calculated emission results
+            pollutants: List of pollutant names
+            summary: Current summary text (will be modified for coord warning)
+
+        Returns:
+            Map data dict or None if no geometry found
+        """
+        import json
+        try:
+            from shapely.geometry import shape
+            from shapely import wkt
+            SHAPELY_AVAILABLE = True
+        except ImportError:
+            SHAPELY_AVAILABLE = False
+            logger.warning("[MacroEmission] shapely not available, geometry parsing limited")
+
+        # Check if any link has geometry
+        has_geometry = False
+        coord_warning = False
+
+        # Prepare links with geometry
+        map_links = []
+
+        for orig_link, calc_result in zip(original_links, calculated_results):
+            geom_raw = None
+
+            # Check for geometry field with various aliases
+            for key in orig_link.keys():
+                key_lower = key.lower()
+                if key_lower in ["geometry", "geom", "wkt", "shape", "几何", "路段几何", "坐标"]:
+                    geom_raw = orig_link.get(key)
+                    break
+
+            if not geom_raw:
+                continue
+
+            # Parse geometry based on format
+            coordinates = None
+            try:
+                geom_str = str(geom_raw).strip()
+
+                # Case 1: WKT format (LINESTRING(...))
+                if geom_str.upper().startswith("LINESTRING"):
+                    if SHAPELY_AVAILABLE:
+                        geom = wkt.loads(geom_str)
+                        coordinates = list(geom.coords)
+                    else:
+                        # Simple WKT parser for LINESTRING
+                        import re
+                        match = re.search(r"LINESTRING\s*\(([^)]+)\)", geom_str, re.IGNORECASE)
+                        if match:
+                            coords_str = match.group(1)
+                            points = [p.strip().split() for p in coords_str.split(",")]
+                            coordinates = [[float(p[0]), float(p[1])] for p in points]
+
+                # Case 2: GeoJSON string
+                elif geom_str.startswith("{"):
+                    geojson = json.loads(geom_str)
+                    if geojson.get("type") == "LineString":
+                        coordinates = geojson.get("coordinates", [])
+                    elif SHAPELY_AVAILABLE:
+                        geom = shape(geojson)
+                        if hasattr(geom, "coords"):
+                            coordinates = list(geom.coords)
+
+                # Case 3: List of coordinates (already a list or list-like string)
+                elif "[" in geom_str:
+                    # First check if geom_raw is already a list (from Shapefile processing)
+                    if isinstance(geom_raw, list):
+                        # Validate list format
+                        if all(isinstance(c, (list, tuple)) and len(c) >= 2 for c in geom_raw):
+                            # Convert any tuples to lists and ensure float values
+                            coordinates = [[float(c[0]), float(c[1])] for c in geom_raw]
+                    else:
+                        # Try to parse as JSON string
+                        try:
+                            coordinates = json.loads(geom_str)
+                        except:
+                            pass
+
+                # Case 4: Comma-separated pairs "121.4,31.2;121.5,31.3"
+                elif ";" in geom_str or "," in geom_str:
+                    parts = geom_str.replace(";", ",").split(",")
+                    if len(parts) >= 4 and len(parts) % 2 == 0:
+                        coords = []
+                        for i in range(0, len(parts), 2):
+                            try:
+                                lon = float(parts[i].strip())
+                                lat = float(parts[i + 1].strip())
+                                coords.append([lon, lat])
+                            except:
+                                break
+                        if len(coords) >= 2:
+                            coordinates = coords
+
+                if coordinates and len(coordinates) >= 2:
+                    # Validate coordinate range (WGS84: lon -180~180, lat -90~90)
+                    first_coord = coordinates[0]
+                    if abs(first_coord[0]) > 180 or abs(first_coord[1]) > 90:
+                        coord_warning = True
+                        # Still try to use the coordinates, might be projected coords
+                        logger.warning(f"[MacroEmission] Link {calc_result.get('link_id')} has coordinates outside WGS84 range")
+
+                    # Calculate emission intensity (kg/(h·km)) by dividing total emission by link length
+                    link_length_km = calc_result.get("link_length_km", 0)
+                    if link_length_km <= 0:
+                        link_length_km = 0.1  # Prevent division by zero
+
+                    total_emissions = calc_result.get("total_emissions_kg_per_hr", {})
+                    emission_intensity = {
+                        pollutant: round(emission_kg_h / link_length_km, 4)
+                        for pollutant, emission_kg_h in total_emissions.items()
+                    }
+
+                    map_links.append({
+                        "link_id": calc_result.get("link_id"),
+                        "geometry": coordinates,
+                        "emissions": emission_intensity,  # Changed to emission intensity
+                        "emission_rate": calc_result.get("emission_rates_g_per_veh_km", {}),
+                        "link_length_km": link_length_km,
+                        "avg_speed_kph": calc_result.get("avg_speed_kph", 0),
+                        "traffic_flow_vph": calc_result.get("traffic_flow_vph", 0)
+                    })
+                    has_geometry = True
+
+            except Exception as e:
+                logger.warning(f"[MacroEmission] Failed to parse geometry for link {orig_link.get('link_id')}: {e}")
+                continue
+
+        if not has_geometry or not map_links:
+            return None
+
+        # Build map data structure
+        main_pollutant = pollutants[0] if pollutants else "CO2"
+
+        # Calculate emission range for color scaling
+        emissions = [
+            link["emissions"].get(main_pollutant, 0)
+            for link in map_links
+        ]
+        min_emission = min(emissions) if emissions else 0
+        max_emission = max(emissions) if emissions else 100
+
+        # Calculate map center from all coordinates
+        all_coords = []
+        for link in map_links:
+            all_coords.extend(link["geometry"])
+
+        if all_coords:
+            center = [
+                sum(c[0] for c in all_coords) / len(all_coords),
+                sum(c[1] for c in all_coords) / len(all_coords)
+            ]
+        else:
+            center = [116.4074, 39.9042]  # Default to Beijing
+
+        map_data = {
+            "type": "macro_emission_map",
+            "center": center,
+            "zoom": 12,
+            "pollutant": main_pollutant,
+            "unit": "kg/(h·km)",  # Changed from "kg/h" to emission intensity unit
+            "color_scale": {
+                "min": float(min_emission),
+                "max": float(max_emission),
+                "colors": ["#fee5d9", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"]
+            },
+            "links": map_links,
+            "summary": {
+                "total_links": len(map_links),
+                "total_emissions_kg_per_hr": {
+                    p: sum(link["emissions"].get(p, 0) for link in map_links)
+                    for p in pollutants
+                }
+            }
+        }
+
+        return map_data
+
+    def _read_from_zip(self, zip_path: str) -> tuple:
+        """
+        Read links data from ZIP file (Shapefile or Excel)
+
+        Args:
+            zip_path: Path to ZIP file
+
+        Returns:
+            (success, links_data, error_message)
+        """
+        import zipfile
+        import tempfile
+        import os
+
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                file_list = zip_ref.namelist()
+
+                # Check for Shapefile first
+                shp_files = [f for f in file_list if f.endswith('.shp')]
+                if shp_files and GEOPANDAS_AVAILABLE:
+                    return self._read_shapefile_from_zip(zip_ref, shp_files[0])
+
+                # Check for Excel/CSV files
+                excel_files = [f for f in file_list if f.endswith(('.xlsx', '.xls', '.csv'))]
+                if excel_files:
+                    return self._read_excel_from_zip(zip_ref, excel_files[0])
+
+                return False, None, "ZIP must contain .shp or .xlsx/.xls/.csv file"
+
+        except Exception as e:
+            logger.exception(f"[MacroEmission] Failed to read ZIP file: {zip_path}")
+            return False, None, f"Failed to read ZIP file: {str(e)}"
+
+    def _read_shapefile_from_zip(self, zip_ref, shp_filename: str) -> tuple:
+        """Read Shapefile from ZIP and convert to links_data format"""
+        import tempfile
+        import glob
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Extract ALL files from ZIP to preserve directory structure
+            # This handles cases where .shp file is in a subdirectory
+            zip_ref.extractall(tmp_dir)
+
+            # Recursively search for .shp files in the extracted directory
+            shp_files_found = glob.glob(os.path.join(tmp_dir, '**', '*.shp'), recursive=True)
+
+            if not shp_files_found:
+                return False, None, "ZIP file contains no .shp files after extraction"
+
+            # Use the first .shp file found
+            shp_path = shp_files_found[0]
+            logger.info(f"[MacroEmission] Found Shapefile: {shp_path}")
+
+            gdf = gpd.read_file(shp_path)
+
+            # Convert GeoDataFrame to links_data format
+            links_data = []
+
+            for idx, row in gdf.iterrows():
+                link_data = {}
+
+                # Convert all columns to dict (except geometry)
+                for col in gdf.columns:
+                    if col != 'geometry':
+                        link_data[col] = row[col]
+
+                # Convert geometry to coordinate list (list of lists, not list of tuples)
+                # This format is compatible with _build_map_data's JSON parsing
+                if hasattr(row['geometry'], 'coords'):
+                    # LineString: list of coordinates
+                    # Convert list of tuples to list of lists for JSON compatibility
+                    coords_tuples = list(row['geometry'].coords)
+                    link_data['geometry'] = [[float(x), float(y)] for x, y in coords_tuples]
+                elif hasattr(row['geometry'], 'geoms'):
+                    # MultiLineString: concatenate all line segments
+                    coords = []
+                    for geom in row['geometry'].geoms:
+                        if hasattr(geom, 'coords'):
+                            coords_tuples = list(geom.coords)
+                            coords.extend([[float(x), float(y)] for x, y in coords_tuples])
+                    link_data['geometry'] = coords
+                elif hasattr(row['geometry'], 'exterior'):
+                    # Polygon: use exterior ring
+                    coords_tuples = list(row['geometry'].exterior.coords)
+                    link_data['geometry'] = [[float(x), float(y)] for x, y in coords_tuples]
+                else:
+                    # Other geometry types, try to get coords
+                    try:
+                        coords_tuples = list(row['geometry'].coords)
+                        link_data['geometry'] = [[float(x), float(y)] for x, y in coords_tuples]
+                    except:
+                        pass  # No usable geometry
+
+                # Generate link_id if missing
+                if 'link_id' not in link_data or not link_data['link_id']:
+                    link_data['link_id'] = f"Link_{idx + 1}"
+
+                links_data.append(link_data)
+
+            logger.info(f"[MacroEmission] Read {len(links_data)} links from Shapefile")
+            return True, links_data, None
+
+    def _read_excel_from_zip(self, zip_ref, filename: str) -> tuple:
+        """Read Excel/CSV file from ZIP"""
+        import tempfile
+        import pandas as pd
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            extracted_path = os.path.join(tmp_dir, filename)
+
+            with zip_ref.open(filename) as source:
+                with open(extracted_path, 'wb') as target:
+                    target.write(source.read())
+
+            # Use ExcelHandler to read
+            return self._excel_handler.read_links_from_excel(extracted_path)
+
     async def execute(self, **kwargs) -> ToolResult:
         """
         Execute macro emission calculation
@@ -242,8 +574,15 @@ class MacroEmissionTool(BaseTool):
 
             # 2. Get links data (from parameter or file)
             if input_file:
-                # Read from Excel file
-                success, links_data, read_error = self._excel_handler.read_links_from_excel(input_file)
+                # Check if it's a ZIP file
+                input_path = Path(input_file)
+                if input_path.suffix.lower() == '.zip':
+                    # Handle ZIP file (may contain Shapefile or Excel)
+                    success, links_data, read_error = self._read_from_zip(input_file)
+                else:
+                    # Read from Excel file
+                    success, links_data, read_error = self._excel_handler.read_links_from_excel(input_file)
+
                 if not success:
                     return ToolResult(
                         success=False,
@@ -414,11 +753,25 @@ class MacroEmissionTool(BaseTool):
 
             summary = "\n".join(summary_parts)
 
+            # Build map_data if geometry is available
+            map_data = None
+            try:
+                map_data = self._build_map_data(
+                    links_data, links_results, pollutants, summary
+                )
+                if map_data:
+                    logger.info(f"[MacroEmission] Built map_data with {len(map_data.get('links', []))} links")
+            except Exception as e:
+                logger.warning(f"[MacroEmission] Failed to build map_data: {e}")
+                # Don't fail the whole calculation if map building fails
+                map_data = None
+
             return ToolResult(
                 success=True,
                 error=None,
                 data=result["data"],
-                summary=summary
+                summary=summary,
+                map_data=map_data
             )
 
         except Exception as e:
