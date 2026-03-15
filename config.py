@@ -44,6 +44,14 @@ class Config:
         self.enable_llm_standardization = os.getenv("ENABLE_LLM_STANDARDIZATION", "true").lower() == "true"
         self.enable_standardization_cache = os.getenv("ENABLE_STANDARDIZATION_CACHE", "true").lower() == "true"
         self.enable_data_collection = os.getenv("ENABLE_DATA_COLLECTION", "true").lower() == "true"
+        self.enable_file_analyzer = os.getenv("ENABLE_FILE_ANALYZER", "true").lower() == "true"
+        self.enable_file_context_injection = os.getenv("ENABLE_FILE_CONTEXT_INJECTION", "true").lower() == "true"
+        self.enable_executor_standardization = os.getenv("ENABLE_EXECUTOR_STANDARDIZATION", "true").lower() == "true"
+        self.macro_column_mapping_modes = tuple(
+            mode.strip().lower()
+            for mode in os.getenv("MACRO_COLUMN_MAPPING_MODES", "direct,ai,fuzzy").split(",")
+            if mode.strip()
+        )
 
         self.data_collection_dir = PROJECT_ROOT / os.getenv("DATA_COLLECTION_DIR", "data/collection")
         self.log_dir = PROJECT_ROOT / os.getenv("LOG_DIR", "data/logs")
@@ -84,9 +92,19 @@ class Config:
         self.rerank_model = os.getenv("RERANK_MODEL", "gte-rerank")
         self.rerank_top_n = int(os.getenv("RERANK_TOP_N", "5"))
 
+    def is_macro_mapping_mode_enabled(self, mode: str) -> bool:
+        """Return whether a macro column-mapping stage is enabled."""
+        return mode.strip().lower() in self.macro_column_mapping_modes
+
 _config = None
 def get_config():
     global _config
     if _config is None:
         _config = Config()
     return _config
+
+
+def reset_config():
+    """Reset cached config so new env/runtime overrides can take effect."""
+    global _config
+    _config = None

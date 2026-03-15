@@ -1,15 +1,17 @@
 """
-Phase 7 测试：API集成测试
+API/session integration smoke script.
 
-测试新架构与API层的集成
+Runs a direct `api.session.Session` flow against the current router stack.
+This is a specialized validation path and may require live LLM access.
 """
 import asyncio
 import sys
 from pathlib import Path
 
-# Add project root to path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+# Add project root to path so the script works from any cwd.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from api.session import Session
 import logging

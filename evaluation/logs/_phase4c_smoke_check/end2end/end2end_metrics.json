@@ -1,0 +1,18 @@
+{
+  "task": "end2end",
+  "mode": "tool",
+  "samples": 10,
+  "tool_call_success_rate": 1.0,
+  "route_accuracy": 1.0,
+  "end2end_completion_rate": 1.0,
+  "average_interaction_turns": 1.0,
+  "skipped_samples": 0,
+  "enable_file_analyzer": true,
+  "enable_file_context_injection": true,
+  "enable_executor_standardization": true,
+  "macro_column_mapping_modes": [
+    "direct",
+    "fuzzy"
+  ],
+  "logs_path": "evaluation/logs/_phase4c_smoke_check/end2end/end2end_logs.jsonl"
+}

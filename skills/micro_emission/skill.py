@@ -1,3 +1,8 @@
+"""Legacy direct micro-emission skill retained for compatibility.
+
+The active runtime uses `tools.micro_emission`. This direct skill interface is
+kept only for older scripts and transitional call sites.
+"""
 from pathlib import Path
 from typing import Dict, Tuple, Optional, List
 import logging
@@ -5,7 +10,7 @@ from ..base import BaseSkill, SkillResult, HealthCheckResult
 from shared.standardizer.vehicle import get_vehicle_standardizer
 from shared.standardizer.pollutant import get_pollutant_standardizer
 from shared.standardizer.constants import SEASON_MAPPING
-from .calculator import MicroEmissionCalculator
+from calculators.micro_emission import MicroEmissionCalculator
 from .excel_handler import ExcelHandler
 from llm.client import get_llm
 

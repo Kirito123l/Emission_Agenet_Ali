@@ -1,0 +1,15 @@
+{
+  "task": "file_grounding",
+  "samples": 10,
+  "routing_accuracy": 0.9,
+  "column_mapping_accuracy": 1.0,
+  "required_field_accuracy": 0.8,
+  "file_context_injection_consistency": 1.0,
+  "enable_file_analyzer": true,
+  "enable_file_context_injection": true,
+  "macro_column_mapping_modes": [
+    "direct",
+    "fuzzy"
+  ],
+  "logs_path": "evaluation/logs/_phase4a_smoke_check/file_grounding/file_grounding_logs.jsonl"
+}

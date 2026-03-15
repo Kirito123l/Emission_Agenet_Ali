@@ -34,8 +34,8 @@ static_gis.tar.gz       # Compressed archive
 .claude/
 .git_backup_*/
 debug_*.js
-test_*.py
-*_test.py
+# Note: test_*.py exclusion removed to allow proper pytest test files.
+# Legacy one-off test scripts are kept in scripts/utils/ (not in tests/).
 CLEANUP_PLAN.md
 *.backup
 *.bak

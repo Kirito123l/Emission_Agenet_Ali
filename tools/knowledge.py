@@ -2,6 +2,11 @@
 Knowledge Query Tool
 
 Wrapper for knowledge retrieval skill to query emission-related knowledge and regulations.
+
+Compatibility note:
+`tools/knowledge.py` is the active runtime entry point. The underlying
+`skills.knowledge.skill` implementation remains in place as a transitional
+dependency until knowledge retrieval is fully moved behind the tool boundary.
 """
 from typing import Dict, Optional
 from .base import BaseTool, ToolResult

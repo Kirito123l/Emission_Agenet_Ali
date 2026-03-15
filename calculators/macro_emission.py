@@ -3,10 +3,16 @@
 """
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List
+from typing import ClassVar, Dict, List, Tuple
 
 class MacroEmissionCalculator:
     """宏观排放计算器"""
+
+    LOOKUP_OPMODE = 300
+    # Process-local cache keyed by logical season. This assumes the bundled CSV
+    # assets are effectively static during normal runtime. Tests/benchmarks can
+    # clear it explicitly when they need a cold-load measurement.
+    _SEASON_MATRIX_CACHE: ClassVar[Dict[str, pd.DataFrame]] = {}
 
     # CSV列名
     COL_OPMODE = 'opModeID'
@@ -72,6 +78,11 @@ class MacroEmissionCalculator:
             "summer": "atlanta_2025_7_80_60.csv"
         }
 
+    @classmethod
+    def clear_matrix_cache(cls) -> None:
+        """Clear the shared season cache for cold-load tests or local data changes."""
+        cls._SEASON_MATRIX_CACHE.clear()
+
     def calculate(self, links_data: List[Dict], pollutants: List[str],
                  model_year: int, season: str, default_fleet_mix: Dict = None) -> Dict:
         """执行宏观排放计算"""
@@ -118,9 +129,14 @@ class MacroEmissionCalculator:
             }
 
     def _load_emission_matrix(self, season: str) -> pd.DataFrame:
-        """加载排放矩阵"""
+        """加载排放矩阵并复用按季节缓存的 DataFrame。"""
         season_code = self.SEASON_CODES.get(season, 7)
         season_key = "winter" if season_code == 1 else ("spring" if season_code == 4 else "summer")
+
+        cached_matrix = self._SEASON_MATRIX_CACHE.get(season_key)
+        if cached_matrix is not None:
+            return cached_matrix
+
         csv_file = self.csv_files[season_key]
         csv_path = self.data_path / csv_file
 
@@ -128,10 +144,21 @@ class MacroEmissionCalculator:
             raise FileNotFoundError(f"数据文件不存在: {csv_path}")
 
         # 读取CSV - 格式: opModeID,pollutantID,sourceTypeID,modelYearID,em,extra
-        return pd.read_csv(csv_path, header=None,
-                          names=[self.COL_OPMODE, self.COL_POLLUTANT,
-                                self.COL_SOURCE_TYPE, self.COL_MODEL_YEAR,
-                                self.COL_EMISSION, 'extra'])
+        matrix = pd.read_csv(
+            csv_path,
+            header=None,
+            names=[
+                self.COL_OPMODE,
+                self.COL_POLLUTANT,
+                self.COL_SOURCE_TYPE,
+                self.COL_MODEL_YEAR,
+                self.COL_EMISSION,
+                'extra',
+            ],
+        )
+        matrix.attrs["macro_emission_rate_lookup"] = self._build_rate_lookup(matrix)
+        self._SEASON_MATRIX_CACHE[season_key] = matrix
+        return matrix
 
     def _calculate_link(self, link: Dict, pollutants: List[str],
                        model_year: int, matrix: pd.DataFrame,
@@ -245,12 +272,35 @@ class MacroEmissionCalculator:
 
         return link_result
 
-    def _query_emission_rate(self, matrix: pd.DataFrame, source_type: int,
-                            pollutant_id: int, model_year: int) -> float:
-        """查询排放率 - 使用平均opMode (300)"""
-        # 查询opMode=300的平均排放率
+    def _build_rate_lookup(self, matrix: pd.DataFrame) -> Dict[Tuple[int, int, int], float]:
+        """Build a fast lookup for the fixed opMode=300 query path."""
+        lookup: Dict[Tuple[int, int, int], float] = {}
+        filtered = matrix.loc[
+            matrix[self.COL_OPMODE] == self.LOOKUP_OPMODE,
+            [self.COL_POLLUTANT, self.COL_SOURCE_TYPE, self.COL_MODEL_YEAR, self.COL_EMISSION],
+        ]
+
+        # Preserve the legacy "first match wins" behavior when duplicate keys exist.
+        for pollutant_id, source_type, model_year, emission in filtered.itertuples(index=False, name=None):
+            key = (int(pollutant_id), int(source_type), int(model_year))
+            if key not in lookup:
+                lookup[key] = float(emission)
+
+        return lookup
+
+    def _get_rate_lookup(self, matrix: pd.DataFrame) -> Dict[Tuple[int, int, int], float]:
+        """Get or lazily rebuild the fixed-opMode lookup for externally supplied matrices."""
+        lookup = matrix.attrs.get("macro_emission_rate_lookup")
+        if lookup is None:
+            lookup = self._build_rate_lookup(matrix)
+            matrix.attrs["macro_emission_rate_lookup"] = lookup
+        return lookup
+
+    def _query_emission_rate_scan(self, matrix: pd.DataFrame, source_type: int,
+                                  pollutant_id: int, model_year: int) -> float:
+        """Legacy compatibility path using a DataFrame boolean scan."""
         result = matrix[
-            (matrix[self.COL_OPMODE] == 300) &
+            (matrix[self.COL_OPMODE] == self.LOOKUP_OPMODE) &
             (matrix[self.COL_POLLUTANT] == pollutant_id) &
             (matrix[self.COL_SOURCE_TYPE] == source_type) &
             (matrix[self.COL_MODEL_YEAR] == model_year)
@@ -260,6 +310,15 @@ class MacroEmissionCalculator:
             return float(result.iloc[0][self.COL_EMISSION])
 
         return 0.0  # 未找到数据
+
+    def _query_emission_rate(self, matrix: pd.DataFrame, source_type: int,
+                             pollutant_id: int, model_year: int) -> float:
+        """查询排放率 - 使用平均opMode (300)"""
+        key = (pollutant_id, source_type, model_year)
+        lookup = self._get_rate_lookup(matrix)
+        if key in lookup:
+            return lookup[key]
+        return self._query_emission_rate_scan(matrix, source_type, pollutant_id, model_year)
 
     def _calculate_summary(self, results: List[Dict], pollutants: List[str]) -> Dict:
         """计算汇总统计"""

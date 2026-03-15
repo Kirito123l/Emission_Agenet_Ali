@@ -2,7 +2,9 @@
 Tool Executor - Executes tool calls with transparent standardization
 """
 import logging
+import time
 from typing import Dict, Any
+from config import get_config
 from tools.registry import get_registry
 from services.standardizer import get_standardizer
 
@@ -23,6 +25,7 @@ class ToolExecutor:
     def __init__(self):
         self.registry = get_registry()
         self.standardizer = get_standardizer()
+        self.runtime_config = get_config()
 
         # Initialize tools if not already done
         if not self.registry.list_tools():
@@ -54,13 +57,22 @@ class ToolExecutor:
         Returns:
             Execution result dictionary
         """
+        start_time = time.perf_counter()
+        exec_trace = {
+            "tool_name": tool_name,
+            "original_arguments": dict(arguments or {}),
+            "standardization_enabled": self.runtime_config.enable_executor_standardization,
+            "file_path_context": file_path,
+        }
+
         # 1. Get tool
         tool = self.registry.get(tool_name)
         if not tool:
             return {
                 "success": False,
                 "error": True,
-                "message": f"Unknown tool: {tool_name}"
+                "message": f"Unknown tool: {tool_name}",
+                "_trace": exec_trace,
             }
 
         # 2. Standardize parameters (transparent to LLM)
@@ -68,6 +80,7 @@ class ToolExecutor:
             logger.info(f"[Executor] Original arguments from LLM for {tool_name}: {arguments}")
             standardized_args = self._standardize_arguments(tool_name, arguments)
             logger.info(f"[Executor] Standardized arguments: {standardized_args}")
+            exec_trace["standardized_arguments"] = dict(standardized_args)
         except StandardizationError as e:
             logger.error(f"Standardization failed for {tool_name}: {e}")
             return {
@@ -75,13 +88,17 @@ class ToolExecutor:
                 "error": True,
                 "error_type": "standardization",
                 "message": str(e),
-                "suggestions": e.suggestions if hasattr(e, 'suggestions') else None
+                "suggestions": e.suggestions if hasattr(e, 'suggestions') else None,
+                "_trace": exec_trace,
             }
 
         # 3. Add file path if needed
         if file_path and "file_path" not in standardized_args:
             standardized_args["file_path"] = file_path
             logger.info(f"[Executor] Auto-injected file_path: {file_path}")
+            exec_trace["auto_injected_file_path"] = True
+        else:
+            exec_trace["auto_injected_file_path"] = False
 
         # 4. Execute tool
         try:
@@ -102,7 +119,11 @@ class ToolExecutor:
                 "table_data": result.table_data,
                 "map_data": result.map_data,
                 "download_file": result.download_file,
-                "message": result.error if result.error else result.summary
+                "message": result.error if result.error else result.summary,
+                "_trace": {
+                    **exec_trace,
+                    "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
+                },
             }
 
         except MissingParameterError as e:
@@ -111,7 +132,11 @@ class ToolExecutor:
                 "error": True,
                 "error_type": "missing_parameter",
                 "message": str(e),
-                "missing_params": e.params if hasattr(e, 'params') else []
+                "missing_params": e.params if hasattr(e, 'params') else [],
+                "_trace": {
+                    **exec_trace,
+                    "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
+                },
             }
 
         except Exception as e:
@@ -120,7 +145,11 @@ class ToolExecutor:
                 "success": False,
                 "error": True,
                 "error_type": "execution",
-                "message": f"Execution failed: {str(e)}"
+                "message": f"Execution failed: {str(e)}",
+                "_trace": {
+                    **exec_trace,
+                    "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
+                },
             }
 
     def _standardize_arguments(self, tool_name: str, arguments: Dict) -> Dict:
@@ -140,6 +169,9 @@ class ToolExecutor:
         Raises:
             StandardizationError: If standardization fails
         """
+        if not self.runtime_config.enable_executor_standardization:
+            return dict(arguments or {})
+
         standardized = {}
 
         for key, value in arguments.items():

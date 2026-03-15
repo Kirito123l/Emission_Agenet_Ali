@@ -1,0 +1,9 @@
+{
+  "task": "normalization",
+  "samples": 10,
+  "sample_accuracy": 0.1,
+  "field_accuracy": 0.6786,
+  "parameter_legal_rate": 0.2,
+  "executor_standardization_enabled": true,
+  "logs_path": "evaluation/logs/_phase1d_smoke_check/normalization/normalization_logs.jsonl"
+}

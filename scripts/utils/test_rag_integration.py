@@ -1,5 +1,8 @@
 """
-Test script to verify RAG integration and knowledge tool registration
+Specialized smoke script for knowledge/RAG asset wiring.
+
+This path stays useful for verifying local knowledge-index availability and tool
+registration, but it is not the main app entrypoint.
 """
 import sys
 import logging
@@ -8,6 +11,10 @@ from pathlib import Path
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 def test_knowledge_tool_import():
     """Test if knowledge tool can be imported"""
@@ -46,7 +53,7 @@ def test_tool_registration():
 
 def test_knowledge_base_files():
     """Test if knowledge base files exist"""
-    base_dir = Path(__file__).parent / "skills" / "knowledge" / "index"
+    base_dir = PROJECT_ROOT / "skills" / "knowledge" / "index"
 
     faiss_file = base_dir / "dense_index.faiss"
     chunks_file = base_dir / "chunks.jsonl"

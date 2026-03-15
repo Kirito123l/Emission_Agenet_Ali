@@ -6,6 +6,7 @@ import logging
 import json
 from typing import Dict, List, Optional
 from dataclasses import dataclass
+from config import get_config
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class ContextAssembler:
     def __init__(self):
         self.config = ConfigLoader.load_prompts()
         self.tools = ConfigLoader.load_tool_definitions()
+        self.runtime_config = get_config()
 
     # Max chars to keep per assistant response in working memory
     MAX_ASSISTANT_RESPONSE_CHARS = 300
@@ -98,7 +100,7 @@ class ContextAssembler:
         used_tokens += self._estimate_tokens(str(working_memory_messages))
 
         # 3.3 Add file context if available — make it prominent
-        if file_context:
+        if file_context and self.runtime_config.enable_file_context_injection:
             file_summary = self._format_file_context(file_context, max_tokens=500)
             user_message = f"{file_summary}\n\n{user_message}"
 

@@ -1,3 +1,9 @@
+"""Specialized executor-based CLI example for emission-factor queries.
+
+This is not a canonical app entrypoint. It remains as a small runnable example
+for querying one tool through the active executor/standardization path.
+"""
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -8,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from skills.emission_factors.skill import EmissionFactorsSkill
+from core.executor import ToolExecutor
 
 
 def _format_row(row: Dict) -> str:
@@ -25,23 +31,31 @@ def _print_table(rows: List[Dict]) -> None:
 
 
 def main() -> None:
-    skill = EmissionFactorsSkill()
-    result = skill.execute(
-        vehicle_type="公交车",
-        pollutant="NOx",
-        model_year=2020,
-        season="夏季",
-        road_type="快速路",
-        return_curve=False,
-    )
+    async def _run_query() -> Dict:
+        executor = ToolExecutor()
+        return await executor.execute(
+            tool_name="query_emission_factors",
+            arguments={
+                "vehicle_type": "公交车",
+                "pollutant": "NOx",
+                "model_year": 2020,
+                "season": "夏季",
+                "road_type": "快速路",
+                "return_curve": False,
+            },
+            file_path=None,
+        )
 
-    if not result.success:
-        print(f"查询失败: {result.error}")
-        if result.metadata:
-            print(json.dumps(result.metadata, ensure_ascii=False, indent=2))
+    result = asyncio.run(_run_query())
+
+    if not result.get("success"):
+        print(f"查询失败: {result.get('message') or result.get('error')}")
+        trace = result.get("_trace")
+        if trace:
+            print(json.dumps(trace, ensure_ascii=False, indent=2))
         return
 
-    data = result.data or {}
+    data = result.get("data") or {}
     query_summary = data.get("query_summary", {})
     speed_curve = data.get("speed_curve", [])
 
@@ -53,7 +67,10 @@ def main() -> None:
     print(f"- 道路类型：{query_summary.get('road_type', '')}（默认值）")
     print()
 
-    print("根据MOVES（Atlanta）模型数据，2020年公交车（Transit Bus）在快速路夏季工况下的NOx排放因子（单位：g/mile）随速度变化如下：")
+    print(
+        "根据MOVES（Atlanta）模型数据，2020年公交车（Transit Bus）在快速路夏季工况下的"
+        "NOx排放因子（单位：g/mile）随速度变化如下："
+    )
     _print_table(speed_curve)
     print()
 

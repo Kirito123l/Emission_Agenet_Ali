@@ -1,6 +1,22 @@
 """
-LLM Client Service
-Wrapper for LLM API calls with Tool Use support
+Async LLM client with Tool Use (function calling) support.
+
+This is the canonical LLM client for the **core router** (core/router.py):
+  - Async chat and chat_with_tools for the tool-calling loop
+  - Sync convenience methods (chat_sync, chat_json_sync) for backward compatibility
+
+Key features vs llm/client.py:
+  - Tool Use / function calling support (chat_with_tools)
+  - ToolCall and LLMResponse dataclasses for structured responses
+  - Proxy-to-direct failover (same pattern as llm/client.py)
+
+For synchronous multi-purpose usage (standardizers, column mapping, RAG refinement),
+see llm/client.py, which shares the same purpose-based assignment concept for
+non-router call sites.
+
+TODO (Phase 2+): Consolidate shared failover logic with llm/client.py and decide
+whether router synthesis should move from the agent-scoped async client to a
+separately instantiated `purpose="synthesis"` client.
 """
 import json
 import logging
@@ -9,8 +25,23 @@ from dataclasses import dataclass
 from openai import OpenAI
 from openai import APIConnectionError
 import httpx
+from config import get_config
 
 logger = logging.getLogger(__name__)
+
+
+def _get_assignment_for_purpose(purpose: str):
+    """Resolve the configured LLM assignment for a named async purpose."""
+    config = get_config()
+    assignment_map = {
+        "agent": config.agent_llm,
+        "standardizer": config.standardizer_llm,
+        "synthesis": config.synthesis_llm,
+        "rag_refiner": config.rag_refiner_llm,
+    }
+    if purpose not in assignment_map:
+        raise ValueError(f"Unknown LLM purpose: {purpose}")
+    return assignment_map[purpose]
 
 
 @dataclass
@@ -36,24 +67,26 @@ class LLMClientService:
     Supports both regular chat and Tool Use mode (function calling)
     """
 
-    def __init__(self, model: str = "qwen-plus", temperature: float = 0.7):
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        purpose: str = "agent",
+    ):
         """
         Initialize LLM client
 
         Args:
-            model: Model name (e.g., "qwen-plus", "gpt-4")
-            temperature: Sampling temperature
+            model: Optional model override. Defaults to the configured model for `purpose`.
+            temperature: Optional temperature override. Defaults to the configured temperature for `purpose`.
+            purpose: Assignment bucket to load from config (agent, standardizer, synthesis, rag_refiner)
         """
-        # Load configuration
-        from config import get_config
         config = get_config()
-
-        # Find the assignment for this model
-        self.model = model
-        self.temperature = temperature
-
-        # Get provider configuration from agent_llm
-        assignment = config.agent_llm
+        assignment = _get_assignment_for_purpose(purpose)
+        self.purpose = purpose
+        self.assignment = assignment
+        self.model = model or assignment.model
+        self.temperature = assignment.temperature if temperature is None else temperature
         provider = config.providers[assignment.provider]
         self._api_key = provider["api_key"]
         self._base_url = provider["base_url"]
@@ -339,20 +372,27 @@ class LLMClientService:
 _client_instances: Dict[str, LLMClientService] = {}
 
 
-def get_llm_client(purpose: str = "agent", model: str = "qwen-plus") -> LLMClientService:
+def get_llm_client(purpose: str = "agent", model: Optional[str] = None) -> LLMClientService:
     """
-    Get LLM client instance
+    Get a cached async LLM client instance.
 
     Args:
-        purpose: Purpose identifier (e.g., "agent", "synthesis")
-        model: Model name
+        purpose: Purpose identifier that selects the configured assignment.
+        model: Optional model override. When omitted, the configured model for `purpose` is used.
 
     Returns:
         LLMClientService instance
     """
-    key = f"{purpose}_{model}"
+    assignment = _get_assignment_for_purpose(purpose)
+    resolved_model = model or assignment.model
+    key = f"{purpose}_{resolved_model}"
     if key not in _client_instances:
-        _client_instances[key] = LLMClientService(model=model)
+        _client_instances[key] = LLMClientService(model=model, purpose=purpose)
         logger.info(f"Created LLM client: {key}")
 
     return _client_instances[key]
+
+
+def reset_llm_client_cache():
+    """Clear cached async LLM clients. Useful for tests and runtime overrides."""
+    _client_instances.clear()

@@ -3,6 +3,11 @@ Macro Emission Calculation Tool
 
 Simplified tool for calculating road link-level emissions using MOVES-Matrix method.
 Standardization is handled by the executor layer.
+
+Compatibility note:
+`skills.macro_emission.excel_handler` remains the active file I/O layer for this
+tool during Phase 1B. Keeping that import avoids a risky rewrite while the
+legacy `skills/` boundary is documented and narrowed.
 """
 import os
 import tempfile
@@ -31,7 +36,7 @@ class MacroEmissionTool(BaseTool):
 
     def __init__(self):
         self._calculator = MacroEmissionCalculator()
-        # Excel handler for file I/O
+        # Transitional dependency: tools own execution, skills hosts the file I/O helper.
         try:
             from llm.client import get_llm
             llm_client = get_llm("agent")

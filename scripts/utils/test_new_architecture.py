@@ -1,13 +1,19 @@
 """
-Integration Test for New Architecture
+Specialized integration test for the full Tool Use architecture.
 
 Tests the complete flow of the new Tool Use-driven architecture.
 Validates that all components work together correctly.
+
+Requires a configured runtime and may exercise live LLM-backed paths.
 """
 import asyncio
 import logging
 import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 # Setup logging
 logging.basicConfig(

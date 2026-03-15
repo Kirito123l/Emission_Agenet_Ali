@@ -1,0 +1,4 @@
+segment_name,road_length_km,traffic_volume_per_hour,avgVelocity
+S1,0.56,730,28
+S2,1.22,1850,43
+S3,0.91,1220,36

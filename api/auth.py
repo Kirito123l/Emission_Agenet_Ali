@@ -1,4 +1,5 @@
 """认证服务模块 - 密码哈希和 JWT"""
+import os
 import jwt
 import hashlib
 import uuid
@@ -10,7 +11,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 # JWT 配置
-SECRET_KEY = "emission-agent-secret-key-change-in-production"  # 生产环境应该从环境变量读取
+# SECURITY: Secret key MUST be set via environment variable in production.
+# A default is provided ONLY for local development convenience.
+_DEFAULT_SECRET = "local-dev-only-change-me-in-production"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", _DEFAULT_SECRET)
+if SECRET_KEY == _DEFAULT_SECRET:
+    logger.warning(
+        "JWT_SECRET_KEY is not set -- using insecure default. "
+        "Set JWT_SECRET_KEY in .env for production deployments."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7天
 

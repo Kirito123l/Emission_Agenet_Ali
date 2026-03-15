@@ -2,6 +2,10 @@
 
 本目录包含项目的所有文档，按类型组织。
 
+> 当前仓库的权威入口文档不在本目录内，而是在仓库根目录：
+> [README.md](../README.md)、[ENGINEERING_STATUS.md](../ENGINEERING_STATUS.md)、[CURRENT_BASELINE.md](../CURRENT_BASELINE.md)、[RELEASE_READINESS.md](../RELEASE_READINESS.md)、[DEVELOPMENT.md](../DEVELOPMENT.md)、[RUNNING.md](../RUNNING.md)、[evaluation/README.md](../evaluation/README.md)、[examples/README.md](../examples/README.md)、[CONTRIBUTING.md](../CONTRIBUTING.md)。
+> 本 `docs/` 目录现在主要承载补充材料与历史文档。
+
 ---
 
 ## 📖 核心文档

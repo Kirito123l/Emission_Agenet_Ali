@@ -1,3 +1,5 @@
+# Status: historical guide. For current canonical startup and validation commands, use `/RUNNING.md`.
+
 # 🌿 Emission Agent - 快速启动
 
 机动车排放计算助手 Web应用

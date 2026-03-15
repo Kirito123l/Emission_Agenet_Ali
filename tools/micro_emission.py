@@ -3,6 +3,11 @@ Micro Emission Calculation Tool
 
 Simplified tool for calculating second-by-second emissions from trajectory data.
 Standardization is handled by the executor layer.
+
+Compatibility note:
+`skills.micro_emission.excel_handler` remains the active file I/O layer for this
+tool during Phase 1B. Keeping that import avoids a risky rewrite while the
+legacy `skills/` boundary is documented and narrowed.
 """
 from typing import Dict, Optional, List
 from pathlib import Path
@@ -20,7 +25,7 @@ class MicroEmissionTool(BaseTool):
 
     def __init__(self):
         self._calculator = MicroEmissionCalculator()
-        # Excel handler for file I/O
+        # Transitional dependency: tools own execution, skills hosts the file I/O helper.
         try:
             from llm.client import get_llm
             llm_client = get_llm("agent")

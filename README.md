@@ -1,19 +1,120 @@
 # Emission Agent
 
-Intelligent vehicle emission calculation system with modern Tool Use architecture, providing Web interface and API services.
+Emission Agent is a research-oriented LLM + tool-use system for vehicle emission analysis. It combines a FastAPI backend, chat-style web UI, domain calculation tools, file-grounded workflows, and an engineering evaluation harness in one repository.
 
-## Project Features
+## Project Status
+
+- Current maturity: active research/engineering prototype with a working app surface, regression baseline, and usable evaluation harness
+- Current stage: repo-surface consolidation for easier maintenance, collaboration, and future open-source release
+- Stable day-to-day surfaces: `python run_api.py`, `python main.py health`, `pytest`, and `python evaluation/run_smoke_suite.py`
+- Intentionally deferred: deeper `core/router.py` extraction and broad historical-report cleanup
+
+## Start Here
+
+Read these first:
+
+1. [ENGINEERING_STATUS.md](ENGINEERING_STATUS.md) for the current engineering state, docs map, and deferred areas
+2. [CURRENT_BASELINE.md](CURRENT_BASELINE.md) for the current frozen milestone summary and recommended next workstreams
+3. [RELEASE_READINESS.md](RELEASE_READINESS.md) for the current shareability/open-source sanity checklist
+4. [RUNNING.md](RUNNING.md) for the current supported run paths and minimum validation commands
+5. [evaluation/README.md](evaluation/README.md) for the minimal benchmark and reproducibility path
+6. [examples/README.md](examples/README.md) for the smallest realistic workflows
+7. [CONTRIBUTING.md](CONTRIBUTING.md) for practical contributor and maintainer guidance
+8. [DEVELOPMENT.md](DEVELOPMENT.md) for maintainer navigation and safe checks
+9. [ROUTER_REFACTOR_PREP.md](ROUTER_REFACTOR_PREP.md) only if you are planning future `core/router.py` or `api/routes.py` work
+
+Historical `PHASE*.md` reports remain on disk as decision records, but they are background context rather than the current source of truth.
+
+## Main Capabilities
 
 - **AI-First Architecture**: Trust LLM intelligence, minimal rules, natural retry mechanism
 - **Tool Use Architecture**: Modern LLM function calling with transparent parameter standardization
-- **Smart File Caching**: File modification time detection for accurate cache invalidation
-- **Smart Column Mapping**: LLM-powered understanding of arbitrary Excel column names
-- **Local Model Support**: Support for locally fine-tuned Qwen3-4B models for cost reduction and data privacy
-- **Web Interface**: Modern chat-based web UI with file upload, chart display, and session management
-- **Fully Independent**: No dependency on MCP project, all core logic and data included
-- **Multi-Model Support**: Support for Qwen/DeepSeek/local models with flexible configuration
+- **Emission-Factor Queries**: EPA MOVES speed-emission curves and key-point outputs
+- **Micro and Macro Emission Calculation**: file-grounded workflows for trajectory and link-level data
+- **Smart File Caching**: File modification-time detection for accurate cache invalidation
+- **Web + API Surface**: chat-based web UI, session management, charts, tables, and downloads
+- **Evaluation Harness**: normalization, file-grounding, end-to-end, and ablation runners
+- **Multi-Model Support**: Qwen, DeepSeek, and local/OpenAI-compatible deployments
 
-## Architecture
+## Quickstart
+
+### Choose Your Goal
+
+| Goal | Command | Expected result |
+|---|---|---|
+| Try the app | `python run_api.py` | Web UI at `http://localhost:8000` and API docs at `http://localhost:8000/docs` |
+| Validate local setup | `python main.py health` then `pytest` | Basic runtime health plus current regression baseline |
+| Run minimal evaluation | `python evaluation/run_smoke_suite.py` | Fresh run under `evaluation/logs/` with `smoke_summary.json` |
+
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+For normal chat usage, set at least one provider key in `.env`, for example:
+
+```bash
+QWEN_API_KEY=your-api-key-here
+```
+
+### 3. Start The Canonical App Path
+
+```bash
+python run_api.py
+```
+
+Optional custom port:
+
+```bash
+PORT=8001 python run_api.py
+```
+
+### 4. Validate Or Reproduce
+
+Smallest local validation:
+
+```bash
+python main.py health
+pytest
+```
+
+Smallest evaluation path:
+
+```bash
+python evaluation/run_smoke_suite.py
+```
+
+Use [RUNNING.md](RUNNING.md) for run/smoke details and [evaluation/README.md](evaluation/README.md) for benchmark details.
+
+### Minimum Successful Workflow
+
+If you want the shortest realistic path from clone to confidence:
+
+1. Copy `.env.example` to `.env`.
+2. Run `python main.py health`.
+3. Run `pytest`.
+4. If you have a real provider key configured, run `python run_api.py` and open `http://localhost:8000`.
+5. If you want benchmark-style validation, run `python evaluation/run_smoke_suite.py`.
+
+Use [RELEASE_READINESS.md](RELEASE_READINESS.md) for the current stable-vs-evolving boundary before sharing the repo externally.
+
+## Examples And Contribution
+
+- [examples/README.md](examples/README.md) shows the two smallest realistic workflows:
+  - boot the app and try a real query
+  - run the smallest meaningful evaluation
+- [CONTRIBUTING.md](CONTRIBUTING.md) explains how to work safely in the current consolidation stage
+
+## Architecture At A Glance
 
 ### Core Components
 
@@ -53,62 +154,15 @@ emission_agent/
 5. **Smart File Caching**: File mtime detection prevents stale cache when files are overwritten
 6. **Clean Separation**: Router → Assembler → LLM → Executor → Tools
 
-### Recent Improvements (Latest)
+### Recent Repository Progress
 
-**AI-First Architecture Optimization** (2026-02-21)
-- Removed vehicle guardrail (~130 lines): Let LLM handle vehicle grounding naturally
-- Simplified synthesis prompt (76→15 lines): Reduce token usage, prevent hallucination
-- Streamlined tool definitions: Save ~200 tokens per request
-- Centralized fleet mix standardization: Remove duplicate code (~125 lines)
-- **File caching fix**: Added mtime detection to prevent using stale cached analysis when files are overwritten
-- Vehicle type confirmation: Python rule check before micro emission calculation
-- PORT environment variable support: Flexible port configuration
+Recent consolidation work already completed in the repository:
 
-Net result: -165 lines, faster responses, more reliable file handling.
-
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and fill in API keys:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` file with at least:
-```
-QWEN_API_KEY=your-api-key-here
-```
-
-### 3. Start Web Service
-
-```bash
-python run_api.py
-```
-
-Service will start at http://localhost:8000 (or use PORT environment variable to customize)
-
-```bash
-# Use custom port
-PORT=8001 python run_api.py
-```
-
-### 4. Access Web Interface
-
-Open in browser: http://localhost:8000
-
-Or use command line interface:
-
-```bash
-python main.py chat
-```
+- route/helper extraction and contract protection for `api/routes.py`
+- four conservative helper extractions from `core/router.py`
+- mocked async boundary protection around `_synthesize_results(...)`
+- clearer run/eval/developer navigation at the repository root
+- cleaner smoke/evaluation output from the micro Excel path
 
 ## Usage Examples
 
@@ -259,6 +313,8 @@ See `LOCAL_STANDARDIZER_MODEL/` directory for:
 
 ## Development
 
+For the current maintainer-facing status and document map, start with [ENGINEERING_STATUS.md](ENGINEERING_STATUS.md) and [DEVELOPMENT.md](DEVELOPMENT.md).
+
 ### Project Structure
 
 - `core/` - Core architecture (router, executor, assembler, memory)
@@ -273,11 +329,21 @@ See `LOCAL_STANDARDIZER_MODEL/` directory for:
 ### Testing
 
 ```bash
-# Test new architecture
-python test_new_architecture.py
+# Unit / regression suite
+pytest
 
-# Test API integration
-python test_api_integration.py
+# Lightweight local runtime validation
+python main.py health
+
+# Knowledge asset / registration smoke
+python scripts/utils/test_rag_integration.py
+
+# Specialized integration scripts (require configured runtime / live LLM)
+python scripts/utils/test_new_architecture.py
+python scripts/utils/test_api_integration.py
+
+# Evaluation smoke suite
+python evaluation/run_smoke_suite.py
 ```
 
 ### Adding New Tools
@@ -301,17 +367,12 @@ class MyTool(BaseTool):
         )
 ```
 
-## Architecture Upgrade
+## Architecture Reference
 
-This project uses a modern **Tool Use architecture** optimized for AI-first decision making. See detailed documentation:
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Complete architecture documentation with workflow details
-- **[AI-First Design Philosophy](docs/ARCHITECTURE.md#ai-first-philosophy)** - Why we trust LLM intelligence over rigid rules
+For the current high-level design, see:
 
-Key architectural decisions:
-- Removed complex guardrails, let LLM make natural decisions
-- Minimal synthesis prompt (15 lines) for faster, more accurate responses
-- File caching with mtime detection for reliable multi-file workflows
-- Python rule checks only for critical business logic (e.g., vehicle type confirmation)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the end-to-end architecture and workflow
+- [ENGINEERING_STATUS.md](ENGINEERING_STATUS.md) for the current cleanup status, extracted seams, and deferred areas
 
 ## License
 

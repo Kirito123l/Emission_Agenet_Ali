@@ -1,3 +1,23 @@
+"""
+Synchronous LLM client with multi-purpose assignment mapping.
+
+This is the canonical LLM client for **synchronous** call sites:
+  - shared/standardizer/ (vehicle, pollutant standardization)
+  - tools/ and skills/ ExcelHandler column-mapping init blocks
+  - skills/knowledge/ RAG answer refinement
+
+Key features vs services/llm_client.py:
+  - Purpose-based assignment routing via LLMManager (agent, standardizer, synthesis, rag_refiner)
+  - Robust JSON parsing with shorthand/fallback handling (_parse_json_response)
+  - Proxy-to-direct failover
+
+For async chat and tool-calling (function calling), see services/llm_client.py,
+which is used by core/router.py.
+
+TODO (Phase 2+): Consolidate shared failover logic with services/llm_client.py
+into a common base, and consider merging the two clients once all call sites
+support async.
+"""
 import json
 import re
 import logging
@@ -13,6 +33,7 @@ class LLMClient:
     def __init__(self, assignment, purpose: str):
         config = get_config()
         provider = config.providers[assignment.provider]
+        self.purpose = purpose
         self.assignment = assignment
         self._api_key = provider["api_key"]
         self._base_url = provider["base_url"]
@@ -244,3 +265,8 @@ class LLMManager:
 
 def get_llm(purpose: str) -> LLMClient:
     return LLMManager().get_client(purpose)
+
+
+def reset_llm_manager():
+    """Clear cached synchronous LLM clients. Useful for tests and runtime overrides."""
+    LLMManager()._clients.clear()

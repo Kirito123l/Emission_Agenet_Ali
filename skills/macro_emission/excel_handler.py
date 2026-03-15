@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ class ExcelHandler:
 
     def __init__(self, llm_client: Optional[Any] = None):
         self.llm_client = llm_client
+        self.runtime_config = get_config()
 
     def read_links_from_excel(self, file_path: str) -> Tuple[bool, Optional[List[Dict]], Optional[str]]:
         """从Excel文件读取路段数据"""
@@ -228,9 +230,13 @@ class ExcelHandler:
         columns = [str(c) for c in df.columns]
         sample_rows = self._build_sample_rows(df)
 
-        direct_candidates = self._direct_mapping_candidates(columns)
-        ai_result = self._ai_mapping(columns, sample_rows)
-        fuzzy_candidates = self._fuzzy_mapping_candidates(columns)
+        direct_candidates = self._direct_mapping_candidates(columns) if self.runtime_config.is_macro_mapping_mode_enabled("direct") else []
+        ai_result = self._ai_mapping(columns, sample_rows) if self.runtime_config.is_macro_mapping_mode_enabled("ai") else {
+            "used": False,
+            "field_candidates": [],
+            "fleet_mapping": {},
+        }
+        fuzzy_candidates = self._fuzzy_mapping_candidates(columns) if self.runtime_config.is_macro_mapping_mode_enabled("fuzzy") else []
 
         selected: Dict[str, str] = {}
         selected_meta: Dict[str, Dict[str, Any]] = {}

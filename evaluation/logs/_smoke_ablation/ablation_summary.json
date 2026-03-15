@@ -1,0 +1,241 @@
+{
+  "baselines": {
+    "full_system": {
+      "config": {
+        "enable_file_analyzer": true,
+        "enable_file_context_injection": true,
+        "enable_executor_standardization": true,
+        "macro_column_mapping_modes": [
+          "direct",
+          "ai",
+          "fuzzy"
+        ],
+        "mode": "tool",
+        "only_task": null
+      },
+      "metrics": {
+        "normalization": {
+          "task": "normalization",
+          "samples": 10,
+          "sample_accuracy": 0.1,
+          "field_accuracy": 0.6786,
+          "parameter_legal_rate": 0.2,
+          "executor_standardization_enabled": true,
+          "logs_path": "evaluation/logs/_smoke_ablation/full_system/normalization/normalization_logs.jsonl"
+        },
+        "file_grounding": {
+          "task": "file_grounding",
+          "samples": 10,
+          "routing_accuracy": 0.9,
+          "column_mapping_accuracy": 1.0,
+          "required_field_accuracy": 0.8,
+          "file_context_injection_consistency": 1.0,
+          "enable_file_analyzer": true,
+          "enable_file_context_injection": true,
+          "macro_column_mapping_modes": [
+            "direct",
+            "ai",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/full_system/file_grounding/file_grounding_logs.jsonl"
+        },
+        "end2end": {
+          "task": "end2end",
+          "mode": "tool",
+          "samples": 10,
+          "tool_call_success_rate": 1.0,
+          "route_accuracy": 1.0,
+          "end2end_completion_rate": 1.0,
+          "average_interaction_turns": 1.0,
+          "skipped_samples": 0,
+          "enable_file_analyzer": true,
+          "enable_file_context_injection": true,
+          "enable_executor_standardization": true,
+          "macro_column_mapping_modes": [
+            "direct",
+            "ai",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/full_system/end2end/end2end_logs.jsonl"
+        }
+      }
+    },
+    "no_file_awareness": {
+      "config": {
+        "enable_file_analyzer": false,
+        "enable_file_context_injection": false,
+        "enable_executor_standardization": true,
+        "macro_column_mapping_modes": [
+          "direct",
+          "ai",
+          "fuzzy"
+        ],
+        "mode": "tool",
+        "only_task": null
+      },
+      "metrics": {
+        "normalization": {
+          "task": "normalization",
+          "samples": 10,
+          "sample_accuracy": 0.1,
+          "field_accuracy": 0.6786,
+          "parameter_legal_rate": 0.2,
+          "executor_standardization_enabled": true,
+          "logs_path": "evaluation/logs/_smoke_ablation/no_file_awareness/normalization/normalization_logs.jsonl"
+        },
+        "file_grounding": {
+          "task": "file_grounding",
+          "samples": 10,
+          "routing_accuracy": 0.0,
+          "column_mapping_accuracy": 1.0,
+          "required_field_accuracy": 0.0,
+          "file_context_injection_consistency": 1.0,
+          "enable_file_analyzer": false,
+          "enable_file_context_injection": false,
+          "macro_column_mapping_modes": [
+            "direct",
+            "ai",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/no_file_awareness/file_grounding/file_grounding_logs.jsonl"
+        },
+        "end2end": {
+          "task": "end2end",
+          "mode": "tool",
+          "samples": 10,
+          "tool_call_success_rate": 1.0,
+          "route_accuracy": 1.0,
+          "end2end_completion_rate": 1.0,
+          "average_interaction_turns": 1.0,
+          "skipped_samples": 0,
+          "enable_file_analyzer": false,
+          "enable_file_context_injection": false,
+          "enable_executor_standardization": true,
+          "macro_column_mapping_modes": [
+            "direct",
+            "ai",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/no_file_awareness/end2end/end2end_logs.jsonl"
+        }
+      }
+    },
+    "no_executor_standardization": {
+      "config": {
+        "enable_file_analyzer": true,
+        "enable_file_context_injection": true,
+        "enable_executor_standardization": false,
+        "macro_column_mapping_modes": [
+          "direct",
+          "ai",
+          "fuzzy"
+        ],
+        "mode": "tool",
+        "only_task": null
+      },
+      "metrics": {
+        "normalization": {
+          "task": "normalization",
+          "samples": 10,
+          "sample_accuracy": 0.0,
+          "field_accuracy": 0.0714,
+          "parameter_legal_rate": 0.1,
+          "executor_standardization_enabled": false,
+          "logs_path": "evaluation/logs/_smoke_ablation/no_executor_standardization/normalization/normalization_logs.jsonl"
+        },
+        "file_grounding": {
+          "task": "file_grounding",
+          "samples": 10,
+          "routing_accuracy": 0.9,
+          "column_mapping_accuracy": 1.0,
+          "required_field_accuracy": 0.8,
+          "file_context_injection_consistency": 1.0,
+          "enable_file_analyzer": true,
+          "enable_file_context_injection": true,
+          "macro_column_mapping_modes": [
+            "direct",
+            "ai",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/no_executor_standardization/file_grounding/file_grounding_logs.jsonl"
+        },
+        "end2end": {
+          "task": "end2end",
+          "mode": "tool",
+          "samples": 10,
+          "tool_call_success_rate": 0.4,
+          "route_accuracy": 1.0,
+          "end2end_completion_rate": 0.4,
+          "average_interaction_turns": 1.0,
+          "skipped_samples": 0,
+          "enable_file_analyzer": true,
+          "enable_file_context_injection": true,
+          "enable_executor_standardization": false,
+          "macro_column_mapping_modes": [
+            "direct",
+            "ai",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/no_executor_standardization/end2end/end2end_logs.jsonl"
+        }
+      }
+    },
+    "macro_rule_only": {
+      "config": {
+        "enable_file_analyzer": false,
+        "enable_file_context_injection": false,
+        "enable_executor_standardization": false,
+        "macro_column_mapping_modes": [
+          "direct",
+          "fuzzy"
+        ],
+        "mode": "tool",
+        "only_task": "calculate_macro_emission"
+      },
+      "metrics": {
+        "normalization": {
+          "task": "normalization",
+          "samples": 10,
+          "sample_accuracy": 0.0,
+          "field_accuracy": 0.0714,
+          "parameter_legal_rate": 0.1,
+          "executor_standardization_enabled": false,
+          "logs_path": "evaluation/logs/_smoke_ablation/macro_rule_only/normalization/normalization_logs.jsonl"
+        },
+        "file_grounding": {
+          "task": "file_grounding",
+          "samples": 10,
+          "routing_accuracy": 0.0,
+          "column_mapping_accuracy": 1.0,
+          "required_field_accuracy": 0.0,
+          "file_context_injection_consistency": 1.0,
+          "enable_file_analyzer": false,
+          "enable_file_context_injection": false,
+          "macro_column_mapping_modes": [
+            "direct",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/macro_rule_only/file_grounding/file_grounding_logs.jsonl"
+        },
+        "end2end": {
+          "task": "end2end",
+          "mode": "tool",
+          "samples": 4,
+          "tool_call_success_rate": 1.0,
+          "route_accuracy": 1.0,
+          "end2end_completion_rate": 1.0,
+          "average_interaction_turns": 1.0,
+          "skipped_samples": 0,
+          "enable_file_analyzer": false,
+          "enable_file_context_injection": false,
+          "enable_executor_standardization": false,
+          "macro_column_mapping_modes": [
+            "direct",
+            "fuzzy"
+          ],
+          "logs_path": "evaluation/logs/_smoke_ablation/macro_rule_only/end2end/end2end_logs.jsonl"
+        }
+      }
+    }
+  }
+}

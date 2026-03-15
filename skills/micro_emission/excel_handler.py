@@ -55,16 +55,12 @@ class ExcelHandler:
             if df.empty:
                 return False, None, "Excel文件为空"
 
-            # 添加调试日志
-            import sys
-            sys.stdout.write(f"[DEBUG] 文件列名: {list(df.columns)}\n")
-            sys.stdout.write(f"[DEBUG] 列名repr: {[repr(c) for c in df.columns]}\n")
-            sys.stdout.flush()
+            logger.debug("Excel columns before cleanup: %s", list(df.columns))
+            logger.debug("Excel column reprs before cleanup: %s", [repr(c) for c in df.columns])
 
             # 清理列名：去除前后空格
             df.columns = df.columns.str.strip()
-            sys.stdout.write(f"[DEBUG] 清理后列名: {list(df.columns)}\n")
-            sys.stdout.flush()
+            logger.debug("Excel columns after cleanup: %s", list(df.columns))
 
             # 3. 查找速度列（必需）
             speed_col = self._find_column(df, self.SPEED_COLUMNS)

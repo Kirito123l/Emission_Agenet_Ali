@@ -12,7 +12,6 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import FileResponse, StreamingResponse, Response, JSONResponse
 from typing import Optional, Dict, Any
-from urllib.parse import quote
 
 from .models import (
     ChatRequest, ChatResponse, FilePreviewResponse,
@@ -21,6 +20,19 @@ from .models import (
 )
 from .database import db
 from .auth import auth_service
+# Keep extracted helper names imported at module scope so `api.routes.<helper>`
+# remains available during staged extraction passes.
+from .chart_utils import (
+    _pick_key_points,
+    build_emission_chart_data,
+    extract_key_points,
+)
+from .response_utils import (
+    attach_download_to_table_data,
+    clean_reply_text,
+    friendly_error_message,
+    normalize_download_file,
+)
 
 
 from .session import SessionRegistry
@@ -71,235 +83,6 @@ router = APIRouter()
 TEMP_DIR = Path(tempfile.gettempdir()) / "emission_agent"
 TEMP_DIR.mkdir(exist_ok=True)
 
-
-def friendly_error_message(error: Exception) -> str:
-    """Convert low-level exceptions to user-friendly actionable messages."""
-    text = str(error)
-    lower = text.lower()
-
-    connection_signals = [
-        "connection error",
-        "connecterror",
-        "unexpected eof",
-        "ssl",
-        "tls",
-        "timed out",
-        "api_connection_error",
-    ]
-    if any(sig in lower for sig in connection_signals):
-        return (
-            "上游大模型连接失败（网络/代理异常）。请稍后重试。\n"
-            "若问题持续：请检查 HTTP(S)_PROXY 配置、代理服务连通性，"
-            "或暂时关闭代理后重试。"
-        )
-
-    return f"处理出错: {text}"
-
-def clean_reply_text(reply: str) -> str:
-    """清理回复文本，移除JSON等技术内容"""
-    import re
-
-    # 移除JSON代码块
-    reply = re.sub(r'```json[\s\S]*?```', '', reply)
-    reply = re.sub(r'```[\s\S]*?```', '', reply)
-
-    # 移除大块JSON（包含curve或pollutants的）
-    reply = re.sub(r'\{[^{}]*"curve"[^{}]*\}', '', reply)
-    reply = re.sub(r'\{[^{}]*"pollutants"[^{}]*\}', '', reply)
-
-    # 移除多余的空行
-    reply = re.sub(r'\n\s*\n\s*\n', '\n\n', reply)
-
-    return reply.strip()
-
-
-def normalize_download_file(
-    download_file: Optional[Any],
-    session_id: str,
-    message_id: Optional[str] = None,
-    user_id: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
-    """Normalize download metadata to a stable frontend-friendly shape."""
-    if not download_file:
-        return None
-
-    path: Optional[str] = None
-    filename: Optional[str] = None
-
-    if isinstance(download_file, dict):
-        path = download_file.get("path")
-        filename = download_file.get("filename")
-    elif isinstance(download_file, str):
-        path = download_file
-        filename = Path(download_file).name if download_file else None
-
-    if not filename and path:
-        filename = Path(path).name
-    if not path and not filename:
-        return None
-
-    normalized: Dict[str, Any] = {
-        "path": str(path) if path else None,
-        "filename": filename,
-        "file_id": session_id,
-    }
-    uid_qs = f"?user_id={quote(user_id)}" if user_id else ""
-    if message_id:
-        normalized["message_id"] = message_id
-        normalized["url"] = f"/api/file/download/message/{session_id}/{message_id}{uid_qs}"
-    elif filename:
-        normalized["url"] = f"/api/download/{quote(filename)}{uid_qs}"
-    return normalized
-
-
-def attach_download_to_table_data(
-    table_data: Optional[Dict[str, Any]],
-    download_file: Optional[Dict[str, Any]]
-) -> Optional[Dict[str, Any]]:
-    """Attach download metadata to table payload so history rendering can keep download buttons."""
-    if not table_data or not isinstance(table_data, dict):
-        return table_data
-    if not download_file:
-        return table_data
-
-    enriched = dict(table_data)
-
-    if not enriched.get("download"):
-        url = download_file.get("url")
-        filename = download_file.get("filename")
-        if url and filename:
-            enriched["download"] = {"url": url, "filename": filename}
-
-    if not enriched.get("file_id") and download_file.get("file_id"):
-        enriched["file_id"] = download_file["file_id"]
-
-    return enriched
-
-
-def build_emission_chart_data(skill_name: Optional[str], data: Dict) -> Optional[Dict]:
-    """Normalize emission-factor results for frontend chart rendering. 支持多种格式。"""
-    if not skill_name or not isinstance(data, dict):
-        return None
-
-    # 格式1: 标准格式 (有 speed_curve + query_summary)
-    if "speed_curve" in data and "query_summary" in data:
-        query_summary = data.get("query_summary", {})
-        vehicle_type = query_summary.get("vehicle_type", "Unknown")
-        model_year = query_summary.get("model_year", 2020)
-        pollutant = query_summary.get("pollutant", "NOx")
-        speed_curve = data.get("speed_curve", [])
-
-        return {
-            "type": "emission_factors",
-            "vehicle_type": vehicle_type,
-            "model_year": model_year,
-            "pollutants": {
-                pollutant: {
-                    "curve": speed_curve,
-                    "unit": data.get("unit", "g/mile")
-                }
-            },
-            "metadata": {
-                "data_source": data.get("data_source", ""),
-                "speed_range": data.get("speed_range", {}),
-                "data_points": data.get("data_points", 0)
-            },
-            "key_points": extract_key_points({"pollutant": pollutant, "curve": speed_curve})
-        }
-
-    # 格式2: 多污染物格式 (只有 pollutants)
-    if skill_name == "query_emission_factors" and "pollutants" in data:
-        pollutants_data = data.get("pollutants", {})
-        if isinstance(pollutants_data, dict):
-            # 标准化每个污染物的数据格式：将 speed_curve 转换为 curve
-            normalized_pollutants = {}
-            for pollutant, poll_data in pollutants_data.items():
-                if isinstance(poll_data, dict):
-                    # 如果有 speed_curve 但没有 curve，进行转换
-                    if "speed_curve" in poll_data and "curve" not in poll_data:
-                        # 转换 speed_curve 为 curve 格式（g/mile -> g/km）
-                        speed_curve = poll_data.get("speed_curve", [])
-                        curve = []
-                        for point in speed_curve:
-                            curve.append({
-                                "speed_kph": point.get("speed_kph", 0),
-                                "emission_rate": round(point.get("emission_rate", 0) / 1.60934, 4)  # g/mile -> g/km
-                            })
-                        normalized_pollutants[pollutant] = {
-                            "curve": curve,
-                            "unit": "g/km"
-                        }
-                    else:
-                        # 已经是正确格式，直接使用
-                        normalized_pollutants[pollutant] = poll_data
-
-            return {
-                "type": "emission_factors",
-                "vehicle_type": data.get("vehicle_type", "Unknown"),
-                "model_year": data.get("model_year", 2020),
-                "pollutants": normalized_pollutants,
-                "metadata": data.get("metadata", {}),
-                "key_points": extract_key_points(normalized_pollutants)
-            }
-
-    # 格式3: 嵌套在 data 字段中
-    if "data" in data and isinstance(data["data"], dict):
-        return build_emission_chart_data(skill_name, data["data"])
-
-    # 格式4: 直接是曲线数据
-    if "curve" in data or "emission_curve" in data:
-        curve = data.get("curve") or data.get("emission_curve", [])
-        return {
-            "type": "emission_factors",
-            "vehicle_type": data.get("vehicle_type", "Unknown"),
-            "model_year": data.get("model_year", 2020),
-            "pollutants": {
-                "default": {"curve": curve, "unit": "g/km"}
-            },
-            "metadata": {},
-            "key_points": extract_key_points({"default": {"curve": curve}})
-        }
-
-    logger.warning(f"无法识别的图表数据格式: {list(data.keys())}")
-    return None
-
-
-def extract_key_points(pollutants_data) -> list:
-    """Extract key speed points (30/60/90 km/h) for table display."""
-    if not pollutants_data:
-        return []
-
-    # New format: {"pollutant": name, "curve": [...]}
-    if isinstance(pollutants_data, dict) and "curve" in pollutants_data:
-        pollutant = pollutants_data.get("pollutant", "Unknown")
-        curve = pollutants_data.get("curve", [])
-        return _pick_key_points(curve, pollutant)
-
-    # Legacy format: {"NOx": {"curve": [...]}, ...}
-    if isinstance(pollutants_data, dict):
-        for pollutant, info in pollutants_data.items():
-            curve = info.get("curve", []) if isinstance(info, dict) else []
-            if curve:
-                return _pick_key_points(curve, pollutant)
-
-    return []
-
-def _pick_key_points(curve, pollutant: str) -> list:
-    if not curve:
-        return []
-    targets = [30, 60, 90]
-    labels = ["City Congestion", "City Cruise", "Highway"]
-    points = []
-    for target, label in zip(targets, labels):
-        closest = min(curve, key=lambda p: abs(p.get("speed_kph", 0) - target))
-        points.append({
-            "speed": closest.get("speed_kph"),
-            "rate": closest.get("emission_rate"),
-            "label": label,
-            "pollutant": pollutant
-        })
-    return points
-
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: Request,
@@ -314,14 +97,7 @@ async def chat(
     - 纯文本消息
     - 带Excel文件的消息（用于轨迹计算或路段计算）
     """
-    import sys
-    sys.stdout.write(f"\n{'='*60}\n")
-    sys.stdout.write("🔵 收到聊天请求\n")
-    sys.stdout.write(f"📝 消息: {message[:100]}...\n")
-    sys.stdout.write(f"🆔 会话ID: {session_id}\n")
-    sys.stdout.write(f"📎 文件: {file.filename if file else 'None'}\n")
-    sys.stdout.write(f"{'='*60}\n")
-    sys.stdout.flush()
+    logger.info(f"Chat request: message={message[:80]!r}, session={session_id}, file={file.filename if file else None}")
 
     try:
         # 获取或创建会话
@@ -370,10 +146,7 @@ async def chat(
             user_id
         )
 
-        logger.info(f"[DEBUG API] download_file from router: {download_file}")
-        logger.info(f"[DEBUG API] download_file type: {type(download_file)}")
-        logger.info(f"[DEBUG API] download_file bool: {bool(download_file)}")
-        logger.info(f"[DEBUG API] map_data from router: {bool(map_data)}")
+        logger.debug(f"download_file={bool(download_file)}, map_data={bool(map_data)}")
 
         # 确定数据类型
         data_type = None
@@ -535,11 +308,7 @@ async def chat_stream(
                 user_id
             )
 
-            logger.info(f"[DEBUG STREAM] download_file from router: {download_file}")
-            logger.info(f"[DEBUG STREAM] download_file type: {type(download_file)}")
-            logger.info(f"[DEBUG STREAM] download_file bool: {bool(download_file)}")
-            logger.info(f"[DEBUG STREAM] table_data from router: {bool(table_data)}")
-            logger.info(f"[DEBUG STREAM] map_data from router: {bool(map_data)}")
+            logger.debug(f"stream: download_file={bool(download_file)}, table_data={bool(table_data)}, map_data={bool(map_data)}")
 
             # 确定数据类型（优先级：chart > table > map）
             data_type = None
@@ -554,14 +323,11 @@ async def chat_stream(
             if table_data:
                 if not data_type:  # 如果没有图表，设置 data_type 为 table
                     data_type = "table"
-                logger.info(f"[DEBUG STREAM] About to send table event, data_type={data_type}")
                 table_data = attach_download_to_table_data(table_data, download_file)
-                logger.info(f"[DEBUG STREAM] After attach_download, table_data keys: {list(table_data.keys()) if table_data else 'None'}")
                 yield json.dumps({
                     "type": "table",
                     "content": table_data
                 }, ensure_ascii=False) + "\n"
-                logger.info(f"[DEBUG STREAM] Table event sent successfully")
 
             # 发送地图数据
             if map_data:
@@ -1032,18 +798,7 @@ async def get_session_history(session_id: str, request: Request):
             if not msg_copy.get("file_id") and msg_copy.get("download_file"):
                 msg_copy["file_id"] = session_id
         normalized_messages.append(msg_copy)
-    logger.info(f"📝 历史消息数量: {len(messages)}")
-
-    # 添加调试日志
-    import sys
-    for i, msg in enumerate(normalized_messages):
-        if msg.get('role') == 'assistant':
-            has_chart = msg.get('chart_data') is not None
-            has_table = msg.get('table_data') is not None
-            sys.stdout.write(f"[DEBUG] 历史消息{i}: role=assistant, chart_data={has_chart}, table_data={has_table}, data_type={msg.get('data_type')}\n")
-            sys.stdout.flush()
-
-    logger.info(f"{'='*60}\n")
+    logger.info(f"History: {len(messages)} messages for session {session_id}")
 
     return HistoryResponse(
         session_id=session_id,
@@ -1058,17 +813,10 @@ async def health_check():
 
 @router.get("/test")
 async def test_endpoint():
-    """测试端点 - 验证日志是否工作"""
-    import sys
-    sys.stdout.write("\n" + "="*60 + "\n")
-    sys.stdout.write("🧪 测试端点被调用\n")
-    sys.stdout.write("="*60 + "\n")
-    sys.stdout.flush()
-    print("🧪 使用print输出", flush=True)
-    logger.info("🧪 使用logger输出")
+    """测试端点 - 验证API可达性"""
+    logger.info("Test endpoint called")
     return {
         "status": "ok",
-        "message": "测试成功 - 如果你在终端看到这条消息的日志，说明日志系统正常工作",
         "timestamp": datetime.now().isoformat()
     }
 

@@ -1,3 +1,5 @@
+# Status: historical guide. For current canonical startup and validation commands, use `/RUNNING.md`.
+
 # Emission Agent Web应用启动指南
 
 ## 项目完成状态

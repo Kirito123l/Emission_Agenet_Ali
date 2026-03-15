@@ -1,4 +1,9 @@
-"""启动API服务"""
+"""Canonical local API/web entrypoint.
+
+Starts the FastAPI app from `api.main` and serves the browser UI from `web/`.
+Use this instead of invoking `uvicorn api.main:app` directly unless you need
+custom server flags.
+"""
 import uvicorn
 import logging
 import sys

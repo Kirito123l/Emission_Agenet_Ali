@@ -1,3 +1,10 @@
+"""Canonical CLI entrypoint.
+
+Supported commands:
+- `python main.py chat` for the interactive CLI
+- `python main.py health` for a lightweight local validation
+- `python main.py tools-list` for tool inventory / debugging
+"""
 import click
 import asyncio
 from rich.console import Console
