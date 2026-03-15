@@ -1,5 +1,6 @@
 """Tests for config loading and secret handling."""
 import os
+import importlib
 from config import Config, get_config, reset_config
 
 
@@ -46,10 +47,31 @@ class TestJWTSecretLoading:
     def test_jwt_secret_from_env(self, monkeypatch):
         monkeypatch.setenv("JWT_SECRET_KEY", "my-super-secret-key-123")
         # Re-import to pick up the new env value
-        import importlib
         import api.auth as auth_mod
         importlib.reload(auth_mod)
         assert auth_mod.SECRET_KEY == "my-super-secret-key-123"
+
+    def test_auth_module_loads_dotenv_before_reading_secret(self, monkeypatch):
+        """api.auth should load .env itself instead of relying on config import order."""
+        monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+
+        import dotenv
+        import api.auth as auth_mod
+
+        calls = []
+
+        def fake_load_dotenv(path=None, override=False, *args, **kwargs):
+            calls.append((path, override))
+            monkeypatch.setenv("JWT_SECRET_KEY", "dotenv-loaded-secret")
+            return True
+
+        monkeypatch.setattr(dotenv, "load_dotenv", fake_load_dotenv)
+        importlib.reload(auth_mod)
+
+        assert auth_mod.SECRET_KEY == "dotenv-loaded-secret"
+        assert calls
+        assert str(calls[0][0]).endswith(".env")
+        assert calls[0][1] is False
 
     def test_jwt_default_is_not_production_safe(self):
         """The default key should contain a warning-like string, not a strong secret."""

@@ -3,16 +3,21 @@ import os
 import jwt
 import hashlib
 import uuid
+from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from passlib.context import CryptContext
 import logging
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
 # JWT 配置
 # SECURITY: Secret key MUST be set via environment variable in production.
 # A default is provided ONLY for local development convenience.
+# Load the project-root .env here so auth does not depend on some other module
+# importing config.py first. Explicit environment variables still take precedence.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 _DEFAULT_SECRET = "local-dev-only-change-me-in-production"
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", _DEFAULT_SECRET)
 if SECRET_KEY == _DEFAULT_SECRET:
