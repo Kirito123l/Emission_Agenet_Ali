@@ -1,0 +1,17 @@
+{
+  "session_id": "4925642f",
+  "fact_memory": {
+    "recent_vehicle": null,
+    "recent_pollutants": [],
+    "recent_year": null,
+    "active_file": null
+  },
+  "compressed_memory": "",
+  "working_memory": [
+    {
+      "user": "你好",
+      "assistant": "你好！我是机动车排放计算助手，可以帮你：\n\n- 查询不同车型在不同速度下的排放因子（如 CO₂、NOₓ、PM₂.₅）\n- 计算单辆车的轨迹排放（微观，需秒级速度数据）\n- 计算路段或路网的总体排放（宏观，需路段长度、车流量、平均速度等）\n- 分析你上传的轨迹或路段数据文件\n\n请问你需要哪方面的帮助？😊  \n例如：\n- “查一下2020年小汽车在快速路上的CO₂排放曲线”\n- “帮我算一段公交车轨迹的NOx排放”\n- “我上传了一个CSV文件，帮忙分析下”\n\n随时告诉我～",
+      "timestamp": "2026-02-20T15:04:14.167940"
+    }
+  ]
+}

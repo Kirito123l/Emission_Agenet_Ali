@@ -1,0 +1,48 @@
+{
+  "session_id": "tmp_debug_session",
+  "fact_memory": {
+    "recent_vehicle": null,
+    "recent_pollutants": [
+      "NOx",
+      "CO2"
+    ],
+    "recent_year": 2020,
+    "active_file": "/tmp/demo.xlsx",
+    "file_analysis": {
+      "task_type": "macro_emission",
+      "row_count": 20,
+      "columns": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    "last_tool_name": "calculate_macro_emission",
+    "last_tool_summary": "已完成宏观排放计算，共 20 个路段\n**缺失车型分布处理:** 已对 2 个路段使用默认车队组成填补空白行",
+    "last_tool_snapshot": {
+      "query_info": {
+        "model_year": 2020,
+        "pollutants": [
+          "CO2",
+          "NOx"
+        ],
+        "links_count": 20
+      },
+      "fleet_mix_fill": {
+        "filled_count": 2,
+        "filled_link_ids": [
+          "A",
+          "B"
+        ]
+      }
+    }
+  },
+  "compressed_memory": "",
+  "working_memory": [
+    {
+      "user": "测试",
+      "assistant": "完成",
+      "timestamp": "2026-02-27T13:46:27.324729"
+    }
+  ]
+}

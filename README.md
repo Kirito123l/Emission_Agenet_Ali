@@ -23,7 +23,7 @@ Read these first:
 8. [DEVELOPMENT.md](DEVELOPMENT.md) for maintainer navigation and safe checks
 9. [ROUTER_REFACTOR_PREP.md](ROUTER_REFACTOR_PREP.md) only if you are planning future `core/router.py` or `api/routes.py` work
 
-Historical `PHASE*.md` reports remain on disk as decision records, but they are background context rather than the current source of truth.
+Historical phase reports now live under [docs/reports/phases/](docs/reports/phases/) and GIS optimization records under [docs/reports/gis/](docs/reports/gis/). They remain decision records, but they are background context rather than the current source of truth.
 
 ## Main Capabilities
 

@@ -23,6 +23,10 @@
 
 包含各类分析报告、诊断总结和问题分析文档。
 
+当前重点入口：
+- [reports/phases/](./reports/phases/) - 本轮工程清理、保护、抽取、基线冻结等阶段记录
+- [reports/gis/](./reports/gis/) - GIS 性能分析与宏观排放优化记录
+
 **最新报告**:
 - `AGENT_RESPONSE_ISSUE_ANALYSIS.md` - Agent回复问题分析
 - `CSV_FILES_AUDIT_REPORT.md` - CSV文件审计报告
@@ -97,10 +101,10 @@ Claude设计相关的提示词和分析文档
 - **archive/**: 历史文档、修复记录、阶段报告
 
 ### 文档生命周期
-1. 新文档创建在根目录
-2. 完成后移动到对应分类目录
-3. 过时文档移动到 archive/
-4. 6个月后可考虑删除归档文档
+1. 当前权威文档保留在仓库根目录
+2. 阶段性/中间报告优先归入 `docs/reports/`
+3. 更老的背景材料进入 `archive/`
+4. 删除应谨慎，优先归档而不是清理历史记录
 
 ---
 

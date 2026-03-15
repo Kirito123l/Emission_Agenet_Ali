@@ -1,0 +1,1166 @@
+[
+  {
+    "role": "user",
+    "content": "你好",
+    "timestamp": "2026-02-21T16:36:54.474641"
+  },
+  {
+    "role": "assistant",
+    "content": "你好！我是机动车排放计算助手，可以帮你：\n\n- 查询不同车型、年份、路况下的排放因子曲线  \n- 计算车辆轨迹（微观）的实时排放（如秒级速度数据）  \n- 计算路段（宏观）的总排放（如车流量、平均速度、长度等）  \n- 分析你上传的排放相关数据文件  \n\n请问你需要哪方面的帮助？例如：  \n- “查一下2020年小汽车在快速路上的CO₂排放因子”  \n- “帮我算一段轨迹数据的NOx排放”  \n- “分析我刚上传的文件”  \n- 或者你有其他具体需求？😊",
+    "chart_data": null,
+    "table_data": null,
+    "data_type": null,
+    "message_id": "e2297921504c",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-02-21T16:36:54.474653"
+  },
+  {
+    "role": "user",
+    "content": "请你帮我计算这个车辆的排放",
+    "timestamp": "2026-02-21T16:37:17.020582"
+  },
+  {
+    "role": "assistant",
+    "content": "感谢上传文件！已确认该文件为**微观排放（micro_emission）**类型，包含时间 `t`（秒）和速度 `speed`（单位应为 km/h，系统将按此处理）。\n\n为计算排放，我还需要以下信息：\n\n✅ 已知：  \n- 文件路径：`/tmp/emission_agent/64cdf0be_input.csv`  \n- 数据格式：轨迹数据（时间 + 速度）  \n\n❓ 待确认（请补充）：  \n1. **车辆类型**：这是什么车？例如：  \n   - 小汽车（乘用车）  \n   - 公交车  \n   - 货车  \n   - SUV  \n   - 摩托车  \n   （请直接告诉我，如“小汽车”或“公交车”）\n\n2. **车辆出厂年份（模型年份）**：如2020、2018等（默认用2020，可指定）\n\n3. **关注的污染物**（可选）：默认计算 `['CO2', 'NOx', 'PM2.5']`，也可指定如 `['CO', 'NOx']`\n\n4. **季节**（可选）：如“夏季”“冬季”等（默认夏季）\n\n请告诉我第1项（车辆类型）——这是**必须项**，其他可选，我来为你一键计算 🚀",
+    "chart_data": null,
+    "table_data": null,
+    "data_type": null,
+    "message_id": "9a34608d5e67",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-02-21T16:37:17.020585"
+  },
+  {
+    "role": "user",
+    "content": "小轿车",
+    "timestamp": "2026-02-21T16:37:38.887282"
+  },
+  {
+    "role": "assistant",
+    "content": "## 微观排放计算结果\n\n**计算参数**\n- 车型: Passenger Car\n- 年份: 2020\n- 季节: 夏季\n- 污染物: CO2, NOx\n- 轨迹点数: 100\n\n**汇总结果**\n- 总距离: 1.111 km\n- 总时间: 100 s\n- 总排放量:\n  - CO2: 139.6108 g\n  - NOx: 0.0006 g\n- 单位排放:\n  - CO2: 125.6497 g/km\n  - NOx: 0.0005 g/km",
+    "chart_data": null,
+    "table_data": {
+      "type": "calculate_micro_emission",
+      "columns": [
+        "t",
+        "speed_kph",
+        "VSP",
+        "CO2",
+        "NOx"
+      ],
+      "preview_rows": [
+        {
+          "t": 0.0,
+          "speed_kph": "0.0",
+          "VSP": "0.00",
+          "CO2": "0.6628",
+          "NOx": "0.0000"
+        },
+        {
+          "t": 1.0,
+          "speed_kph": "2.6",
+          "VSP": "0.60",
+          "CO2": "1.2485",
+          "NOx": "0.0000"
+        },
+        {
+          "t": 2.0,
+          "speed_kph": "5.2",
+          "VSP": "1.20",
+          "CO2": "1.2485",
+          "NOx": "0.0000"
+        },
+        {
+          "t": 3.0,
+          "speed_kph": "7.8",
+          "VSP": "1.80",
+          "CO2": "1.2485",
+          "NOx": "0.0000"
+        }
+      ],
+      "total_rows": 100,
+      "total_columns": 5,
+      "summary": {
+        "total_distance_km": 1.111,
+        "total_time_s": 100,
+        "total_emissions_g": {
+          "CO2": 139.6108,
+          "NOx": 0.0006
+        },
+        "emission_rates_g_per_km": {
+          "CO2": 125.6497,
+          "NOx": 0.0005
+        }
+      },
+      "total_emissions": {
+        "CO2": 139.6108,
+        "NOx": 0.0006
+      },
+      "download": {
+        "url": "/api/file/download/message/64cdf0be/c5ec290d730e?user_id=66296621-71de-4eba-b62e-b92495cb9154",
+        "filename": "64cdf0be_input_emission_results_20260221_163738.xlsx"
+      },
+      "file_id": "64cdf0be"
+    },
+    "data_type": "table",
+    "message_id": "c5ec290d730e",
+    "file_id": "64cdf0be",
+    "download_file": {
+      "path": "/home/kirito/Agent_MCP/emission_agent/outputs/64cdf0be_input_emission_results_20260221_163738.xlsx",
+      "filename": "64cdf0be_input_emission_results_20260221_163738.xlsx",
+      "file_id": "64cdf0be",
+      "message_id": "c5ec290d730e",
+      "url": "/api/file/download/message/64cdf0be/c5ec290d730e?user_id=66296621-71de-4eba-b62e-b92495cb9154"
+    },
+    "timestamp": "2026-02-21T16:37:38.887284"
+  },
+  {
+    "role": "user",
+    "content": "查询小汽车在夏季的二氧化碳排放因子",
+    "timestamp": "2026-02-21T16:37:07.622444"
+  },
+  {
+    "role": "assistant",
+    "content": "## 排放因子查询结果\n\n**查询参数**\n- 车型: Passenger Car\n- 年份: 2020\n- 季节: 夏季\n- 道路类型: 快速路\n- 污染物: CO2\n\n**典型排放值 (g/mile)**\n- 低速 (40.2 km/h): 288.2570\n- 中速 (80.5 km/h): 228.6030\n- 高速 (112.7 km/h): 228.8100\n\n**数据概况**\n- 速度范围: 8.0 - 123.9 km/h\n- 数据点数: 73\n- 数据来源: MOVES (Atlanta)",
+    "chart_data": {
+      "type": "emission_factors",
+      "vehicle_type": "Passenger Car",
+      "model_year": 2020,
+      "pollutants": {
+        "CO2": {
+          "curve": [
+            {
+              "speed_mph": 5,
+              "speed_kph": 8.0,
+              "emission_rate": 860.987,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 6,
+              "speed_kph": 9.7,
+              "emission_rate": 740.958,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 7,
+              "speed_kph": 11.3,
+              "emission_rate": 655.224,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 8,
+              "speed_kph": 12.9,
+              "emission_rate": 590.923,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 9,
+              "speed_kph": 14.5,
+              "emission_rate": 541.826,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 10,
+              "speed_kph": 16.1,
+              "emission_rate": 504.656,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 11,
+              "speed_kph": 17.7,
+              "emission_rate": 474.244,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 12,
+              "speed_kph": 19.3,
+              "emission_rate": 448.901,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 13,
+              "speed_kph": 20.9,
+              "emission_rate": 427.456,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 14,
+              "speed_kph": 22.5,
+              "emission_rate": 409.076,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 15,
+              "speed_kph": 24.1,
+              "emission_rate": 393.146,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 16,
+              "speed_kph": 25.7,
+              "emission_rate": 378.364,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 17,
+              "speed_kph": 27.4,
+              "emission_rate": 363.141,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 18,
+              "speed_kph": 29.0,
+              "emission_rate": 349.61,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 19,
+              "speed_kph": 30.6,
+              "emission_rate": 337.503,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 20,
+              "speed_kph": 32.2,
+              "emission_rate": 326.606,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 21,
+              "speed_kph": 33.8,
+              "emission_rate": 317.077,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 22,
+              "speed_kph": 35.4,
+              "emission_rate": 308.891,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 23,
+              "speed_kph": 37.0,
+              "emission_rate": 301.414,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 24,
+              "speed_kph": 38.6,
+              "emission_rate": 294.561,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 25,
+              "speed_kph": 40.2,
+              "emission_rate": 288.257,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 26,
+              "speed_kph": 41.8,
+              "emission_rate": 282.438,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 27,
+              "speed_kph": 43.5,
+              "emission_rate": 277.049,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 28,
+              "speed_kph": 45.1,
+              "emission_rate": 272.045,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 29,
+              "speed_kph": 46.7,
+              "emission_rate": 267.387,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 30,
+              "speed_kph": 48.3,
+              "emission_rate": 263.039,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 31,
+              "speed_kph": 49.9,
+              "emission_rate": 259.724,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 32,
+              "speed_kph": 51.5,
+              "emission_rate": 257.348,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 33,
+              "speed_kph": 53.1,
+              "emission_rate": 255.114,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 34,
+              "speed_kph": 54.7,
+              "emission_rate": 253.013,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 35,
+              "speed_kph": 56.3,
+              "emission_rate": 251.03,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 36,
+              "speed_kph": 57.9,
+              "emission_rate": 249.16,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 37,
+              "speed_kph": 59.5,
+              "emission_rate": 247.389,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 38,
+              "speed_kph": 61.2,
+              "emission_rate": 245.713,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 39,
+              "speed_kph": 62.8,
+              "emission_rate": 244.12,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 40,
+              "speed_kph": 64.4,
+              "emission_rate": 242.608,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 41,
+              "speed_kph": 66.0,
+              "emission_rate": 241.171,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 42,
+              "speed_kph": 67.6,
+              "emission_rate": 239.802,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 43,
+              "speed_kph": 69.2,
+              "emission_rate": 238.496,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 44,
+              "speed_kph": 70.8,
+              "emission_rate": 237.248,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 45,
+              "speed_kph": 72.4,
+              "emission_rate": 236.057,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 46,
+              "speed_kph": 74.0,
+              "emission_rate": 234.92,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 47,
+              "speed_kph": 75.6,
+              "emission_rate": 233.299,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 48,
+              "speed_kph": 77.2,
+              "emission_rate": 231.67,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 49,
+              "speed_kph": 78.9,
+              "emission_rate": 230.104,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 50,
+              "speed_kph": 80.5,
+              "emission_rate": 228.603,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 51,
+              "speed_kph": 82.1,
+              "emission_rate": 227.159,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 52,
+              "speed_kph": 83.7,
+              "emission_rate": 225.772,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 53,
+              "speed_kph": 85.3,
+              "emission_rate": 224.437,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 54,
+              "speed_kph": 86.9,
+              "emission_rate": 223.151,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 55,
+              "speed_kph": 88.5,
+              "emission_rate": 221.913,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 56,
+              "speed_kph": 90.1,
+              "emission_rate": 220.719,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 57,
+              "speed_kph": 91.7,
+              "emission_rate": 219.565,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 58,
+              "speed_kph": 93.3,
+              "emission_rate": 218.453,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 59,
+              "speed_kph": 95.0,
+              "emission_rate": 217.661,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 60,
+              "speed_kph": 96.6,
+              "emission_rate": 217.975,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 61,
+              "speed_kph": 98.2,
+              "emission_rate": 218.279,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 62,
+              "speed_kph": 99.8,
+              "emission_rate": 218.574,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 63,
+              "speed_kph": 101.4,
+              "emission_rate": 218.859,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 64,
+              "speed_kph": 103.0,
+              "emission_rate": 219.136,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 65,
+              "speed_kph": 104.6,
+              "emission_rate": 220.624,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 66,
+              "speed_kph": 106.2,
+              "emission_rate": 222.867,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 67,
+              "speed_kph": 107.8,
+              "emission_rate": 224.606,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 68,
+              "speed_kph": 109.4,
+              "emission_rate": 226.048,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 69,
+              "speed_kph": 111.0,
+              "emission_rate": 227.45,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 70,
+              "speed_kph": 112.7,
+              "emission_rate": 228.81,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 71,
+              "speed_kph": 114.3,
+              "emission_rate": 230.132,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 72,
+              "speed_kph": 115.9,
+              "emission_rate": 231.417,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 73,
+              "speed_kph": 117.5,
+              "emission_rate": 232.668,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 74,
+              "speed_kph": 119.1,
+              "emission_rate": 234.971,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 75,
+              "speed_kph": 120.7,
+              "emission_rate": 241.478,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 76,
+              "speed_kph": 122.3,
+              "emission_rate": 247.815,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 77,
+              "speed_kph": 123.9,
+              "emission_rate": 244.597,
+              "unit": "g/mile"
+            }
+          ],
+          "unit": "g/mile"
+        }
+      },
+      "metadata": {
+        "data_source": "MOVES (Atlanta)",
+        "speed_range": {
+          "min_mph": 5,
+          "max_mph": 77,
+          "min_kph": 8.0,
+          "max_kph": 123.9
+        },
+        "data_points": 73
+      }
+    },
+    "table_data": {
+      "type": "query_emission_factors",
+      "columns": [
+        "速度 (km/h)",
+        "CO2 (g/km)"
+      ],
+      "preview_rows": [
+        {
+          "速度 (km/h)": "8.0",
+          "CO2 (g/km)": "860.9870"
+        },
+        {
+          "速度 (km/h)": "37.0",
+          "CO2 (g/km)": "301.4140"
+        },
+        {
+          "速度 (km/h)": "66.0",
+          "CO2 (g/km)": "241.1710"
+        },
+        {
+          "速度 (km/h)": "95.0",
+          "CO2 (g/km)": "217.6610"
+        }
+      ],
+      "total_rows": 73,
+      "total_columns": 2,
+      "summary": {
+        "vehicle_type": "Passenger Car",
+        "pollutant": "CO2",
+        "model_year": 2020,
+        "season": "夏季",
+        "road_type": "快速路"
+      }
+    },
+    "data_type": "chart",
+    "message_id": "e6bfe9fc88c7",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-02-21T16:37:07.622447"
+  },
+  {
+    "role": "user",
+    "content": "大货车的排放呢？",
+    "timestamp": "2026-02-21T16:37:24.949481"
+  },
+  {
+    "role": "assistant",
+    "content": "## 排放因子查询结果\n\n**查询参数**\n- 车型: Combination Long-haul Truck\n- 年份: 2020\n- 季节: 夏季\n- 道路类型: 快速路\n- 污染物: CO2\n\n**典型排放值 (g/mile)**\n- 低速 (40.2 km/h): 2342.0300\n- 中速 (80.5 km/h): 1795.0800\n- 高速 (112.7 km/h): 1923.2900\n\n**数据概况**\n- 速度范围: 8.0 - 123.9 km/h\n- 数据点数: 73\n- 数据来源: MOVES (Atlanta)",
+    "chart_data": {
+      "type": "emission_factors",
+      "vehicle_type": "Combination Long-haul Truck",
+      "model_year": 2020,
+      "pollutants": {
+        "CO2": {
+          "curve": [
+            {
+              "speed_mph": 5,
+              "speed_kph": 8.0,
+              "emission_rate": 5099.79,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 6,
+              "speed_kph": 9.7,
+              "emission_rate": 4418.33,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 7,
+              "speed_kph": 11.3,
+              "emission_rate": 4000.82,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 8,
+              "speed_kph": 12.9,
+              "emission_rate": 3687.67,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 9,
+              "speed_kph": 14.5,
+              "emission_rate": 3444.12,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 10,
+              "speed_kph": 16.1,
+              "emission_rate": 3249.28,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 11,
+              "speed_kph": 17.7,
+              "emission_rate": 3089.86,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 12,
+              "speed_kph": 19.3,
+              "emission_rate": 3012.96,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 13,
+              "speed_kph": 20.9,
+              "emission_rate": 2960.79,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 14,
+              "speed_kph": 22.5,
+              "emission_rate": 2916.08,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 15,
+              "speed_kph": 24.1,
+              "emission_rate": 2877.33,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 16,
+              "speed_kph": 25.7,
+              "emission_rate": 2817.79,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 17,
+              "speed_kph": 27.4,
+              "emission_rate": 2729.07,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 18,
+              "speed_kph": 29.0,
+              "emission_rate": 2650.21,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 19,
+              "speed_kph": 30.6,
+              "emission_rate": 2579.65,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 20,
+              "speed_kph": 32.2,
+              "emission_rate": 2525.14,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 21,
+              "speed_kph": 33.8,
+              "emission_rate": 2481.54,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 22,
+              "speed_kph": 35.4,
+              "emission_rate": 2441.91,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 23,
+              "speed_kph": 37.0,
+              "emission_rate": 2405.72,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 24,
+              "speed_kph": 38.6,
+              "emission_rate": 2372.55,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 25,
+              "speed_kph": 40.2,
+              "emission_rate": 2342.03,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 26,
+              "speed_kph": 41.8,
+              "emission_rate": 2320.71,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 27,
+              "speed_kph": 43.5,
+              "emission_rate": 2310.84,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 28,
+              "speed_kph": 45.1,
+              "emission_rate": 2301.68,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 29,
+              "speed_kph": 46.7,
+              "emission_rate": 2293.16,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 30,
+              "speed_kph": 48.3,
+              "emission_rate": 2285.21,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 31,
+              "speed_kph": 49.9,
+              "emission_rate": 2277.75,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 32,
+              "speed_kph": 51.5,
+              "emission_rate": 2270.78,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 33,
+              "speed_kph": 53.1,
+              "emission_rate": 2178.32,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 34,
+              "speed_kph": 54.7,
+              "emission_rate": 2007.92,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 35,
+              "speed_kph": 56.3,
+              "emission_rate": 1950.85,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 36,
+              "speed_kph": 57.9,
+              "emission_rate": 1940.13,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 37,
+              "speed_kph": 59.5,
+              "emission_rate": 1929.98,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 38,
+              "speed_kph": 61.2,
+              "emission_rate": 1920.37,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 39,
+              "speed_kph": 62.8,
+              "emission_rate": 1911.24,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 40,
+              "speed_kph": 64.4,
+              "emission_rate": 1902.58,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 41,
+              "speed_kph": 66.0,
+              "emission_rate": 1894.33,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 42,
+              "speed_kph": 67.6,
+              "emission_rate": 1886.49,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 43,
+              "speed_kph": 69.2,
+              "emission_rate": 1879.0,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 44,
+              "speed_kph": 70.8,
+              "emission_rate": 1871.85,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 45,
+              "speed_kph": 72.4,
+              "emission_rate": 1865.03,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 46,
+              "speed_kph": 74.0,
+              "emission_rate": 1858.51,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 47,
+              "speed_kph": 75.6,
+              "emission_rate": 1852.25,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 48,
+              "speed_kph": 77.2,
+              "emission_rate": 1833.36,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 49,
+              "speed_kph": 78.9,
+              "emission_rate": 1813.83,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 50,
+              "speed_kph": 80.5,
+              "emission_rate": 1795.08,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 51,
+              "speed_kph": 82.1,
+              "emission_rate": 1777.08,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 52,
+              "speed_kph": 83.7,
+              "emission_rate": 1759.75,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 53,
+              "speed_kph": 85.3,
+              "emission_rate": 1743.08,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 54,
+              "speed_kph": 86.9,
+              "emission_rate": 1727.04,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 55,
+              "speed_kph": 88.5,
+              "emission_rate": 1714.85,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 56,
+              "speed_kph": 90.1,
+              "emission_rate": 1703.89,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 57,
+              "speed_kph": 91.7,
+              "emission_rate": 1693.31,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 58,
+              "speed_kph": 93.3,
+              "emission_rate": 1683.11,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 59,
+              "speed_kph": 95.0,
+              "emission_rate": 1673.25,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 60,
+              "speed_kph": 96.6,
+              "emission_rate": 1686.16,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 61,
+              "speed_kph": 98.2,
+              "emission_rate": 1713.37,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 62,
+              "speed_kph": 99.8,
+              "emission_rate": 1739.71,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 63,
+              "speed_kph": 101.4,
+              "emission_rate": 1765.2,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 64,
+              "speed_kph": 103.0,
+              "emission_rate": 1789.9,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 65,
+              "speed_kph": 104.6,
+              "emission_rate": 1813.85,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 66,
+              "speed_kph": 106.2,
+              "emission_rate": 1837.05,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 67,
+              "speed_kph": 107.8,
+              "emission_rate": 1859.58,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 68,
+              "speed_kph": 109.4,
+              "emission_rate": 1881.44,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 69,
+              "speed_kph": 111.0,
+              "emission_rate": 1902.66,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 70,
+              "speed_kph": 112.7,
+              "emission_rate": 1923.29,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 71,
+              "speed_kph": 114.3,
+              "emission_rate": 1943.33,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 72,
+              "speed_kph": 115.9,
+              "emission_rate": 1966.95,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 73,
+              "speed_kph": 117.5,
+              "emission_rate": 1999.49,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 74,
+              "speed_kph": 119.1,
+              "emission_rate": 2031.15,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 75,
+              "speed_kph": 120.7,
+              "emission_rate": 2061.97,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 76,
+              "speed_kph": 122.3,
+              "emission_rate": 2091.96,
+              "unit": "g/mile"
+            },
+            {
+              "speed_mph": 77,
+              "speed_kph": 123.9,
+              "emission_rate": 2100.77,
+              "unit": "g/mile"
+            }
+          ],
+          "unit": "g/mile"
+        }
+      },
+      "metadata": {
+        "data_source": "MOVES (Atlanta)",
+        "speed_range": {
+          "min_mph": 5,
+          "max_mph": 77,
+          "min_kph": 8.0,
+          "max_kph": 123.9
+        },
+        "data_points": 73
+      }
+    },
+    "table_data": {
+      "type": "query_emission_factors",
+      "columns": [
+        "速度 (km/h)",
+        "CO2 (g/km)"
+      ],
+      "preview_rows": [
+        {
+          "速度 (km/h)": "8.0",
+          "CO2 (g/km)": "5099.7900"
+        },
+        {
+          "速度 (km/h)": "37.0",
+          "CO2 (g/km)": "2405.7200"
+        },
+        {
+          "速度 (km/h)": "66.0",
+          "CO2 (g/km)": "1894.3300"
+        },
+        {
+          "速度 (km/h)": "95.0",
+          "CO2 (g/km)": "1673.2500"
+        }
+      ],
+      "total_rows": 73,
+      "total_columns": 2,
+      "summary": {
+        "vehicle_type": "Combination Long-haul Truck",
+        "pollutant": "CO2",
+        "model_year": 2020,
+        "season": "夏季",
+        "road_type": "快速路"
+      }
+    },
+    "data_type": "chart",
+    "message_id": "ae613407a831",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-02-21T16:37:24.949485"
+  },
+  {
+    "role": "user",
+    "content": "查一下重型柴油车的排放法规，重点关注 NOx 和颗粒物的限值",
+    "timestamp": "2026-02-21T16:38:10.588766"
+  },
+  {
+    "role": "assistant",
+    "content": "### 中国重型柴油车污染物排放限值法规概览\n\n中国针对重型柴油车的氮氧化物（NOx）和颗粒物（PM）排放制定了严格的限值标准，主要依据《重型柴油车污染物排放限值及测量方法（中国第六阶段）》（GB 18352.6—2016）[来源1]。该标准适用于总质量大于3500 kg的M₂、M₃、N₁、N₂、N₃类汽车及其发动机，涵盖新型车辆型式检验、生产一致性检查及在用车符合性检测。\n\n---\n\n### 排放限值要求（基于第六阶段标准）\n\n- **氮氧化物（NOx）**：以g/kWh为单位，限值根据发动机功率段设定，整体显著严于前一阶段。\n- **颗粒物（PM）**：同样以g/kWh计，要求更为严格，尤其对高功率发动机。\n- 所有测试均需考虑**劣化系数**或**劣化修正值**，即在耐久性试验后仍须满足限值要求 [来源2]。\n\n> ⚠️ 特别注意：若车辆已按GB 18352.6—2016完成型式检验，则可不重复进行本标准检验 [来源1]。\n\n---\n\n### 耐久性与测试要求\n\n为确保长期使用中排放性能稳定，标准规定了不同功率段柴油机的耐久性时间要求：\n\n- **Pmax ≥ 37 kW**：有效寿命至少8000小时，最短试验时间为2000小时。\n- **19 ≤ Pmax < 37 kW**：有效寿命5000小时，最短试验时间1250小时。\n- **恒速运行且转速≥3000 rpm**：有效寿命750小时。\n- **Pmax < 19 kW**：适用任意转速，具体耐久性要求依工况而定。\n\n这些耐久性测试用于验证安装排气后处理系统（如SCR、DPF）的发动机在使用过程中是否仍能保持排放达标 [来源3]。\n\n---\n\n### 非道路移动机械用柴油机排放对比（参考信息）\n\n虽然非道路机械不属于“重型柴油车”范畴，但其排放限值可作为参照。例如第四阶段限值中：\n- **NOx**：最高达3.5 g/kWh（Pmax > 560 kW），随后逐步降低；\n- **PM**：最低至0.025 g/kWh（Pmax ≤ 130 kW）[来源2]。\n\n此数据表明，随着技术进步，排放控制水平持续提升，为道路车辆标准演进提供支持。\n\n**参考文档**：\n1. 重型柴油车污染物排放限值及测量方法\n2. 非道路移动机械用柴油机排气污染物排放限值及测量方法\n3. 柴油车污染物排放限值及测量方法（自由加速法及加载减速法）\n4. 道路机动车大气污染物排放清单编制技术指南",
+    "chart_data": null,
+    "table_data": null,
+    "data_type": null,
+    "message_id": "6356e57431d7",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-02-21T16:38:10.588785"
+  },
+  {
+    "role": "user",
+    "content": "请帮我计算这几个路段的排放",
+    "timestamp": "2026-02-21T16:38:35.114690"
+  },
+  {
+    "role": "assistant",
+    "content": "请先告诉我车辆类型，例如：\n- 小汽车（乘用车）\n- 公交车\n- 货车\n- SUV\n或者其他具体车型。",
+    "chart_data": null,
+    "table_data": null,
+    "data_type": null,
+    "message_id": "eaae2517ced3",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-02-21T16:38:35.114698"
+  }
+]

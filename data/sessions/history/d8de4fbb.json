@@ -1,0 +1,23 @@
+{
+  "session_id": "d8de4fbb",
+  "fact_memory": {
+    "recent_vehicle": "小汽车",
+    "recent_pollutants": [
+      "CO2"
+    ],
+    "recent_year": 2020,
+    "active_file": null,
+    "file_analysis": null,
+    "last_tool_name": "query_emission_factors",
+    "last_tool_summary": "Found CO2 emission factors for Passenger Car (2020) with 73 speed points. Season: 夏季, Road type: 快速路.",
+    "last_tool_snapshot": null
+  },
+  "compressed_memory": "",
+  "working_memory": [
+    {
+      "user": "查询小汽车在夏季的二氧化碳排放因子，车辆年份2020年",
+      "assistant": "Found CO2 emission factors for Passenger Car (2020) with 73 speed points. Season: 夏季, Road type: 快速路.",
+      "timestamp": "2026-02-27T21:28:03.562818"
+    }
+  ]
+}

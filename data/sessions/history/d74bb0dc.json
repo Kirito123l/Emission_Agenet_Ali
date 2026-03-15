@@ -1,0 +1,23 @@
+{
+  "session_id": "d74bb0dc",
+  "fact_memory": {
+    "recent_vehicle": "小汽车",
+    "recent_pollutants": [
+      "CO2"
+    ],
+    "recent_year": 2020,
+    "active_file": null,
+    "file_analysis": null,
+    "last_tool_name": "query_emission_factors",
+    "last_tool_summary": "Found CO2 emission factors for Passenger Car (2020) with 73 speed points. Season: 夏季, Road type: 快速路.",
+    "last_tool_snapshot": null
+  },
+  "compressed_memory": "",
+  "working_memory": [
+    {
+      "user": "查询小汽车在夏季的二氧化碳排放因子",
+      "assistant": "## 排放因子查询结果\n\n**查询参数**\n- 车型: Passenger Car\n- 年份: 2020\n- 季节: 夏季\n- 道路类型: 快速路\n- 污染物: CO2\n\n**典型排放值 (g/mile)**\n- 低速 (40.2 km/h): 288.2570\n- 中速 (80.5 km/h): 228.6030\n- 高速 (112.7 km/h): 228.8100\n\n**数据概况**\n- 速度范围: 8.0 - 123.9 km/h\n- 数据点数: 73\n- 数据来源: MOVES (Atlanta)",
+      "timestamp": "2026-03-10T22:13:15.979104"
+    }
+  ]
+}

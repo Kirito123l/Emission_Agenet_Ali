@@ -1,0 +1,25 @@
+{
+  "session_id": "80dbe723",
+  "fact_memory": {
+    "recent_vehicle": null,
+    "recent_pollutants": [],
+    "recent_year": null,
+    "active_file": "/tmp/emission_agent/80dbe723_input.zip",
+    "file_analysis": {
+      "message": "Unsupported file format: .zip. Supported: .csv, .xlsx, .xls",
+      "file_path": "/tmp/emission_agent/80dbe723_input.zip",
+      "file_mtime": 1772960217.3348663
+    },
+    "last_tool_name": null,
+    "last_tool_summary": null,
+    "last_tool_snapshot": null
+  },
+  "compressed_memory": "",
+  "working_memory": [
+    {
+      "user": "计算这些路段的排放\n\n文件已上传，路径: /tmp/emission_agent/80dbe723_input.zip\n请使用 input_file 参数处理此文件。",
+      "assistant": "检测到上传的是 ZIP 压缩包，当前系统不支持直接分析 `.zip` 文件。请提供解压后的原始数据文件（如 `.csv` 或 `.xlsx`），或告知：\n\n- 该 ZIP 包中**包含哪些文件**？（例如：`links.csv`, `trajectory.xlsx` 等）  \n- 您希望分析的是**哪一份文件**？  \n- 它属于**微观轨迹数据**还是**宏观路段数据**？（可参考我上一条消息中的定义）\n\n我可指导您快速确认，或等待您重新上传解压后的文件 ✅  \n需要我帮您说明如何解压并识别关键列吗？",
+      "timestamp": "2026-03-08T16:57:11.707484"
+    }
+  ]
+}

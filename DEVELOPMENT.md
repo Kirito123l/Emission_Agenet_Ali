@@ -15,7 +15,7 @@ Read these in order:
 7. [examples/README.md](examples/README.md) for the smallest realistic workflows
 8. [CONTRIBUTING.md](CONTRIBUTING.md) for practical contribution guardrails
 9. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the current high-level architecture
-10. Relevant `PHASE*.md` reports only when you need historical cleanup rationale for a specific area
+10. Relevant reports under `docs/reports/phases/` or `docs/reports/gis/` only when you need historical cleanup rationale for a specific area
 
 Trust the live codebase first, then use the phase reports as supporting context.
 
@@ -23,8 +23,8 @@ Trust the live codebase first, then use the phase reports as supporting context.
 
 - `README.md`, `ENGINEERING_STATUS.md`, `CURRENT_BASELINE.md`, `RELEASE_READINESS.md`, `RUNNING.md`, `evaluation/README.md`, `examples/README.md`, and `CONTRIBUTING.md`
   - current source-of-truth docs for daily work
-- Root-level `PHASE*.md` reports
-  - historical cleanup and decision records
+- `docs/reports/phases/` and `docs/reports/gis/`
+  - historical cleanup and optimization decision records
 - `docs/reports/` and `docs/archive/`
   - older background material; do not treat them as the default starting point
 

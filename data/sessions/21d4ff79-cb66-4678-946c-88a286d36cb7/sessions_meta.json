@@ -1,0 +1,62 @@
+[
+  {
+    "session_id": "0698fe2e",
+    "title": "你好",
+    "created_at": "2026-02-27T11:46:25.710082",
+    "updated_at": "2026-02-27T11:50:24.636597",
+    "message_count": 12,
+    "last_result_file": {
+      "path": "/home/kirito/Agent_MCP/emission_agent/outputs/0698fe2e_input_emission_results_20260227_114755.xlsx",
+      "filename": "0698fe2e_input_emission_results_20260227_114755.xlsx",
+      "file_id": "0698fe2e",
+      "message_id": "5ce9c69c0e1f",
+      "url": "/api/file/download/message/0698fe2e/5ce9c69c0e1f?user_id=21d4ff79-cb66-4678-946c-88a286d36cb7"
+    }
+  },
+  {
+    "session_id": "9012ed88",
+    "title": "新对话",
+    "created_at": "2026-02-27T11:49:56.077317",
+    "updated_at": "2026-02-27T11:49:56.077331",
+    "message_count": 0,
+    "last_result_file": null
+  },
+  {
+    "session_id": "0bb81a4b",
+    "title": "你好",
+    "created_at": "2026-02-27T19:42:54.156951",
+    "updated_at": "2026-02-27T19:47:53.314722",
+    "message_count": 8,
+    "last_result_file": {
+      "path": "/home/kirito/Agent_MCP/emission_agent/outputs/0bb81a4b_input_emission_results_20260227_194752.xlsx",
+      "filename": "0bb81a4b_input_emission_results_20260227_194752.xlsx",
+      "file_id": "0bb81a4b",
+      "message_id": "87e995251448",
+      "url": "/api/file/download/message/0bb81a4b/87e995251448?user_id=21d4ff79-cb66-4678-946c-88a286d36cb7"
+    }
+  },
+  {
+    "session_id": "455bb373",
+    "title": "柴油车和汽油车的排放标准有什么区别？请给...",
+    "created_at": "2026-02-27T20:17:39.813792",
+    "updated_at": "2026-02-27T20:17:56.249808",
+    "message_count": 2,
+    "last_result_file": null
+  },
+  {
+    "session_id": "ac448fa5",
+    "title": "查询国六排放限值，我想知道具体的CO、N...",
+    "created_at": "2026-02-27T21:07:32.211488",
+    "updated_at": "2026-02-27T21:07:50.651909",
+    "message_count": 2,
+    "last_result_file": null
+  },
+  {
+    "session_id": "d8de4fbb",
+    "title": "查询小汽车在夏季的二氧化碳排放因子，车辆...",
+    "created_at": "2026-02-27T21:28:00.098614",
+    "updated_at": "2026-02-27T21:28:03.871105",
+    "message_count": 2,
+    "last_result_file": null
+  }
+]

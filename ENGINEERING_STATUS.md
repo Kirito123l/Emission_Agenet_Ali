@@ -134,7 +134,8 @@ Expected artifact:
 
 ## How To Read The Report Trail
 
-- Root-level `PHASE*.md` files are historical engineering records.
+- `docs/reports/phases/` contains the historical engineering phase records.
+- `docs/reports/gis/` contains the targeted GIS optimization records.
 - `docs/reports/` and `docs/archive/` are background context, not the current source of truth.
 - Use historical reports only when you need the rationale for a specific cleanup decision.
 - For current daily work or external sharing prep, prefer the canonical docs above plus the live codebase.

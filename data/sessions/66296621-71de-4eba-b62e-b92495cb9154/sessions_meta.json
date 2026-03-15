@@ -1,0 +1,44 @@
+[
+  {
+    "session_id": "555bef79",
+    "title": "查一下重型柴油车的排放法规，重点关注 N...",
+    "created_at": "2026-02-21T13:48:25.967359",
+    "updated_at": "2026-02-21T13:51:48.896933",
+    "message_count": 14,
+    "last_result_file": {
+      "path": "/home/kirito/Agent_MCP/emission_agent/outputs/555bef79_input_emission_results_20260221_135009.xlsx",
+      "filename": "555bef79_input_emission_results_20260221_135009.xlsx",
+      "file_id": "555bef79",
+      "message_id": "9f9d527dff20",
+      "url": "/api/file/download/message/555bef79/9f9d527dff20?user_id=66296621-71de-4eba-b62e-b92495cb9154"
+    }
+  },
+  {
+    "session_id": "64cdf0be",
+    "title": "你好",
+    "created_at": "2026-02-21T16:36:49.419852",
+    "updated_at": "2026-02-21T16:38:35.114705",
+    "message_count": 14,
+    "last_result_file": {
+      "path": "/home/kirito/Agent_MCP/emission_agent/outputs/64cdf0be_input_emission_results_20260221_163738.xlsx",
+      "filename": "64cdf0be_input_emission_results_20260221_163738.xlsx",
+      "file_id": "64cdf0be",
+      "message_id": "c5ec290d730e",
+      "url": "/api/file/download/message/64cdf0be/c5ec290d730e?user_id=66296621-71de-4eba-b62e-b92495cb9154"
+    }
+  },
+  {
+    "session_id": "f7e94402",
+    "title": "请帮我计算这个车辆的排放",
+    "created_at": "2026-02-21T18:28:44.014791",
+    "updated_at": "2026-02-21T18:31:58.205001",
+    "message_count": 10,
+    "last_result_file": {
+      "path": "/home/kirito/Agent_MCP/emission_agent/outputs/f7e94402_input_emission_results_20260221_183018.xlsx",
+      "filename": "f7e94402_input_emission_results_20260221_183018.xlsx",
+      "file_id": "f7e94402",
+      "message_id": "809966089c7a",
+      "url": "/api/file/download/message/f7e94402/809966089c7a?user_id=66296621-71de-4eba-b62e-b92495cb9154"
+    }
+  }
+]

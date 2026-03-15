@@ -32,7 +32,7 @@ Use these first:
 7. [CONTRIBUTING.md](CONTRIBUTING.md)
 8. [DEVELOPMENT.md](DEVELOPMENT.md)
 
-Use root-level `PHASE*.md` files only when you need the rationale behind a specific earlier cleanup decision.
+Use [docs/reports/phases/](docs/reports/phases/) only when you need the rationale behind a specific earlier cleanup decision. GIS-specific optimization notes now live under [docs/reports/gis/](docs/reports/gis/).
 
 ## Canonical Commands
 

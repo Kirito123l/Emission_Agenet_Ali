@@ -1,0 +1,63 @@
+[
+  {
+    "role": "user",
+    "content": "帮我计算这几个路段的二氧化碳排放",
+    "timestamp": "2026-03-09T09:53:30.846480"
+  },
+  {
+    "role": "assistant",
+    "content": "## 宏观排放计算结果\n\n**计算参数**\n- 路段数: 3\n- 年份: 2020\n- 季节: 夏季\n- 污染物: CO2\n\n**汇总结果**\n- 总排放量 (kg/h):\n  - CO2: 691.9354",
+    "chart_data": null,
+    "table_data": {
+      "type": "calculate_macro_emission",
+      "columns": [
+        "link_id",
+        "CO2_kg_h",
+        "CO2_g_veh_km"
+      ],
+      "preview_rows": [
+        {
+          "link_id": "Link_1",
+          "CO2_kg_h": "229.77",
+          "CO2_g_veh_km": "76.59"
+        },
+        {
+          "link_id": "Link_2",
+          "CO2_kg_h": "147.05",
+          "CO2_g_veh_km": "102.12"
+        },
+        {
+          "link_id": "Link_3",
+          "CO2_kg_h": "315.11",
+          "CO2_g_veh_km": "65.65"
+        }
+      ],
+      "total_rows": 3,
+      "total_columns": 3,
+      "summary": {
+        "total_links": 3,
+        "total_emissions_kg_per_hr": {
+          "CO2": 691.9354
+        }
+      },
+      "total_emissions": {},
+      "download": {
+        "url": "/api/file/download/message/c92b4d36/a44d57b897cb?user_id=f0f974fb-f2fd-47e8-8902-a760cf959cfd",
+        "filename": "c92b4d36_input_emission_results_20260309_095330.xlsx"
+      },
+      "file_id": "c92b4d36"
+    },
+    "map_data": null,
+    "data_type": "table",
+    "message_id": "a44d57b897cb",
+    "file_id": "c92b4d36",
+    "download_file": {
+      "path": "/home/kirito/Agent1/emission_agent/outputs/c92b4d36_input_emission_results_20260309_095330.xlsx",
+      "filename": "c92b4d36_input_emission_results_20260309_095330.xlsx",
+      "file_id": "c92b4d36",
+      "message_id": "a44d57b897cb",
+      "url": "/api/file/download/message/c92b4d36/a44d57b897cb?user_id=f0f974fb-f2fd-47e8-8902-a760cf959cfd"
+    },
+    "timestamp": "2026-03-09T09:53:30.846486"
+  }
+]

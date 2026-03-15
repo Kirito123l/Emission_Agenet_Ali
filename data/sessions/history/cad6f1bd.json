@@ -1,0 +1,55 @@
+{
+  "session_id": "cad6f1bd",
+  "fact_memory": {
+    "recent_vehicle": null,
+    "recent_pollutants": [],
+    "recent_year": null,
+    "active_file": "/tmp/emission_agent/cad6f1bd_input.xlsx",
+    "file_analysis": {
+      "filename": "cad6f1bd_input.xlsx",
+      "row_count": 3,
+      "columns": [
+        "长度",
+        "流量",
+        "速度"
+      ],
+      "task_type": "macro_emission",
+      "confidence": 0.8,
+      "micro_mapping": {
+        "速度": "speed_kph"
+      },
+      "macro_mapping": {
+        "长度": "link_length_km",
+        "流量": "traffic_flow_vph",
+        "速度": "avg_speed_kph"
+      },
+      "micro_has_required": true,
+      "macro_has_required": true,
+      "sample_rows": [
+        {
+          "长度": 2.5,
+          "流量": 1200,
+          "速度": 60
+        },
+        {
+          "长度": 1.8,
+          "流量": 800,
+          "速度": 45
+        }
+      ],
+      "file_path": "/tmp/emission_agent/cad6f1bd_input.xlsx",
+      "file_mtime": 1772959436.9874995
+    },
+    "last_tool_name": null,
+    "last_tool_summary": null,
+    "last_tool_snapshot": null
+  },
+  "compressed_memory": "",
+  "working_memory": [
+    {
+      "user": "请帮我计算这几个路段的排放\n\n文件已上传，路径: /tmp/emission_agent/cad6f1bd_input.xlsx\n请使用 input_file 参数处理此文件。",
+      "assistant": "已确认文件为宏观排放（`macro_emission`）类型，包含路段长度（km）、流量（vph）、平均速度（km/h）三列数据。\n\n为计算排放，我需要以下信息（若未提供，将使用默认值）：\n- **污染物种类**：如 `['CO2', 'NOx', 'PM2.5']`（默认）\n- **车辆年份**：如 `2020`（默认）\n- **季节**：如 `'夏季'`（可选，默认夏季）\n- **车型构成（fleet_mix）**：如 `{\"小汽车\": 70, \"公交车\": 20, \"货车\": 10}`（可选，默认城市典型构成）\n\n请问是否需自定义以上参数？或直接使用默认设置进行计算？",
+      "timestamp": "2026-03-08T16:44:01.929298"
+    }
+  ]
+}

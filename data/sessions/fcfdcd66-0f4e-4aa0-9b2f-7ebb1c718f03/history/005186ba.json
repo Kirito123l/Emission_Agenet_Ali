@@ -1,0 +1,236 @@
+[
+  {
+    "role": "user",
+    "content": "帮我计算这个路网文件的排放",
+    "timestamp": "2026-03-09T19:49:04.723242"
+  },
+  {
+    "role": "assistant",
+    "content": "## 宏观排放计算结果\n\n**计算参数**\n- 路段数: 6\n- 年份: 2020\n- 季节: 夏季\n- 污染物: CO2, NOx\n\n**汇总结果**\n- 总排放量 (kg/h):\n  - CO2: 804.9691\n  - NOx: 0.1699",
+    "chart_data": null,
+    "table_data": {
+      "type": "calculate_macro_emission",
+      "columns": [
+        "link_id",
+        "CO2_kg_h",
+        "CO2_g_veh_km",
+        "NOx_kg_h"
+      ],
+      "preview_rows": [
+        {
+          "link_id": "Link_1",
+          "CO2_kg_h": "90.45",
+          "CO2_g_veh_km": "63.83",
+          "NOx_kg_h": "0.02"
+        },
+        {
+          "link_id": "Link_2",
+          "CO2_kg_h": "50.28",
+          "CO2_g_veh_km": "64.72",
+          "NOx_kg_h": "0.01"
+        },
+        {
+          "link_id": "Link_3",
+          "CO2_kg_h": "211.07",
+          "CO2_g_veh_km": "114.88",
+          "NOx_kg_h": "0.04"
+        },
+        {
+          "link_id": "Link_4",
+          "CO2_kg_h": "171.19",
+          "CO2_g_veh_km": "135.16",
+          "NOx_kg_h": "0.04"
+        }
+      ],
+      "total_rows": 6,
+      "total_columns": 4,
+      "summary": {
+        "total_links": 6,
+        "total_emissions_kg_per_hr": {
+          "CO2": 804.9691,
+          "NOx": 0.1699
+        }
+      },
+      "total_emissions": {}
+    },
+    "map_data": {
+      "type": "macro_emission_map",
+      "center": [
+        121.48506291868078,
+        31.2261931267477
+      ],
+      "zoom": 12,
+      "pollutant": "CO2",
+      "unit": "kg/h",
+      "color_scale": {
+        "min": 50.2827,
+        "max": 211.0666,
+        "colors": [
+          "#fee5d9",
+          "#fcae91",
+          "#fb6a4a",
+          "#de2d26",
+          "#a50f15"
+        ]
+      },
+      "links": [
+        {
+          "link_id": "Link_1",
+          "geometry": [
+            [
+              121.4956131554686,
+              31.221251588028828
+            ],
+            [
+              121.50112554932397,
+              31.22596563323674
+            ]
+          ],
+          "emissions": {
+            "CO2": 90.4463,
+            "NOx": 0.0191
+          },
+          "emission_rate": {
+            "CO2": 63.825,
+            "NOx": 0.0135
+          },
+          "link_length_km": 0.74,
+          "avg_speed_kph": 72,
+          "traffic_flow_vph": 1915
+        },
+        {
+          "link_id": "Link_2",
+          "geometry": [
+            [
+              121.42898582535831,
+              31.212092708956362
+            ],
+            [
+              121.42898582535831,
+              31.204615231478886
+            ]
+          ],
+          "emissions": {
+            "CO2": 50.2827,
+            "NOx": 0.0106
+          },
+          "emission_rate": {
+            "CO2": 64.7239,
+            "NOx": 0.0137
+          },
+          "link_length_km": 0.83,
+          "avg_speed_kph": 71,
+          "traffic_flow_vph": 936
+        },
+        {
+          "link_id": "Link_3",
+          "geometry": [
+            [
+              121.52009328665713,
+              31.26186422915838
+            ],
+            [
+              121.50744617062577,
+              31.26186422915838
+            ]
+          ],
+          "emissions": {
+            "CO2": 211.0666,
+            "NOx": 0.0446
+          },
+          "emission_rate": {
+            "CO2": 114.8849,
+            "NOx": 0.0243
+          },
+          "link_length_km": 1.2,
+          "avg_speed_kph": 40,
+          "traffic_flow_vph": 1531
+        },
+        {
+          "link_id": "Link_4",
+          "geometry": [
+            [
+              121.47782663516332,
+              31.220695673330905
+            ],
+            [
+              121.485946194578,
+              31.22763933451553
+            ]
+          ],
+          "emissions": {
+            "CO2": 171.1894,
+            "NOx": 0.0361
+          },
+          "emission_rate": {
+            "CO2": 135.1587,
+            "NOx": 0.0285
+          },
+          "link_length_km": 1.09,
+          "avg_speed_kph": 34,
+          "traffic_flow_vph": 1162
+        },
+        {
+          "link_id": "Link_5",
+          "geometry": [
+            [
+              121.47008752092654,
+              31.20735029859288
+            ],
+            [
+              121.48146335956828,
+              31.20735029859288
+            ]
+          ],
+          "emissions": {
+            "CO2": 109.8865,
+            "NOx": 0.0232
+          },
+          "emission_rate": {
+            "CO2": 58.9153,
+            "NOx": 0.0124
+          },
+          "link_length_km": 1.08,
+          "avg_speed_kph": 78,
+          "traffic_flow_vph": 1727
+        },
+        {
+          "link_id": "Link_6",
+          "geometry": [
+            [
+              121.51159075057055,
+              31.238570904718067
+            ],
+            [
+              121.51159075057055,
+              31.225057391204555
+            ]
+          ],
+          "emissions": {
+            "CO2": 172.0976,
+            "NOx": 0.0363
+          },
+          "emission_rate": {
+            "CO2": 76.59,
+            "NOx": 0.0162
+          },
+          "link_length_km": 1.5,
+          "avg_speed_kph": 60,
+          "traffic_flow_vph": 1498
+        }
+      ],
+      "summary": {
+        "total_links": 6,
+        "total_emissions_kg_per_hr": {
+          "CO2": 804.9691,
+          "NOx": 0.1699
+        }
+      }
+    },
+    "data_type": "table_and_map",
+    "message_id": "026beda1efa0",
+    "file_id": null,
+    "download_file": null,
+    "timestamp": "2026-03-09T19:49:04.723254"
+  }
+]

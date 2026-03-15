@@ -14,7 +14,7 @@ Read these first:
 6. [evaluation/README.md](evaluation/README.md) if your change touches evaluation or reproducibility
 7. [DEVELOPMENT.md](DEVELOPMENT.md) for maintainer-oriented navigation
 
-Trust the live codebase first. Use the root-level `PHASE*.md` reports when you need the rationale for a specific earlier cleanup decision.
+Trust the live codebase first. Use `docs/reports/phases/` for earlier cleanup decisions and `docs/reports/gis/` for targeted GIS optimization history when you need rationale.
 
 ## Contribution Style That Fits This Repo
 
@@ -89,7 +89,7 @@ Use these as the current source-of-truth set:
 
 Historical context:
 
-- root-level `PHASE*.md`
+- `docs/reports/phases/`
 - `docs/reports/`
 - `docs/archive/`
 

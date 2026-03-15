@@ -1,0 +1,16 @@
+[
+  {
+    "session_id": "30baefc2",
+    "title": "帮我计算这几个路段的排放",
+    "created_at": "2026-03-09T10:57:34.771191",
+    "updated_at": "2026-03-09T10:57:44.965498",
+    "message_count": 2,
+    "last_result_file": {
+      "path": "/home/kirito/Agent1/emission_agent/outputs/30baefc2_input_emission_results_20260309_105744.xlsx",
+      "filename": "30baefc2_input_emission_results_20260309_105744.xlsx",
+      "file_id": "30baefc2",
+      "message_id": "2ac16c8401e4",
+      "url": "/api/file/download/message/30baefc2/2ac16c8401e4?user_id=69ea013a-1923-45a1-8924-18f3c7e6dc20"
+    }
+  }
+]
