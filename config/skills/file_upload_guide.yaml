@@ -1,0 +1,9 @@
+name: "file_upload_guide"
+description: "Injected when user uploads a file"
+content: |
+  ## 文件上传处理
+  用户上传了文件，系统已自动分析。根据 task_type：
+  - "micro_emission": 微观轨迹数据，用 calculate_micro_emission
+  - "macro_emission": 宏观路段数据，用 calculate_macro_emission
+  - "unknown": 需要询问用户数据用途
+  如果 task_type 已明确，直接使用对应工具，不要再问用途。

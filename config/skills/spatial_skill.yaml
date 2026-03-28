@@ -1,0 +1,11 @@
+name: "spatial_skill"
+description: "Injected when user wants map visualization"
+content: |
+  ## 地图可视化指南
+
+  1. 使用 render_spatial_map，data_source 默认 "last_result"
+  2. 系统自动检测数据类型并选择渲染方式：
+     - 排放数据 -> 路段线图层
+     - 扩散数据 -> 栅格浓度场
+     - 热点数据 -> 热点边框 + 浓度背景
+  3. 如果没有前序计算结果，告知用户需要先做计算

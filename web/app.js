@@ -120,6 +120,7 @@ function logout() {
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
     initAuthState();
+    ensureLeafletStackingStyles();
 });
 
 // ==================== DOM元素 ====================
@@ -136,6 +137,81 @@ fileInput.type = 'file';
 fileInput.accept = '.xlsx,.xls,.csv,.zip';
 fileInput.style.display = 'none';
 document.body.appendChild(fileInput);
+
+const LEAFLET_STACK_FIX_STYLE_ID = 'leaflet-stacking-fix';
+
+function ensureLeafletStackingStyles() {
+    if (document.getElementById(LEAFLET_STACK_FIX_STYLE_ID)) {
+        return;
+    }
+
+    const style = document.createElement('style');
+    style.id = LEAFLET_STACK_FIX_STYLE_ID;
+    style.textContent = `
+        .assistant-message-row {
+            position: relative;
+            z-index: 0;
+        }
+
+        .assistant-message-card {
+            position: relative;
+            z-index: 1;
+            isolation: isolate;
+        }
+
+        .message-map-wrapper {
+            position: relative;
+            z-index: 0;
+            isolation: isolate;
+            overflow: hidden;
+        }
+
+        .message-map-surface {
+            position: relative;
+            z-index: 1;
+            isolation: isolate;
+        }
+
+        .message-map-container {
+            position: relative !important;
+            z-index: 1 !important;
+            overflow: hidden !important;
+            isolation: isolate;
+        }
+
+        .message-map-container.leaflet-container,
+        .message-map-container .leaflet-container {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        .message-map-container .leaflet-pane,
+        .message-map-container .leaflet-tile-pane {
+            z-index: 1 !important;
+        }
+
+        .message-map-container .leaflet-overlay-pane,
+        .message-map-container .leaflet-shadow-pane {
+            z-index: 2 !important;
+        }
+
+        .message-map-container .leaflet-marker-pane,
+        .message-map-container .leaflet-tooltip-pane {
+            z-index: 3 !important;
+        }
+
+        .message-map-container .leaflet-popup-pane {
+            z-index: 4 !important;
+        }
+
+        .message-map-container .leaflet-top,
+        .message-map-container .leaflet-bottom,
+        .message-map-container .leaflet-control {
+            z-index: 5 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 // ==================== 事件绑定 ====================
 
@@ -358,7 +434,7 @@ async function sendMessageStream(message, file) {
                             hideTypingIndicator();
                             const container = document.getElementById(assistantMsgId);
                             if (container) {
-                                renderEmissionMap(data.content, container);
+                                renderMapData(data.content, container);
                             }
                             break;
 
@@ -371,6 +447,9 @@ async function sendMessageStream(message, file) {
                             // 兼容旧格式：done事件回补下载按钮（新格式通常已在table内渲染）
                             if (data.file_id && !hasAnyDownloadControl(assistantMsgId)) {
                                 addDownloadButton(assistantMsgId, data.file_id);
+                            }
+                            if (Array.isArray(data.trace_friendly) && data.trace_friendly.length > 0) {
+                                attachTracePanelToMessage(assistantMsgId, data.trace_friendly);
                             }
                             // 重新加载会话列表
                             loadSessionList();
@@ -396,16 +475,17 @@ async function sendMessageStream(message, file) {
 }
 
 function createAssistantMessageContainer(msgId) {
+    ensureLeafletStackingStyles();
     const container = document.createElement('div');
     container.id = msgId;
     // 使用与历史消息相同的完整HTML结构
-    container.className = 'flex justify-start gap-4';
+    container.className = 'assistant-message-row flex justify-start gap-4';
     container.innerHTML = `
         <div class="size-10 rounded-full bg-surface border border-slate-100 shadow-sm flex items-center justify-center shrink-0">
             <span class="text-xl">🌿</span>
         </div>
         <div class="flex flex-col gap-4 flex-1 min-w-0">
-            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="assistant-message-card bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
                 <div class="message-content"></div>
             </div>
         </div>
@@ -420,11 +500,151 @@ function updateMessageContent(msgId, content) {
     if (container) {
         const contentDiv = container.querySelector('.message-content');
         if (contentDiv) {
-            // 使用与历史消息相同的样式包装
-            contentDiv.innerHTML = `<div class="prose prose-slate dark:prose-invert max-w-none text-base text-slate-800 dark:text-slate-200 leading-relaxed">${marked.parse(content)}</div>`;
+            const cleanedReply = formatReplyText(content);
+            // 使用与历史消息相同的文本清洗和 Markdown 渲染逻辑
+            contentDiv.innerHTML = cleanedReply
+                ? `<div class="prose prose-slate dark:prose-invert max-w-none text-base text-slate-800 dark:text-slate-200 leading-relaxed">${formatMarkdown(cleanedReply)}</div>`
+                : '';
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     }
+}
+
+function getAssistantMessageContainer(target) {
+    if (!target) return null;
+    if (typeof target === 'string') {
+        return document.getElementById(target);
+    }
+    return target;
+}
+
+function getAssistantMessageCard(target) {
+    const container = getAssistantMessageContainer(target);
+    const messageContent = container?.querySelector('.message-content');
+    return messageContent ? messageContent.parentElement : null;
+}
+
+function renderTracePanel(traceFriendly) {
+    if (!Array.isArray(traceFriendly) || traceFriendly.length === 0) {
+        return null;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'trace-panel-container';
+
+    // Toggle button with step count
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'trace-toggle';
+    toggle.innerHTML = `<span class="toggle-chevron">\u25B6</span> 查看分析步骤 / View Analysis Steps <span class="step-count">(${traceFriendly.length})</span>`;
+
+    // Panel
+    const panel = document.createElement('div');
+    panel.className = 'trace-panel';
+
+    // Timeline container
+    const timeline = document.createElement('div');
+    timeline.className = 'trace-timeline';
+
+    traceFriendly.forEach(step => {
+        const status = step.status || 'success';
+        const stepEl = document.createElement('div');
+        stepEl.className = `trace-step ${status}`;
+
+        // Dot
+        const dot = document.createElement('div');
+        dot.className = 'trace-step-dot';
+        stepEl.appendChild(dot);
+
+        // Header line (title + badges)
+        const header = document.createElement('div');
+        header.className = 'trace-step-header';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'trace-step-title';
+        titleEl.textContent = step.title || 'Step';
+        header.appendChild(titleEl);
+
+        // Duration badge
+        const durationMatch = step.description ? step.description.match(/\((\d+(?:\.\d+)?ms)\)/) : null;
+        if (durationMatch) {
+            const badge = document.createElement('span');
+            badge.className = 'trace-step-badge duration';
+            badge.textContent = durationMatch[1];
+            header.appendChild(badge);
+        }
+
+        // Confidence badge for file grounding
+        if (step.step_type === 'file_grounding' && step.description) {
+            const confMatch = step.description.match(/confidence\s+(\d+%)/);
+            if (confMatch) {
+                const badge = document.createElement('span');
+                badge.className = 'trace-step-badge confidence';
+                badge.textContent = confMatch[1];
+                header.appendChild(badge);
+            }
+        }
+
+        stepEl.appendChild(header);
+
+        // Description
+        if (step.description) {
+            const desc = document.createElement('div');
+            desc.className = 'trace-step-desc';
+
+            if (step.step_type === 'parameter_standardization') {
+                const lines = step.description.split('\n');
+                desc.innerHTML = lines.map(line => {
+                    const arrowMatch = line.match(/^(.+?):\s*(.+?)\s*\u2192\s*(.+?)\s{2}\((.+)\)$/);
+                    if (arrowMatch) {
+                        return `<span class="param-mapping">${escapeHtml(arrowMatch[1])}: ${escapeHtml(arrowMatch[2])}</span>`
+                            + `<span class="param-arrow">\u2192</span>`
+                            + `<span class="param-mapping" style="font-weight:600">${escapeHtml(arrowMatch[3])}</span>`
+                            + ` <span class="param-meta">(${escapeHtml(arrowMatch[4])})</span>`;
+                    }
+                    const checkMatch = line.match(/^(.+?):\s*(.+?)\s*\u2713\s{2}\((.+)\)$/);
+                    if (checkMatch) {
+                        return `<span class="param-mapping">${escapeHtml(checkMatch[1])}: ${escapeHtml(checkMatch[2])}</span>`
+                            + ` <span style="color:#10b981">\u2713</span>`
+                            + ` <span class="param-meta">(${escapeHtml(checkMatch[3])})</span>`;
+                    }
+                    return escapeHtml(line);
+                }).join('<br>');
+            } else {
+                desc.textContent = step.description;
+            }
+            stepEl.appendChild(desc);
+        }
+
+        timeline.appendChild(stepEl);
+    });
+
+    panel.appendChild(timeline);
+
+    // Toggle behavior
+    toggle.addEventListener('click', () => {
+        panel.classList.toggle('visible');
+        toggle.classList.toggle('expanded');
+    });
+
+    wrapper.appendChild(toggle);
+    wrapper.appendChild(panel);
+    return wrapper;
+}
+
+function attachTracePanelToMessage(target, traceFriendly) {
+    const card = getAssistantMessageCard(target);
+    if (!card) return;
+
+    const existingPanel = card.querySelector('.trace-panel-container');
+    if (existingPanel) {
+        existingPanel.remove();
+    }
+
+    const tracePanel = renderTracePanel(traceFriendly);
+    if (!tracePanel) return;
+
+    card.appendChild(tracePanel);
 }
 
 function showTypingIndicator(text) {
@@ -505,12 +725,12 @@ function renderChart(chartData, msgId) {
 
     // 添加图表
     const chartId = `emission-chart-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const chartHtml = renderEmissionChart(chartData, chartId);
+    const chartHtml = renderChartCard(chartData, chartId);
     container.querySelector('.message-content').insertAdjacentHTML('beforeend', chartHtml);
 
     // 初始化图表
     setTimeout(() => {
-        initEmissionChart(chartData, chartId);
+        initChartPayload(chartData, chartId);
     }, 100);
 }
 
@@ -887,6 +1107,18 @@ async function loadSession(sessionId) {
     loadSessionList();
 }
 
+function getMessageAttachmentFilename(message) {
+    if (!message || typeof message !== 'object') return null;
+    if (typeof message.file_name === 'string' && message.file_name.trim()) {
+        return message.file_name.trim();
+    }
+    if (typeof message.file_path === 'string' && message.file_path.trim()) {
+        const segments = message.file_path.trim().split(/[\\/]/);
+        return segments[segments.length - 1] || null;
+    }
+    return null;
+}
+
 function renderHistory(messages) {
     if (!messagesContainer) return;
 
@@ -895,7 +1127,7 @@ function renderHistory(messages) {
 
     messages.forEach(msg => {
         if (msg.role === 'user') {
-            addUserMessage(msg.content);
+            addUserMessage(msg.content, getMessageAttachmentFilename(msg));
         } else {
             // 传递完整的图表数据和 file_id
             console.log('[DEBUG] 渲染历史消息:', {
@@ -915,7 +1147,8 @@ function renderHistory(messages) {
                 map_data: msg.map_data,
                 has_data: msg.has_data,
                 file_id: msg.file_id,  // 添加 file_id
-                download_file: msg.download_file
+                download_file: msg.download_file,
+                trace_friendly: msg.trace_friendly
             });
         }
     });
@@ -957,25 +1190,25 @@ function addUserMessage(text, filename = null) {
 
 function addAssistantMessage(data) {
     if (!messagesContainer) return;
+    ensureLeafletStackingStyles();
 
     // Clean and format the reply text
     const cleanedReply = formatReplyText(data.reply);
     let contentHtml = cleanedReply ? `<div class="prose prose-slate dark:prose-invert max-w-none text-base text-slate-800 dark:text-slate-200 leading-relaxed">${formatMarkdown(cleanedReply)}</div>` : '';
 
-    // ✅ 增强验证：只有在明确有图表数据且data_type正确时才显示
-    const hasValidChartData = data.data_type === 'chart' &&
+    // 与实时流式路径保持一致：只要存在有效富媒体负载，就应在历史中渲染
+    const hasValidChartData =
                                data.chart_data &&
                                typeof data.chart_data === 'object' &&
                                Object.keys(data.chart_data).length > 0;
 
-    const hasValidTableData = data.data_type === 'table' &&
+    const hasValidTableData =
                                data.table_data &&
                                typeof data.table_data === 'object' &&
                                Object.keys(data.table_data).length > 0;
 
-    const hasValidMapData = data.map_data &&
-                            data.map_data.links &&
-                            data.map_data.links.length > 0;
+    const mapItems = getMapPayloadItems(data.map_data);
+    const hasValidMapData = hasRenderableMapData(data.map_data);
 
     // 调试日志
     console.log('[DEBUG] addAssistantMessage:', {
@@ -985,7 +1218,10 @@ function addAssistantMessage(data) {
         hasValidMapData,
         chart_data_keys: data.chart_data ? Object.keys(data.chart_data) : null,
         table_data_keys: data.table_data ? Object.keys(data.table_data) : null,
-        map_data_links: data.map_data ? data.map_data.links?.length : 0
+        map_data_type: data.map_data ? data.map_data.type : null,
+        map_payload_count: mapItems.length,
+        map_data_links: mapItems[0] ? mapItems[0].links?.length || 0 : 0,
+        map_data_features: mapItems[0]?.layers?.[0]?.data?.features?.length || mapItems[0]?.concentration_grid?.receptors?.length || 0
     });
 
     // 添加图表（排放因子曲线）
@@ -997,9 +1233,9 @@ function addAssistantMessage(data) {
 
     let chartId = null;
     if (hasValidChartData) {
-        console.log('[DEBUG] 显示排放因子曲线图');
+        console.log('[DEBUG] 显示图表负载:', data.chart_data.type || 'emission_factors');
         chartId = `emission-chart-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        contentHtml += renderEmissionChart(data.chart_data, chartId);
+        contentHtml += renderChartCard(data.chart_data, chartId);
     }
 
     // 添加表格（计算结果）
@@ -1018,12 +1254,12 @@ function addAssistantMessage(data) {
     }
 
     const html = `
-        <div class="flex justify-start gap-4">
+        <div class="assistant-message-row flex justify-start gap-4">
             <div class="size-10 rounded-full bg-surface border border-slate-100 shadow-sm flex items-center justify-center shrink-0">
                 <span class="text-xl">🌿</span>
             </div>
             <div class="flex flex-col gap-4 flex-1 min-w-0">
-                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+                <div class="assistant-message-card bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
                     <div class="message-content">${contentHtml}</div>
                 </div>
             </div>
@@ -1032,18 +1268,22 @@ function addAssistantMessage(data) {
     messagesContainer.insertAdjacentHTML('beforeend', html);
 
     // Get message container for map/chart rendering
-    const msgContainers = messagesContainer.querySelectorAll('.flex.justify-start');
+    const msgContainers = messagesContainer.querySelectorAll('.assistant-message-row');
     const msgContainer = msgContainers[msgContainers.length - 1];
 
     // 初始化图表（如果有）
     if (data.data_type === 'chart' && data.chart_data && chartId) {
-        initEmissionChart(data.chart_data, chartId);
+        initChartPayload(data.chart_data, chartId);
     }
 
     // 初始化地图（如果有）
     if (hasValidMapData) {
-        console.log('[DEBUG] 显示排放地图');
-        renderEmissionMap(data.map_data, msgContainer);
+        console.log('[DEBUG] 显示地图:', mapItems.map(item => item.type || 'emission'));
+        renderMapData(data.map_data, msgContainer);
+    }
+
+    if (Array.isArray(data.trace_friendly) && data.trace_friendly.length > 0) {
+        attachTracePanelToMessage(msgContainer, data.trace_friendly);
     }
 
     scrollToBottom();
@@ -1097,6 +1337,36 @@ function renderEmissionChart(chartData, chartId) {
             <p class="text-xs text-slate-400 mt-2 text-center">鼠标移到曲线上查看具体数值</p>
         </div>
     `;
+}
+
+function renderRankedBarChart(chartData, chartId) {
+    const chartElementId = chartId || `ranked-chart-${Date.now()}`;
+    const title = chartData.title || '结果排名图';
+    const subtitle = chartData.subtitle || '';
+
+    return `
+        <div class="w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-chart-id="${chartElementId}">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-slate-900 dark:text-white font-bold text-lg">${title}</h3>
+                    <p class="text-slate-500 text-sm">${subtitle}</p>
+                </div>
+                <div class="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
+                    Top ${chartData.topk || (chartData.categories?.length || 0)}
+                </div>
+            </div>
+            <div id="${chartElementId}" class="emission-chart" style="height: 320px;"></div>
+            <div class="chart-error hidden mt-3 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-200 border border-red-100 dark:border-red-800 rounded-lg px-3 py-2" data-chart-id="${chartElementId}"></div>
+            <p class="text-xs text-slate-400 mt-2 text-center">鼠标移到柱形上查看具体数值</p>
+        </div>
+    `;
+}
+
+function renderChartCard(chartData, chartId) {
+    if (chartData?.type === 'ranked_bar_chart') {
+        return renderRankedBarChart(chartData, chartId);
+    }
+    return renderEmissionChart(chartData, chartId);
 }
 
 function renderKeyPointsTable(keyPoints) {
@@ -1521,6 +1791,204 @@ function initEmissionChart(chartData, chartId) {
 
 // ==================== 地图渲染函数 ====================
 
+function getMapPayloadItems(mapData) {
+    if (!mapData) {
+        return [];
+    }
+
+    if (Array.isArray(mapData)) {
+        return mapData.flatMap(item => getMapPayloadItems(item));
+    }
+
+    if (typeof mapData !== 'object') {
+        return [];
+    }
+
+    if (mapData.type === 'map_collection' && Array.isArray(mapData.items)) {
+        return mapData.items.flatMap(item => getMapPayloadItems(item));
+    }
+
+    return [mapData];
+}
+
+function hasRenderableSingleMapData(mapData) {
+    if (!mapData || typeof mapData !== 'object') {
+        return false;
+    }
+
+    if (Array.isArray(mapData.links) && mapData.links.length > 0) {
+        return true;
+    }
+
+    if (mapData.type === 'hotspot' || Array.isArray(mapData.hotspots) || Array.isArray(mapData.hotspots_detail)) {
+        const normalizedHotspot = normalizeHotspotMapData(mapData);
+        return !!(normalizedHotspot && normalizedHotspot.layers?.length);
+    }
+
+    if (mapData.type === 'raster' || mapData.raster_grid) {
+        const normalizedRaster = normalizeRasterMapData(mapData);
+        return !!(normalizedRaster && normalizedRaster.layers?.[0]?.data?.features?.length);
+    }
+
+    if (mapData.type === 'concentration' || mapData.concentration_grid || Array.isArray(mapData.layers)) {
+        const normalized = normalizeConcentrationMapData(mapData);
+        return !!(normalized && normalized.layers?.[0]?.data?.features?.length);
+    }
+
+    return false;
+}
+
+function hasRenderableMapData(mapData) {
+    return getMapPayloadItems(mapData).some(item => hasRenderableSingleMapData(item));
+}
+
+function renderSingleMapData(mapData, msgContainer) {
+    if (mapData.type === 'hotspot' || Array.isArray(mapData.hotspots) || Array.isArray(mapData.hotspots_detail)) {
+        renderHotspotMap(mapData, msgContainer);
+        return;
+    }
+
+    if (mapData.type === 'raster' || mapData.raster_grid) {
+        renderRasterMap(mapData, msgContainer);
+        return;
+    }
+
+    if (mapData.type === 'concentration' || mapData.concentration_grid || Array.isArray(mapData.layers)) {
+        if (mapData.raster_grid) {
+            renderRasterMap({ ...mapData, type: 'raster' }, msgContainer);
+            return;
+        }
+        renderConcentrationMap(mapData, msgContainer);
+        return;
+    }
+
+    renderEmissionMap(mapData, msgContainer);
+}
+
+function renderMapData(mapData, msgContainer) {
+    const mapItems = getMapPayloadItems(mapData);
+    if (!mapItems.length) {
+        console.warn('[Map] Invalid map data payload');
+        return;
+    }
+
+    ensureLeafletStackingStyles();
+
+    mapItems.forEach((item, index) => {
+        if (!hasRenderableSingleMapData(item)) {
+            console.warn(`[Map] Skipping non-renderable map payload at index ${index}`);
+            return;
+        }
+        renderSingleMapData(item, msgContainer);
+    });
+}
+
+function initRankedBarChart(chartData, chartId) {
+    const chartEl = chartId ? document.getElementById(chartId) : null;
+    const fallbackCharts = !chartEl ? document.querySelectorAll('.emission-chart') : null;
+    const resolvedChartEl = chartEl || (fallbackCharts?.length ? fallbackCharts[fallbackCharts.length - 1] : null);
+    if (!resolvedChartEl) {
+        console.error('Chart container not found');
+        return;
+    }
+
+    clearChartInitError(resolvedChartEl);
+
+    if (typeof echarts === 'undefined') {
+        showChartInitError(resolvedChartEl, 'Chart init failed: ECharts not loaded, retrying...');
+        if (!resolvedChartEl.dataset.echartsRetry) {
+            resolvedChartEl.dataset.echartsRetry = '1';
+            ensureEchartsLoaded()
+                .then(() => initRankedBarChart(chartData, chartId))
+                .catch(() => showChartInitError(resolvedChartEl, 'Chart init failed: ECharts load failed'));
+        }
+        return;
+    }
+
+    const categories = Array.isArray(chartData.categories) ? chartData.categories : [];
+    const values = Array.isArray(chartData.values) ? chartData.values : [];
+    if (!categories.length || !values.length || categories.length !== values.length) {
+        showChartInitError(resolvedChartEl, 'Chart init failed: missing ranked bar chart data');
+        return;
+    }
+
+    let chart;
+    try {
+        chart = echarts.init(resolvedChartEl);
+    } catch (err) {
+        showChartInitError(resolvedChartEl, 'Chart init failed: ECharts render error');
+        console.error(err);
+        return;
+    }
+
+    const metricLabel = chartData.metric_label || chartData.ranking_metric || 'metric';
+    const option = {
+        color: ['#0f8f66'],
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'shadow'
+            },
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            borderColor: 'transparent',
+            textStyle: { color: '#fff' },
+            formatter: (params) => {
+                const p = params[0];
+                return `<div style="padding: 4px 8px;">
+                    <div style="font-weight: bold;">${p.name}</div>
+                    <div>${metricLabel}: ${typeof p.value === 'number' ? p.value.toFixed(4) : p.value}</div>
+                </div>`;
+            }
+        },
+        grid: {
+            left: '8%',
+            right: '5%',
+            bottom: '22%',
+            top: '10%'
+        },
+        xAxis: {
+            type: 'category',
+            data: categories,
+            axisLabel: {
+                interval: 0,
+                rotate: categories.length > 4 ? 28 : 0,
+                color: '#666'
+            },
+            axisLine: { lineStyle: { color: '#ddd' } }
+        },
+        yAxis: {
+            type: 'value',
+            name: metricLabel,
+            nameTextStyle: { color: '#666', fontSize: 12 },
+            axisLine: { lineStyle: { color: '#ddd' } },
+            splitLine: { lineStyle: { color: '#f0f0f0' } }
+        },
+        series: [{
+            type: 'bar',
+            data: values,
+            barMaxWidth: 42,
+            itemStyle: {
+                borderRadius: [8, 8, 0, 0],
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#16c47f' },
+                    { offset: 1, color: '#0f8f66' }
+                ])
+            }
+        }]
+    };
+
+    chart.setOption(option);
+    window.addEventListener('resize', () => chart.resize());
+}
+
+function initChartPayload(chartData, chartId) {
+    if (chartData?.type === 'ranked_bar_chart') {
+        initRankedBarChart(chartData, chartId);
+        return;
+    }
+    initEmissionChart(chartData, chartId);
+}
+
 function renderEmissionMap(mapData, msgContainer) {
     if (!mapData || !mapData.links || mapData.links.length === 0) {
         console.warn('[Map] No valid map data provided');
@@ -1542,12 +2010,11 @@ function renderEmissionMap(mapData, msgContainer) {
     const colorScale = mapData.color_scale || {};
     const minVal = colorScale.min || 0;
     const maxVal = colorScale.max || 100;
-    const colors = colorScale.colors || ['#fee5d9', '#fcae91', '#fb6a4a', '#de2d26', '#a50f15'];
-    const legendGradient = `linear-gradient(to right, ${colors.join(', ')})`;
+    const legendGradient = 'linear-gradient(to right, #3B82F6, #10B981, #F5D046, #F97316, #DC2626)';
 
     // Build map HTML
     const mapHtml = `
-        <div class="w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
+        <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div>
                     <h3 class="text-slate-900 dark:text-white font-bold text-lg">路段排放地图</h3>
@@ -1559,7 +2026,7 @@ function renderEmissionMap(mapData, msgContainer) {
                     </select>
                 </div>
             </div>
-            <div id="${mapId}" style="height: 480px;" class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
+            <div id="${mapId}" style="height: 480px;" class="message-map-container rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
             <div class="mt-4 flex items-center gap-4 text-sm">
                 <div class="flex items-center gap-3">
                     <span class="text-slate-600 dark:text-slate-400">低排放</span>
@@ -1605,6 +2072,1161 @@ function renderEmissionMap(mapData, msgContainer) {
         }, 150);  // Increased delay to 150ms for better reliability
     } else {
         console.error('[Map] Message content div not found');
+    }
+}
+
+function formatMapValue(value) {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric)) {
+        return '0.000';
+    }
+    const absVal = Math.abs(numeric);
+    if (absVal >= 100) {
+        return numeric.toFixed(1);
+    }
+    if (absVal >= 10) {
+        return numeric.toFixed(2);
+    }
+    if (absVal >= 1) {
+        return numeric.toFixed(3);
+    }
+    return numeric.toFixed(4);
+}
+
+function computeMapZoom(span) {
+    if (span > 10) return 6;
+    if (span > 5) return 7;
+    if (span > 2) return 8;
+    if (span > 1) return 9;
+    if (span > 0.5) return 10;
+    if (span > 0.2) return 11;
+    if (span > 0.1) return 12;
+    if (span > 0.05) return 13;
+    return 14;
+}
+
+function normalizeRasterMapData(mapData) {
+    if (!mapData || typeof mapData !== 'object') {
+        return null;
+    }
+
+    if (
+        mapData.type === 'raster' &&
+        Array.isArray(mapData.layers) &&
+        mapData.layers[0]?.data?.features?.length
+    ) {
+        return mapData;
+    }
+
+    const raster = mapData.raster_grid;
+    if (!raster || typeof raster !== 'object') {
+        return null;
+    }
+
+    const cellCenters = Array.isArray(raster.cell_centers_wgs84) ? raster.cell_centers_wgs84 : [];
+    if (cellCenters.length === 0) {
+        return null;
+    }
+
+    const resolution = Number(raster.resolution_m || 50);
+    const pollutant = mapData.pollutant || mapData.query_info?.pollutant || 'NOx';
+    const values = [];
+    const features = [];
+    const lons = [];
+    const lats = [];
+
+    cellCenters.forEach((cell) => {
+        const meanConc = Number(cell.mean_conc ?? 0);
+        const maxConc = Number(cell.max_conc ?? meanConc);
+        const lon = Number(cell.lon);
+        const lat = Number(cell.lat);
+
+        if (!Number.isFinite(meanConc) || !Number.isFinite(maxConc) || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+            return;
+        }
+        if (meanConc <= 0) {
+            return;
+        }
+
+        const cosLat = Math.max(Math.abs(Math.cos((lat * Math.PI) / 180)), 1e-6);
+        const dLat = (resolution / 2) / 111320;
+        const dLon = (resolution / 2) / (111320 * cosLat);
+
+        values.push(meanConc);
+        lons.push(lon);
+        lats.push(lat);
+
+        features.push({
+            type: 'Feature',
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [lon - dLon, lat - dLat],
+                    [lon + dLon, lat - dLat],
+                    [lon + dLon, lat + dLat],
+                    [lon - dLon, lat + dLat],
+                    [lon - dLon, lat - dLat],
+                ]]
+            },
+            properties: {
+                row: cell.row,
+                col: cell.col,
+                mean_conc: Number(meanConc.toFixed(4)),
+                max_conc: Number(maxConc.toFixed(4)),
+                value: Number(meanConc.toFixed(4)),
+            }
+        });
+    });
+
+    if (features.length === 0 || values.length === 0) {
+        return null;
+    }
+
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const span = Math.max(maxLon - minLon, maxLat - minLat);
+    const stats = raster.stats || {};
+
+    return {
+        type: 'raster',
+        title: mapData.title || `${pollutant} Concentration Field (${Math.round(resolution)}m grid)`,
+        pollutant,
+        center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
+        zoom: computeMapZoom(span),
+        layers: [{
+            id: 'concentration_raster',
+            type: 'polygon',
+            data: {
+                type: 'FeatureCollection',
+                features
+            },
+            style: {
+                color_field: 'value',
+                color_scale: 'YlOrRd',
+                value_range: [Math.min(...values), Math.max(...values)],
+                opacity: 0.7,
+                stroke: false,
+                legend_title: `${pollutant} Concentration`,
+                legend_unit: 'μg/m³',
+                resolution_m: resolution,
+            }
+        }],
+        coverage_assessment: mapData.coverage_assessment || {},
+        summary: {
+            total_cells: Number(stats.total_cells || 0),
+            nonzero_cells: Number(stats.nonzero_cells || features.length),
+            resolution_m: resolution,
+            mean_concentration: Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(4)),
+            max_concentration: Number(Math.max(...values).toFixed(4)),
+            unit: 'μg/m³',
+        }
+    };
+}
+
+function normalizeHotspotMapData(mapData) {
+    if (!mapData || typeof mapData !== 'object') {
+        return null;
+    }
+
+    if (
+        mapData.type === 'hotspot' &&
+        Array.isArray(mapData.layers) &&
+        mapData.layers.length > 0 &&
+        Array.isArray(mapData.hotspots_detail)
+    ) {
+        return mapData;
+    }
+
+    const hotspots = Array.isArray(mapData.hotspots_detail)
+        ? mapData.hotspots_detail
+        : (Array.isArray(mapData.hotspots) ? mapData.hotspots : []);
+    if (hotspots.length === 0) {
+        return null;
+    }
+
+    const hotspotFeatures = [];
+    const centerLons = [];
+    const centerLats = [];
+    const contributingRoadIds = new Set();
+
+    hotspots.forEach((hotspot) => {
+        const center = hotspot.center || {};
+        const centerLon = Number(center.lon);
+        const centerLat = Number(center.lat);
+        if (Number.isFinite(centerLon) && Number.isFinite(centerLat)) {
+            centerLons.push(centerLon);
+            centerLats.push(centerLat);
+        }
+
+        let bbox = Array.isArray(hotspot.bbox) ? hotspot.bbox : [];
+        if (bbox.length < 4) {
+            if (!Number.isFinite(centerLon) || !Number.isFinite(centerLat)) {
+                return;
+            }
+            bbox = [centerLon - 0.001, centerLat - 0.001, centerLon + 0.001, centerLat + 0.001];
+        }
+
+        hotspotFeatures.push({
+            type: 'Feature',
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [Number(bbox[0]), Number(bbox[1])],
+                    [Number(bbox[2]), Number(bbox[1])],
+                    [Number(bbox[2]), Number(bbox[3])],
+                    [Number(bbox[0]), Number(bbox[3])],
+                    [Number(bbox[0]), Number(bbox[1])],
+                ]]
+            },
+            properties: {
+                hotspot_id: hotspot.hotspot_id,
+                rank: hotspot.rank,
+                max_conc: Number(hotspot.max_conc || 0),
+                mean_conc: Number(hotspot.mean_conc || 0),
+                area_m2: Number(hotspot.area_m2 || 0),
+                grid_cells: Number(hotspot.grid_cells || 0),
+            }
+        });
+
+        (hotspot.contributing_roads || []).forEach((road) => {
+            const roadId = String(road.link_id || '').trim();
+            if (roadId) {
+                contributingRoadIds.add(roadId);
+            }
+        });
+    });
+
+    if (hotspotFeatures.length === 0) {
+        return null;
+    }
+
+    const rasterMap = normalizeRasterMapData({
+        type: 'raster',
+        title: mapData.title,
+        pollutant: mapData.pollutant || mapData.query_info?.pollutant || 'NOx',
+        raster_grid: mapData.raster_grid,
+        coverage_assessment: mapData.coverage_assessment,
+    });
+
+    const layers = [];
+    if (rasterMap?.layers?.[0]) {
+        layers.push(rasterMap.layers[0]);
+    }
+    layers.push({
+        id: 'hotspot_areas',
+        type: 'hotspot_polygon',
+        data: {
+            type: 'FeatureCollection',
+            features: hotspotFeatures,
+        },
+        style: {
+            color: '#FF0000',
+            weight: 3,
+            dashArray: '8, 4',
+            fillColor: '#FF0000',
+            fillOpacity: 0.1,
+            opacity: 0.9,
+        }
+    });
+
+    const minLon = centerLons.length ? Math.min(...centerLons) : 121.47;
+    const maxLon = centerLons.length ? Math.max(...centerLons) : 121.47;
+    const minLat = centerLats.length ? Math.min(...centerLats) : 31.23;
+    const maxLat = centerLats.length ? Math.max(...centerLats) : 31.23;
+    const span = Math.max(maxLon - minLon, maxLat - minLat);
+
+    return {
+        type: 'hotspot',
+        title: mapData.title || 'Pollution Hotspot Analysis',
+        center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
+        zoom: computeMapZoom(span || 0.05),
+        interpretation: mapData.interpretation || '',
+        layers,
+        hotspots_detail: hotspots,
+        contributing_road_ids: Array.from(contributingRoadIds),
+        coverage_assessment: mapData.coverage_assessment || {},
+        summary: mapData.summary || {},
+    };
+}
+
+function interpolateYlOrRd(ratio) {
+    const colors = [
+        [255, 255, 204],
+        [255, 237, 160],
+        [254, 217, 118],
+        [254, 178, 76],
+        [253, 141, 60],
+        [252, 78, 42],
+        [227, 26, 28],
+        [189, 0, 38],
+        [128, 0, 38],
+    ];
+
+    const clamped = Math.max(0, Math.min(1, Number(ratio) || 0));
+    const index = Math.min(Math.floor(clamped * colors.length), colors.length - 1);
+    const [r, g, b] = colors[index];
+    return `rgb(${r},${g},${b})`;
+}
+
+function getRasterColor(value, minVal, maxVal) {
+    const numericValue = Number(value || 0);
+    const numericMin = Number(minVal || 0);
+    const numericMax = Number(maxVal || 0);
+
+    if (!Number.isFinite(numericValue) || numericMax <= numericMin) {
+        return interpolateYlOrRd(0);
+    }
+
+    if (numericValue <= 0 || numericMin <= 0) {
+        const linearRatio = Math.max(0, Math.min(1, (numericValue - numericMin) / (numericMax - numericMin || 1)));
+        return interpolateYlOrRd(linearRatio);
+    }
+
+    const logMin = Math.log10(Math.max(numericMin, 1e-6));
+    const logMax = Math.log10(Math.max(numericMax, 1e-6));
+    const logVal = Math.log10(Math.max(numericValue, 1e-6));
+    const logRatio = Math.max(0, Math.min(1, (logVal - logMin) / (logMax - logMin || 1)));
+    return interpolateYlOrRd(logRatio);
+}
+
+function renderCoverageWarning(coverage) {
+    if (!coverage || typeof coverage !== 'object') {
+        return '';
+    }
+
+    const level = coverage.level;
+    if (level === 'complete_regional') {
+        return '';
+    }
+
+    const warnings = Array.isArray(coverage.warnings) ? coverage.warnings.filter(Boolean) : [];
+    const message = warnings.length > 0
+        ? warnings.join(' | ')
+        : String(coverage.result_semantics || '').trim();
+    if (!message) {
+        return '';
+    }
+
+    const sparse = level === 'sparse_local';
+    const bgColor = sparse ? '#FFF3CD' : '#D4EDDA';
+    const borderColor = sparse ? '#F59E0B' : '#10B981';
+    const textColor = sparse ? '#92400E' : '#166534';
+    const icon = sparse ? '⚠️' : 'ℹ️';
+
+    return `
+        <div class="mb-4 rounded-xl px-4 py-3 text-sm" style="background:${bgColor}; border:1px solid ${borderColor}; color:${textColor};">
+            <strong>${icon} Coverage:</strong> ${escapeHtml(message)}
+        </div>
+    `;
+}
+
+function renderInterpretationBanner(interpretation) {
+    const text = String(interpretation || '').trim();
+    if (!text) {
+        return '';
+    }
+
+    return `
+        <div class="mb-4 rounded-xl px-4 py-3 text-sm border border-sky-200 bg-sky-50 text-sky-900">
+            <strong>Interpretation:</strong> ${escapeHtml(text)}
+        </div>
+    `;
+}
+
+function renderRasterLegend(style, minVal, maxVal) {
+    const resolution = Number(style?.resolution_m || 0);
+    const legendTitle = escapeHtml(style?.legend_title || 'Concentration');
+    const legendUnit = escapeHtml(style?.legend_unit || 'μg/m³');
+    const gradient = 'linear-gradient(to right, #FFFFCC, #FFEDA0, #FED976, #FEB24C, #FD8D3C, #FC4E2A, #E31A1C, #BD0026, #800026)';
+
+    return `
+        <div class="mt-4 flex flex-wrap items-center gap-4 text-sm">
+            <div class="flex flex-col gap-1">
+                <div class="font-semibold text-slate-700 dark:text-slate-200">${legendTitle}</div>
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-600 dark:text-slate-400">低浓度</span>
+                    <div class="w-48 h-3 rounded" style="background: ${gradient}"></div>
+                    <span class="text-slate-600 dark:text-slate-400">高浓度</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                    <span>${formatMapValue(minVal)} ${legendUnit}</span>
+                    <span>${formatMapValue(maxVal)} ${legendUnit}</span>
+                </div>
+            </div>
+            <div class="ml-auto text-slate-500 dark:text-slate-400">
+                ${resolution > 0 ? `${Math.round(resolution)}m grid` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderHotspotLegend(rasterStyle, minVal, maxVal, roadCount) {
+    const rasterLegend = rasterStyle
+        ? renderRasterLegend(rasterStyle, minVal, maxVal)
+        : '';
+    const roadLabel = Number(roadCount || 0) > 0
+        ? `<div class="text-slate-500 dark:text-slate-400">候选贡献路段: ${Number(roadCount)}</div>`
+        : '';
+
+    return `
+        ${rasterLegend}
+        <div class="mt-3 flex flex-wrap items-center gap-4 text-sm">
+            <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                <span class="inline-block w-6 h-3 rounded-sm" style="border: 3px dashed #FF0000; background: rgba(255,0,0,0.1);"></span>
+                <span>热点区域 / Hotspot Areas</span>
+            </div>
+            <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold" style="background:#FF0000;">#</span>
+                <span>热点编号 / Rank Label</span>
+            </div>
+            ${roadLabel}
+        </div>
+    `;
+}
+
+function initAnalysisLeafletMap(mapId) {
+    if (typeof L === 'undefined') {
+        console.error('[Map] Leaflet not loaded');
+        return null;
+    }
+
+    const mapContainer = document.getElementById(mapId);
+    if (!mapContainer) {
+        console.error(`[Map] Map container not found: ${mapId}`);
+        return null;
+    }
+
+    mapContainer.style.backgroundColor = '#ffffff';
+
+    const map = L.map(mapId, {
+        attributionControl: true,
+        zoomControl: true,
+        preferCanvas: true,
+        renderer: L.canvas({ padding: 0.5 })
+    });
+    mapContainer._leaflet_map = map;
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    const layerControl = L.control.layers(null, {}, {
+        position: 'topright',
+        collapsed: true
+    }).addTo(map);
+
+    const labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        pane: 'overlayPane'
+    });
+    layerControl.addOverlay(labelsLayer, '地名标注 / Labels');
+
+    try {
+        loadGISBasemap().then((basemapData) => {
+            if (basemapData && !basemapData.error) {
+                const basemapLayer = L.geoJSON(basemapData, {
+                    style: { color: '#94a3b8', weight: 1, fill: false, opacity: 0.5 }
+                });
+                layerControl.addOverlay(basemapLayer, '行政边界');
+            }
+        }).catch(() => {});
+
+        loadGISRoadNetwork().then((roadData) => {
+            if (roadData && !roadData.error) {
+                const roadLayer = L.geoJSON(roadData, {
+                    style: { color: '#cbd5e1', weight: 0.5, opacity: 0.25 }
+                });
+                layerControl.addOverlay(roadLayer, '路网底图');
+            }
+        }).catch(() => {});
+    } catch (e) {}
+
+    map.attributionControl.setPrefix('© Emission Agent');
+    return { map, mapContainer, layerControl };
+}
+
+function getRoadFeatureIdentifiers(feature) {
+    const props = feature?.properties || {};
+    const keys = ['link_id', 'LINK_ID', 'road_id', 'ROAD_ID', 'id', 'ID', 'name', 'NAME', 'NAME_1', 'segment_id'];
+    return keys
+        .map((key) => {
+            const value = props[key];
+            return value === null || value === undefined ? '' : String(value).trim();
+        })
+        .filter(Boolean);
+}
+
+function tryAddHighlightedRoadLayer(map, layerControl, contributingRoadIds) {
+    const ids = (contributingRoadIds || [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+    if (!map || ids.length === 0) {
+        return;
+    }
+
+    const roadIdSet = new Set(ids);
+    loadGISRoadNetwork().then((roadData) => {
+        if (!roadData || roadData.error || !Array.isArray(roadData.features)) {
+            return;
+        }
+
+        const matchedFeatures = roadData.features.filter((feature) =>
+            getRoadFeatureIdentifiers(feature).some((identifier) => roadIdSet.has(identifier))
+        );
+        if (matchedFeatures.length === 0) {
+            console.info('[Map] No GIS road features matched contributing road IDs');
+            return;
+        }
+
+        const highlightLayer = L.geoJSON(
+            {
+                type: 'FeatureCollection',
+                features: matchedFeatures
+            },
+            {
+                style: {
+                    color: '#B91C1C',
+                    weight: 4,
+                    opacity: 0.95
+                },
+                onEachFeature: (feature, layer) => {
+                    const props = feature.properties || {};
+                    const displayName =
+                        props.link_id ||
+                        props.LINK_ID ||
+                        props.road_id ||
+                        props.id ||
+                        props.name ||
+                        'Contributing Road';
+                    layer.bindPopup(`
+                        <div style="min-width: 180px;">
+                            <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(String(displayName))}</h3>
+                            <div style="font-size: 13px; line-height: 1.6;">热点贡献候选路段</div>
+                        </div>
+                    `);
+                }
+            }
+        );
+
+        highlightLayer.addTo(map);
+        layerControl.addOverlay(highlightLayer, '贡献路段 / Contributing Roads');
+    }).catch((error) => {
+        console.warn('[Map] Failed to build contributing road highlight layer:', error);
+    });
+}
+
+function initRasterLeafletMap(mapData, mapId) {
+    const initialized = initAnalysisLeafletMap(mapId);
+    if (!initialized) {
+        return;
+    }
+
+    const { map, mapContainer, layerControl } = initialized;
+    const layer = mapData.layers?.[0];
+    const features = layer?.data?.features || [];
+    if (features.length === 0) {
+        console.warn('[Map] No raster features to render');
+        return;
+    }
+
+    const style = layer.style || {};
+    const [minVal, maxVal] = style.value_range || [0, 1];
+    const unit = style.legend_unit || mapData.summary?.unit || 'μg/m³';
+
+    const rasterLayer = L.geoJSON(layer.data, {
+        style: (feature) => {
+            const value = Number(feature.properties?.value || 0);
+            return {
+                fillColor: getRasterColor(value, minVal, maxVal),
+                fillOpacity: Number(style.opacity || 0.7),
+                stroke: false,
+                fill: true,
+            };
+        },
+        onEachFeature: (feature, rasterCell) => {
+            const props = feature.properties || {};
+            rasterCell.bindPopup(
+                `<div style="min-width: 170px;">
+                    <h3 style="font-weight: bold; margin: 0 0 8px 0;">Grid Cell</h3>
+                    <div style="font-size: 13px; line-height: 1.6;">
+                        <div><strong>Mean:</strong> ${formatMapValue(props.mean_conc || 0)} ${unit}</div>
+                        <div><strong>Max:</strong> ${formatMapValue(props.max_conc || 0)} ${unit}</div>
+                    </div>
+                </div>`
+            );
+        }
+    });
+
+    rasterLayer.addTo(map);
+    layerControl.addOverlay(rasterLayer, '浓度栅格 / Concentration Raster');
+    mapContainer._raster_layer = rasterLayer;
+    mapContainer._map_data = mapData;
+
+    const bounds = rasterLayer.getBounds();
+    if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20], maxZoom: 16 });
+    } else if (Array.isArray(mapData.center) && mapData.center.length === 2) {
+        map.setView(mapData.center, mapData.zoom || 12);
+    } else {
+        map.setView([31.23, 121.47], 12);
+    }
+
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+}
+
+function initHotspotLeafletMap(mapData, mapId) {
+    const initialized = initAnalysisLeafletMap(mapId);
+    if (!initialized) {
+        return;
+    }
+
+    const { map, mapContainer, layerControl } = initialized;
+    const layers = Array.isArray(mapData.layers) ? mapData.layers : [];
+    const rasterLayerData = layers.find((layer) => layer.id === 'concentration_raster');
+    const hotspotLayerData = layers.find((layer) => layer.id === 'hotspot_areas');
+
+    let rasterLayer = null;
+    if (rasterLayerData?.data?.features?.length) {
+        const [minVal, maxVal] = rasterLayerData.style?.value_range || [0, 1];
+        rasterLayer = L.geoJSON(rasterLayerData.data, {
+            style: (feature) => ({
+                fillColor: getRasterColor(Number(feature.properties?.value || 0), minVal, maxVal),
+                fillOpacity: 0.5,
+                stroke: false,
+                fill: true,
+            })
+        });
+        rasterLayer.addTo(map);
+        layerControl.addOverlay(rasterLayer, '浓度背景 / Concentration Background');
+    }
+
+    let hotspotLayer = null;
+    if (hotspotLayerData?.data?.features?.length) {
+        hotspotLayer = L.geoJSON(hotspotLayerData.data, {
+            style: () => ({
+                color: '#FF0000',
+                weight: 3,
+                dashArray: '8, 4',
+                fillColor: '#FF0000',
+                fillOpacity: 0.1,
+                opacity: 0.9,
+            }),
+            onEachFeature: (feature, layer) => {
+                const props = feature.properties || {};
+                const hotspotDetail = (mapData.hotspots_detail || []).find(
+                    (hotspot) => Number(hotspot.hotspot_id) === Number(props.hotspot_id)
+                );
+
+                let popupContent =
+                    `<div style="min-width: 220px;">` +
+                    `<h3 style="font-weight: bold; margin: 0 0 8px 0;">Hotspot #${escapeHtml(String(props.rank ?? '-'))}</h3>` +
+                    `<div style="font-size: 13px; line-height: 1.6;">` +
+                    `<div><strong>Max:</strong> ${formatMapValue(props.max_conc || 0)} μg/m³</div>` +
+                    `<div><strong>Mean:</strong> ${formatMapValue(props.mean_conc || 0)} μg/m³</div>` +
+                    `<div><strong>Area:</strong> ${formatMapValue(props.area_m2 || 0)} m²</div>` +
+                    `</div>`;
+
+                if (hotspotDetail && Array.isArray(hotspotDetail.contributing_roads) && hotspotDetail.contributing_roads.length > 0) {
+                    popupContent += '<div style="margin-top: 8px; font-size: 13px; line-height: 1.6;"><strong>Top Contributing Roads:</strong>';
+                    hotspotDetail.contributing_roads.slice(0, 5).forEach((road) => {
+                        popupContent += `<div>${escapeHtml(String(road.link_id || '-'))}: ${formatMapValue(road.contribution_pct || 0)}%</div>`;
+                    });
+                    popupContent += '</div>';
+                }
+
+                popupContent += '</div>';
+                layer.bindPopup(popupContent);
+            }
+        });
+        hotspotLayer.addTo(map);
+        layerControl.addOverlay(hotspotLayer, '热点区域 / Hotspot Areas');
+    }
+
+    const hotspotLabels = L.layerGroup();
+    (mapData.hotspots_detail || []).forEach((hotspot) => {
+        const center = hotspot.center || {};
+        const lon = Number(center.lon);
+        const lat = Number(center.lat);
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+            return;
+        }
+
+        const icon = L.divIcon({
+            className: 'hotspot-label',
+            html: `<div style="
+                background: #FF0000;
+                color: white;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 12px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            ">#${escapeHtml(String(hotspot.rank || '?'))}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+        });
+        hotspotLabels.addLayer(L.marker([lat, lon], { icon }));
+    });
+    if (hotspotLabels.getLayers().length > 0) {
+        hotspotLabels.addTo(map);
+        layerControl.addOverlay(hotspotLabels, '热点编号 / Labels');
+    }
+
+    tryAddHighlightedRoadLayer(map, layerControl, mapData.contributing_road_ids || []);
+
+    mapContainer._map_data = mapData;
+    mapContainer._hotspot_layer = hotspotLayer;
+
+    if (hotspotLayer && hotspotLayer.getBounds().isValid()) {
+        map.fitBounds(hotspotLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
+    } else if (rasterLayer && rasterLayer.getBounds().isValid()) {
+        map.fitBounds(rasterLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
+    } else if (Array.isArray(mapData.center) && mapData.center.length === 2) {
+        map.setView(mapData.center, mapData.zoom || 12);
+    } else {
+        map.setView([31.23, 121.47], 12);
+    }
+
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+}
+
+function renderRasterMap(mapData, msgContainer) {
+    const normalizedMapData = normalizeRasterMapData(mapData);
+    const layer = normalizedMapData?.layers?.[0];
+    const features = layer?.data?.features || [];
+    if (!normalizedMapData || features.length === 0) {
+        console.warn('[Map] No valid raster map data provided');
+        return;
+    }
+
+    const style = layer.style || {};
+    const [minVal, maxVal] = style.value_range || [0, 1];
+    const pollutant = normalizedMapData.pollutant || 'NOx';
+    const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
+    const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
+    const mapId = `raster-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const mapHtml = `
+        <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || `${pollutant} Concentration Field`)}</h3>
+                    <p class="text-slate-500 text-sm">显示 ${features.length} 个非零栅格单元的 ${pollutant} 浓度场</p>
+                </div>
+                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                    <div>平均浓度 ${formatMapValue(normalizedMapData.summary?.mean_concentration || 0)} ${unit}</div>
+                    <div>最大浓度 ${formatMapValue(normalizedMapData.summary?.max_concentration || 0)} ${unit}</div>
+                    <div>分辨率 ${Math.round(Number(normalizedMapData.summary?.resolution_m || style.resolution_m || 50))} m</div>
+                </div>
+            </div>
+            ${coverageHtml}
+            <div id="${mapId}" style="height: 520px;" class="message-map-container rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
+            ${renderRasterLegend(style, minVal, maxVal)}
+        </div>
+    `;
+
+    const contentDiv = msgContainer.querySelector('.message-content');
+    if (!contentDiv) {
+        console.error('[Map] Message content div not found for raster map');
+        return;
+    }
+
+    contentDiv.insertAdjacentHTML('beforeend', mapHtml);
+    scrollToBottom();
+
+    setTimeout(() => {
+        const mapContainer = document.getElementById(mapId);
+        if (!mapContainer) {
+            console.error(`[Map] Raster map container ${mapId} not found in DOM`);
+            return;
+        }
+        initRasterLeafletMap(normalizedMapData, mapId);
+    }, 150);
+}
+
+function renderHotspotMap(mapData, msgContainer) {
+    const normalizedMapData = normalizeHotspotMapData(mapData);
+    const hotspotCount = normalizedMapData?.hotspots_detail?.length || 0;
+    if (!normalizedMapData || hotspotCount === 0) {
+        console.warn('[Map] No valid hotspot map data provided');
+        return;
+    }
+
+    const rasterLayer = normalizedMapData.layers.find((layer) => layer.id === 'concentration_raster');
+    const rasterStyle = rasterLayer?.style || null;
+    const [minVal, maxVal] = rasterStyle?.value_range || [0, 1];
+    const interpretationHtml = renderInterpretationBanner(normalizedMapData.interpretation);
+    const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
+    const mapId = `hotspot-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const summary = normalizedMapData.summary || {};
+
+    const mapHtml = `
+        <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || 'Pollution Hotspot Analysis')}</h3>
+                    <p class="text-slate-500 text-sm">识别出 ${hotspotCount} 个热点区域，并展示热点源归因结果</p>
+                </div>
+                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                    <div>热点面积 ${formatMapValue(summary.total_hotspot_area_m2 || 0)} m²</div>
+                    <div>区域占比 ${formatMapValue(summary.area_fraction_pct || 0)}%</div>
+                    <div>最高浓度 ${formatMapValue(summary.max_concentration || 0)} μg/m³</div>
+                </div>
+            </div>
+            ${interpretationHtml}
+            ${coverageHtml}
+            <div id="${mapId}" style="height: 540px;" class="message-map-container rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
+            ${renderHotspotLegend(rasterStyle, minVal, maxVal, normalizedMapData.contributing_road_ids?.length || 0)}
+        </div>
+    `;
+
+    const contentDiv = msgContainer.querySelector('.message-content');
+    if (!contentDiv) {
+        console.error('[Map] Message content div not found for hotspot map');
+        return;
+    }
+
+    contentDiv.insertAdjacentHTML('beforeend', mapHtml);
+    scrollToBottom();
+
+    setTimeout(() => {
+        const mapContainer = document.getElementById(mapId);
+        if (!mapContainer) {
+            console.error(`[Map] Hotspot map container ${mapId} not found in DOM`);
+            return;
+        }
+        initHotspotLeafletMap(normalizedMapData, mapId);
+    }, 150);
+}
+
+function normalizeConcentrationMapData(mapData) {
+    if (!mapData || typeof mapData !== 'object') {
+        return null;
+    }
+
+    if (Array.isArray(mapData.layers) && mapData.layers.length > 0) {
+        return mapData;
+    }
+
+    const concentrationGrid = mapData.concentration_grid || {};
+    const receptors = Array.isArray(concentrationGrid.receptors) ? concentrationGrid.receptors : [];
+    if (receptors.length === 0) {
+        return null;
+    }
+
+    const pollutant = mapData.pollutant || mapData.query_info?.pollutant || 'NOx';
+    const validReceptors = receptors
+        .map((receptor, index) => {
+            const lon = Number(receptor.lon);
+            const lat = Number(receptor.lat);
+            const meanConc = Number(receptor.mean_conc ?? receptor.value ?? 0);
+            const maxConc = Number(receptor.max_conc ?? meanConc);
+            if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(meanConc) || !Number.isFinite(maxConc)) {
+                return null;
+            }
+            return {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [lon, lat] },
+                properties: {
+                    receptor_id: receptor.receptor_id ?? index,
+                    mean_conc: meanConc,
+                    max_conc: maxConc,
+                    value: meanConc,
+                }
+            };
+        })
+        .filter(Boolean);
+
+    if (validReceptors.length === 0) {
+        return null;
+    }
+
+    const nonZeroFeatures = validReceptors.filter(feature => feature.properties.value > 0);
+    const features = nonZeroFeatures.length > 0 ? nonZeroFeatures : validReceptors;
+    const values = features.map(feature => feature.properties.value);
+    const bounds = concentrationGrid.bounds || {};
+    const minLon = Number.isFinite(Number(bounds.min_lon))
+        ? Number(bounds.min_lon)
+        : Math.min(...features.map(feature => feature.geometry.coordinates[0]));
+    const maxLon = Number.isFinite(Number(bounds.max_lon))
+        ? Number(bounds.max_lon)
+        : Math.max(...features.map(feature => feature.geometry.coordinates[0]));
+    const minLat = Number.isFinite(Number(bounds.min_lat))
+        ? Number(bounds.min_lat)
+        : Math.min(...features.map(feature => feature.geometry.coordinates[1]));
+    const maxLat = Number.isFinite(Number(bounds.max_lat))
+        ? Number(bounds.max_lat)
+        : Math.max(...features.map(feature => feature.geometry.coordinates[1]));
+    const span = Math.max(maxLon - minLon, maxLat - minLat);
+    let zoom = 14;
+    if (span > 10) zoom = 6;
+    else if (span > 5) zoom = 7;
+    else if (span > 2) zoom = 8;
+    else if (span > 1) zoom = 9;
+    else if (span > 0.5) zoom = 10;
+    else if (span > 0.2) zoom = 11;
+    else if (span > 0.1) zoom = 12;
+    else if (span > 0.05) zoom = 13;
+
+    return {
+        type: 'concentration',
+        title: mapData.title || `${pollutant} Concentration Distribution`,
+        pollutant,
+        center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
+        zoom,
+        layers: [{
+            id: 'concentration_points',
+            type: 'circle',
+            data: {
+                type: 'FeatureCollection',
+                features
+            },
+            style: {
+                radius: 6,
+                color_field: 'value',
+                color_scale: 'YlOrRd',
+                value_range: [Math.min(...values), Math.max(...values)],
+                opacity: 0.85,
+                legend_title: `${pollutant} Concentration`,
+                legend_unit: mapData.summary?.unit || 'μg/m³'
+            }
+        }],
+        summary: {
+            receptor_count: mapData.summary?.receptor_count ?? receptors.length,
+            mean_concentration: mapData.summary?.mean_concentration ?? (values.reduce((sum, value) => sum + value, 0) / values.length),
+            max_concentration: mapData.summary?.max_concentration ?? Math.max(...values),
+            unit: mapData.summary?.unit || 'μg/m³'
+        }
+    };
+}
+
+function renderConcentrationMap(mapData, msgContainer) {
+    const normalizedMapData = normalizeConcentrationMapData(mapData);
+    const layer = normalizedMapData?.layers?.[0];
+    const features = layer?.data?.features || [];
+    if (!normalizedMapData || features.length === 0) {
+        console.warn('[Map] No valid concentration map data provided');
+        return;
+    }
+
+    console.log(`[Map] renderConcentrationMap called with ${features.length} receptors`);
+
+    const mapId = `concentration-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const style = layer.style || {};
+    const valueRange = style.value_range || [0, 1];
+    const minVal = Number(valueRange[0] || 0);
+    const maxVal = Number(valueRange[1] || minVal);
+    const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
+    const legendGradient = 'linear-gradient(to right, #ffffb2, #fecc5c, #fd8d3c, #f03b20, #bd0026)';
+    const pollutant = normalizedMapData.pollutant || 'NOx';
+
+    const mapHtml = `
+        <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || `${pollutant} Concentration Distribution`)}</h3>
+                    <p class="text-slate-500 text-sm">显示 ${features.length} 个受体点的 ${pollutant} 浓度分布</p>
+                </div>
+                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                    <div>平均浓度 ${Number(normalizedMapData.summary?.mean_concentration || 0).toFixed(3)} ${unit}</div>
+                    <div>最大浓度 ${Number(normalizedMapData.summary?.max_concentration || 0).toFixed(3)} ${unit}</div>
+                </div>
+            </div>
+            <div id="${mapId}" style="height: 480px;" class="message-map-container rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
+            <div class="mt-4 flex items-center gap-4 text-sm">
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-600 dark:text-slate-400">低浓度</span>
+                    <div class="w-40 h-3 rounded" style="background: ${legendGradient}"></div>
+                    <span class="text-slate-600 dark:text-slate-400">高浓度</span>
+                </div>
+                <div class="ml-auto text-slate-500 dark:text-slate-400">
+                    <span>${minVal.toFixed(3)} - ${maxVal.toFixed(3)} ${unit}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const contentDiv = msgContainer.querySelector('.message-content');
+    if (contentDiv) {
+        contentDiv.insertAdjacentHTML('beforeend', mapHtml);
+        scrollToBottom();
+
+        setTimeout(() => {
+            const mapContainer = document.getElementById(mapId);
+            if (!mapContainer) {
+                console.error(`[Map] Concentration map container ${mapId} not found in DOM`);
+                return;
+            }
+
+            initConcentrationLeafletMap(normalizedMapData, mapId);
+        }, 150);
+    } else {
+        console.error('[Map] Message content div not found for concentration map');
+    }
+}
+
+function getConcentrationColor(value, minVal, maxVal) {
+    const colors = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026'];
+    if (!Number.isFinite(value) || maxVal <= minVal) {
+        return colors[0];
+    }
+
+    const ratio = Math.max(0, Math.min(1, (value - minVal) / (maxVal - minVal || 1)));
+    const index = Math.min(Math.floor(ratio * colors.length), colors.length - 1);
+    return colors[index];
+}
+
+function initConcentrationLeafletMap(mapData, mapId) {
+    if (typeof L === 'undefined') {
+        console.error('[Map] Leaflet not loaded');
+        return;
+    }
+
+    const mapContainer = document.getElementById(mapId);
+    if (!mapContainer) {
+        console.error(`[Map] Map container not found: ${mapId}`);
+        return;
+    }
+
+    const layer = mapData.layers?.[0];
+    const features = layer?.data?.features || [];
+    if (features.length === 0) {
+        console.warn('[Map] No concentration features to render');
+        return;
+    }
+
+    mapContainer.style.backgroundColor = '#ffffff';
+
+    const map = L.map(mapId, {
+        attributionControl: true,
+        zoomControl: true,
+        preferCanvas: true,
+        renderer: L.canvas({ padding: 0.5 })
+    });
+
+    mapContainer._leaflet_map = map;
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    const layerControl = L.control.layers(null, {}, {
+        position: 'topright',
+        collapsed: true
+    }).addTo(map);
+
+    const labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        pane: 'overlayPane'
+    });
+    layerControl.addOverlay(labelsLayer, '地名标注 / Labels');
+
+    try {
+        loadGISBasemap().then(basemapData => {
+            if (basemapData && !basemapData.error) {
+                const basemapLayer = L.geoJSON(basemapData, {
+                    style: { color: '#94a3b8', weight: 1, fill: false, opacity: 0.5 }
+                });
+                layerControl.addOverlay(basemapLayer, '行政边界');
+            }
+        }).catch(() => {});
+
+        loadGISRoadNetwork().then(roadData => {
+            if (roadData && !roadData.error) {
+                const roadLayer = L.geoJSON(roadData, {
+                    style: { color: '#cbd5e1', weight: 0.5, opacity: 0.3 }
+                });
+                layerControl.addOverlay(roadLayer, '路网底图');
+            }
+        }).catch(() => {});
+    } catch (e) {}
+
+    map.attributionControl.setPrefix('© Emission Agent');
+
+    const style = layer.style || {};
+    const colorField = style.color_field || 'value';
+    const valueRange = style.value_range || [0, 1];
+    const minVal = Number(valueRange[0] || 0);
+    const maxVal = Number(valueRange[1] || minVal);
+    const unit = style.legend_unit || mapData.summary?.unit || 'μg/m³';
+    const radius = Number(style.radius || 6);
+    const opacity = Number(style.opacity || 0.85);
+
+    const concentrationLayer = L.layerGroup();
+    const bounds = [];
+
+    features.forEach(feature => {
+        const coordinates = feature.geometry?.coordinates || [];
+        if (coordinates.length < 2) {
+            return;
+        }
+
+        const lon = Number(coordinates[0]);
+        const lat = Number(coordinates[1]);
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+            return;
+        }
+
+        const props = feature.properties || {};
+        const value = Number(props[colorField] || 0);
+        const marker = L.circleMarker([lat, lon], {
+            radius,
+            fillColor: getConcentrationColor(value, minVal, maxVal),
+            fillOpacity: opacity,
+            stroke: true,
+            weight: 1,
+            color: '#334155',
+            opacity: 0.6
+        });
+
+        marker.bindPopup(`
+            <div style="min-width: 180px;">
+                <h3 style="font-weight: bold; margin: 0 0 8px 0;">受体 ${escapeHtml(String(props.receptor_id ?? '-'))}</h3>
+                <div style="font-size: 13px; line-height: 1.6;">
+                    <div><strong>平均浓度:</strong> ${Number(props.mean_conc || 0).toFixed(3)} ${unit}</div>
+                    <div><strong>最大浓度:</strong> ${Number(props.max_conc || 0).toFixed(3)} ${unit}</div>
+                </div>
+            </div>
+        `);
+
+        concentrationLayer.addLayer(marker);
+        bounds.push([lat, lon]);
+    });
+
+    concentrationLayer.addTo(map);
+    layerControl.addOverlay(concentrationLayer, '浓度受体 / Concentration');
+
+    mapContainer._concentration_layer = concentrationLayer;
+    mapContainer._map_data = mapData;
+
+    if (bounds.length > 0) {
+        map.fitBounds(L.latLngBounds(bounds), {
+            padding: [10, 10],
+            maxZoom: 16
+        });
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+    } else if (Array.isArray(mapData.center) && mapData.center.length === 2) {
+        map.setView(mapData.center, mapData.zoom || 12);
+    } else {
+        map.setView([31.23, 121.47], 12);
     }
 }
 
@@ -1718,53 +3340,47 @@ function initLeafletMap(mapData, mapId, pollutant) {
     // Store map reference for cleanup
     mapContainer._leaflet_map = map;
 
-    // Track if GIS basemap loaded successfully
-    let gisBasemapLoaded = false;
+    // PRIMARY: CartoDB Positron No Labels — clean base for emission overlays
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
 
-    // Load GIS basemap as primary background (administrative boundaries)
-    loadGISBasemap().then(basemapData => {
-        if (basemapData && !basemapData.error) {
-            gisBasemapLoaded = true;
-            L.geoJSON(basemapData, {
-                style: {
-                    color: '#cccccc',
-                    weight: 1.5,
-                    fillColor: '#f8f8f8',
-                    fillOpacity: 0.3
-                }
-            }).addTo(map);
-        } else {
-            // Fallback: use CartoDB Positron if GIS basemap not available
-            console.warn('[Map] GIS basemap not available, using CartoDB Positron');
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
-        }
-    });
-
-    // Load road network as optional overlay (shown by default)
-    const roadLayerGroup = L.layerGroup().addTo(map);  // Add to map by default
-    loadGISRoadNetwork().then(roadData => {
-        if (roadData && !roadData.error) {
-            L.geoJSON(roadData, {
-                style: {
-                    color: '#e0e0e0',
-                    weight: 0.5,
-                    opacity: 0.5
-                }
-            }).addTo(roadLayerGroup);
-        }
-    });
-
-    // Add layer control (only road network as optional overlay)
-    L.control.layers(null, {
-        "路网": roadLayerGroup
-    }, {
+    // Layer control for optional overlays
+    const layerControl = L.control.layers(null, {}, {
         position: 'topright',
         collapsed: true
     }).addTo(map);
+
+    // OPTIONAL: Labels layer (toggle on/off)
+    const labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        pane: 'overlayPane'
+    });
+    layerControl.addOverlay(labelsLayer, '地名标注 / Labels');
+
+    // OPTIONAL: GIS basemap/roadnetwork as overlay layers (not shown by default)
+    try {
+        loadGISBasemap().then(basemapData => {
+            if (basemapData && !basemapData.error) {
+                const basemapLayer = L.geoJSON(basemapData, {
+                    style: { color: '#94a3b8', weight: 1, fill: false, opacity: 0.5 }
+                });
+                layerControl.addOverlay(basemapLayer, '行政边界');
+            }
+        }).catch(() => {});
+
+        loadGISRoadNetwork().then(roadData => {
+            if (roadData && !roadData.error) {
+                const roadLayer = L.geoJSON(roadData, {
+                    style: { color: '#cbd5e1', weight: 0.5, opacity: 0.3 }
+                });
+                layerControl.addOverlay(roadLayer, '路网底图');
+            }
+        }).catch(() => {});
+    } catch(e) {}
 
     // Custom attribution
     map.attributionControl.setPrefix('© Emission Agent');
@@ -1778,17 +3394,18 @@ function initLeafletMap(mapData, mapId, pollutant) {
     const linkCount = mapData.links ? mapData.links.length : 0;
     let lineWeight;
     if (linkCount > 10000) {
-        lineWeight = 1;      // Very large scale: very thin lines
+        lineWeight = 2;      // Very large scale
+    } else if (linkCount > 5000) {
+        lineWeight = 2.5;    // Large scale
     } else if (linkCount > 1000) {
-        lineWeight = 1.5;    // Large scale: thin lines
+        lineWeight = 3;      // Medium-large scale
     } else if (linkCount > 100) {
-        lineWeight = 2.5;    // Medium scale
-    } else if (linkCount > 20) {
-        lineWeight = 3.5;    // Small scale
+        lineWeight = 3.5;    // Medium scale
     } else {
-        lineWeight = 5;      // Few links: thick lines
+        lineWeight = 4;      // Small scale: thick lines
     }
-    console.log(`[Map] Adaptive line weight: ${lineWeight} for ${linkCount} links`);
+    const baseOpacity = linkCount > 5000 ? 0.6 : linkCount > 1000 ? 0.7 : 0.85;
+    console.log(`[Map] Adaptive line weight: ${lineWeight}, opacity: ${baseOpacity} for ${linkCount} links`);
 
     // Draw links
     const bounds = [];
@@ -1805,12 +3422,12 @@ function initLeafletMap(mapData, mapId, pollutant) {
         // Convert [lon, lat] to [lat, lon] for Leaflet
         const latLngs = coords.map(c => [c[1], c[0]]);
 
-        // Create polyline with adaptive weight
+        // Create polyline with adaptive weight and opacity
         const polyline = L.polyline(latLngs, {
             color: color,
             weight: lineWeight,
-            opacity: 0.9,  // Increased opacity for clearer visualization
-            smoothFactor: 1.0  // Smooth rendering
+            opacity: baseOpacity,
+            smoothFactor: 1.0
         });
 
         // Store link data for later updates
@@ -1861,48 +3478,48 @@ function initLeafletMap(mapData, mapId, pollutant) {
             map.invalidateSize();
         }, 100);
     } else {
-        // Fallback: if no emission data, use default Shanghai center
-        map.setView([31.2304, 121.4737], 12);
+        // Fallback: if no emission data, use generic China center (overridden by fitBounds)
+        map.setView([35.0, 105.0], 4);
     }
 
     console.log(`[Map] Initialized with ${emissionLayer.getLayers().length} links`);
 }
 
 function getEmissionColor(value, minVal, maxVal) {
-    // Handle edge case: all values are the same
-    if (maxVal <= minVal) {
-        return '#a6d96a'; // Return middle-low green color
-    }
+    // Handle edge cases
+    if (value <= 0 || maxVal <= minVal) return '#3B82F6';
 
-    // Use logarithmic scaling to make small values visible
-    // This is critical for NOx where values are very small (0.00-0.04 kg/h)
+    // Logarithmic normalization for wide value ranges (e.g. NOx 0.001-0.04)
     const safeMin = Math.max(minVal, 0.001);
     const safeVal = Math.max(value, 0.001);
-    const safeMax = Math.max(maxVal, 0.002);
-
+    const safeMax = Math.max(maxVal, safeMin * 1.001);
     const logMin = Math.log(safeMin);
     const logMax = Math.log(safeMax);
     const logVal = Math.log(safeVal);
+    const ratio = Math.max(0, Math.min(1, (logVal - logMin) / (logMax - logMin)));
 
-    // Normalize to 0-1 range
-    const ratio = (logVal - logMin) / (logMax - logMin);
-    const clampedRatio = Math.max(0, Math.min(1, ratio));
+    // 5-stop saturated color ramp: blue → emerald → yellow → orange → red
+    const stops = [
+        [0.0,  [59, 130, 246]],   // #3B82F6 blue (low)
+        [0.25, [16, 185, 129]],   // #10B981 emerald
+        [0.5,  [245, 208, 70]],   // #F5D046 yellow
+        [0.75, [249, 115, 22]],   // #F97316 orange
+        [1.0,  [220, 38, 38]],    // #DC2626 red (high)
+    ];
 
-    // Green (low) → Yellow (mid) → Red (high) gradient
-    let r, g, b;
-    if (clampedRatio < 0.5) {
-        // Green to Yellow transition
-        const t = clampedRatio * 2;
-        r = Math.round(255 * t);
-        g = Math.round(200 - 50 * t);
-        b = 0;
-    } else {
-        // Yellow to Red transition
-        const t = (clampedRatio - 0.5) * 2;
-        r = 255;
-        g = Math.round(150 * (1 - t));
-        b = 0;
+    let lower = stops[0], upper = stops[stops.length - 1];
+    for (let i = 0; i < stops.length - 1; i++) {
+        if (ratio >= stops[i][0] && ratio <= stops[i + 1][0]) {
+            lower = stops[i];
+            upper = stops[i + 1];
+            break;
+        }
     }
+
+    const t = (ratio - lower[0]) / (upper[0] - lower[0] || 1);
+    const r = Math.round(lower[1][0] + t * (upper[1][0] - lower[1][0]));
+    const g = Math.round(lower[1][1] + t * (upper[1][1] - lower[1][1]));
+    const b = Math.round(lower[1][2] + t * (upper[1][2] - lower[1][2]));
 
     return `rgb(${r},${g},${b})`;
 }

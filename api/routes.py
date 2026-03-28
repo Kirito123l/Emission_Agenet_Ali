@@ -1,6 +1,7 @@
 """API路由"""
 import os
 import json
+import re
 import tempfile
 import pandas as pd
 import logging
@@ -83,7 +84,96 @@ router = APIRouter()
 TEMP_DIR = Path(tempfile.gettempdir()) / "emission_agent"
 TEMP_DIR.mkdir(exist_ok=True)
 
-@router.post("/chat", response_model=ChatResponse)
+LEGACY_UPLOADED_FILE_RE = re.compile(
+    r"(?P<content>.*?)(?:\n\n文件已上传，路径:\s*(?P<file_path>.+?)\n请使用 input_file 参数处理此文件。\s*)$",
+    re.S,
+)
+
+
+def sanitize_uploaded_filename(filename: Optional[str]) -> Optional[str]:
+    if not filename:
+        return None
+    return Path(str(filename).strip()).name or None
+
+
+def build_session_title_source(message: str, uploaded_file_name: Optional[str]) -> str:
+    clean_message = (message or "").strip()
+    if clean_message:
+        return clean_message
+    if uploaded_file_name:
+        return f"上传文件：{uploaded_file_name}"
+    return "新对话"
+
+
+def normalize_user_history_message(message: Dict[str, Any]) -> Dict[str, Any]:
+    msg_copy = dict(message)
+    if msg_copy.get("role") != "user":
+        return msg_copy
+
+    content = msg_copy.get("content") or ""
+    file_path = msg_copy.get("file_path")
+    file_name = sanitize_uploaded_filename(msg_copy.get("file_name"))
+
+    if isinstance(content, str):
+        match = LEGACY_UPLOADED_FILE_RE.match(content)
+        if match:
+            msg_copy["content"] = match.group("content").rstrip()
+            file_path = file_path or match.group("file_path").strip()
+
+    if file_path:
+        msg_copy["file_path"] = str(file_path)
+        if not file_name:
+            file_name = sanitize_uploaded_filename(Path(str(file_path)).name)
+
+    if file_name:
+        msg_copy["file_name"] = file_name
+
+    return msg_copy
+
+
+def build_history_download_meta(
+    download_candidate: Optional[Any],
+    session_id: str,
+    message_id: Optional[str],
+    user_id: str,
+) -> Optional[Dict[str, Any]]:
+    normalized = normalize_download_file(download_candidate, session_id, message_id, user_id)
+    if normalized:
+        return normalized
+
+    filename = None
+    if isinstance(download_candidate, dict):
+        filename = download_candidate.get("filename")
+    elif isinstance(download_candidate, str):
+        filename = Path(download_candidate).name if download_candidate else None
+
+    if not filename:
+        return None
+
+    from config import get_config
+    config = get_config()
+    return normalize_download_file(
+        {"path": str(config.outputs_dir / filename), "filename": filename},
+        session_id,
+        message_id,
+        user_id,
+    )
+
+
+def resolve_download_path(filename: Optional[str], path_raw: Optional[str]) -> Optional[Path]:
+    file_path = Path(path_raw) if path_raw else None
+    if file_path and file_path.exists():
+        return file_path
+
+    if filename:
+        from config import get_config
+        candidate = get_config().outputs_dir / filename
+        if candidate.exists():
+            return candidate
+
+    return file_path
+
+@router.post("/chat", response_model=ChatResponse, response_model_exclude_none=True)
 async def chat(
     request: Request,
     message: str = Form(...),
@@ -100,6 +190,7 @@ async def chat(
     logger.info(f"Chat request: message={message[:80]!r}, session={session_id}, file={file.filename if file else None}")
 
     try:
+        original_message = message
         # 获取或创建会话
         user_id = get_user_id(request)
         mgr = SessionRegistry.get(user_id)
@@ -108,6 +199,9 @@ async def chat(
         # 处理上传的文件
         input_file_path = None
         output_file_path = None
+        uploaded_file_name = None
+        uploaded_file_size = None
+        message_with_file = original_message
 
         if file:
             # 保存上传的文件
@@ -115,29 +209,36 @@ async def chat(
             input_file_path = TEMP_DIR / f"{session.session_id}_input{suffix}"
             with open(input_file_path, "wb") as f:
                 content = await file.read()
+                uploaded_file_size = len(content)
                 f.write(content)
+            uploaded_file_name = sanitize_uploaded_filename(file.filename) or input_file_path.name
 
             # 准备输出文件路径
             output_file_path = TEMP_DIR / f"{session.session_id}_output.xlsx"
 
             # 在消息中添加文件信息 - 使用明确的格式让Agent识别
-            message = f"{message}\n\n文件已上传，路径: {str(input_file_path)}\n请使用 input_file 参数处理此文件。"
+            message_with_file = f"{original_message}\n\n文件已上传，路径: {str(input_file_path)}\n请使用 input_file 参数处理此文件。"
 
         # 调用Router处理消息
         logger.info(f"调用Router处理消息...")
-        result = await session.chat(message, input_file_path)
+        result = await session.chat(message_with_file, input_file_path)
         logger.info(f"Router回复: {result['text'][:100] if result['text'] else 'None'}...")
 
         # 更新会话信息
         session.message_count += 1
         session.updated_at = datetime.now().isoformat()
-        mgr.update_session_title(session.session_id, message)
+        mgr.update_session_title(
+            session.session_id,
+            build_session_title_source(original_message, uploaded_file_name),
+        )
 
         # 从RouterResponse提取数据
         reply_text = result.get("text", "")
         chart_data = result.get("chart_data")
         table_data = result.get("table_data")
         map_data = result.get("map_data")
+        trace = result.get("trace")
+        trace_friendly = result.get("trace_friendly")
         assistant_message_id = uuid.uuid4().hex[:12]
         download_file = normalize_download_file(
             result.get("download_file"),
@@ -177,20 +278,26 @@ async def chat(
             map_data=map_data,
             file_id=session.session_id if download_file else None,
             download_file=download_file,
-            message_id=assistant_message_id
+            message_id=assistant_message_id,
+            trace=trace,
+            trace_friendly=trace_friendly,
         )
 
         # 保存对话历史到Session
         session.save_turn(
-            user_input=message,
+            user_input=original_message,
             assistant_response=reply_text,
+            file_name=uploaded_file_name,
+            file_path=str(input_file_path) if input_file_path else None,
+            file_size=uploaded_file_size,
             chart_data=chart_data,
             table_data=table_data,
             map_data=map_data,
             data_type=data_type,
             file_id=session.session_id if download_file else None,  # 添加 file_id
             download_file=download_file,
-            message_id=assistant_message_id
+            message_id=assistant_message_id,
+            trace_friendly=trace_friendly,
         )
 
         mgr.save_session()
@@ -228,6 +335,7 @@ async def chat_stream(
 
     async def generate():
         try:
+            original_message = message
             # 1. 发送"思考中"状态
             yield json.dumps({
                 "type": "status",
@@ -241,6 +349,8 @@ async def chat_stream(
             # 3. 处理上传的文件
             input_file_path = None
             output_file_path = None
+            uploaded_file_name = None
+            uploaded_file_size = None
 
             if file:
                 yield json.dumps({
@@ -254,15 +364,17 @@ async def chat_stream(
                 input_file_path = TEMP_DIR / f"{session.session_id}_input{suffix}"
                 with open(input_file_path, "wb") as f:
                     content = await file.read()
+                    uploaded_file_size = len(content)
                     f.write(content)
+                uploaded_file_name = sanitize_uploaded_filename(file.filename) or input_file_path.name
 
                 # 准备输出文件路径
                 output_file_path = TEMP_DIR / f"{session.session_id}_output.xlsx"
 
                 # 在消息中添加文件信息
-                message_with_file = f"{message}\n\n文件已上传，路径: {str(input_file_path)}\n请使用 input_file 参数处理此文件。"
+                message_with_file = f"{original_message}\n\n文件已上传，路径: {str(input_file_path)}\n请使用 input_file 参数处理此文件。"
             else:
-                message_with_file = message
+                message_with_file = original_message
 
             # 4. Planning阶段
             yield json.dumps({
@@ -300,6 +412,7 @@ async def chat_stream(
             chart_data = result.get("chart_data")
             table_data = result.get("table_data")
             map_data = result.get("map_data")
+            trace_friendly = result.get("trace_friendly")
             assistant_message_id = uuid.uuid4().hex[:12]
             download_file = normalize_download_file(
                 result.get("download_file"),
@@ -347,19 +460,26 @@ async def chat_stream(
             # 8. 更新会话信息
             session.message_count += 1
             session.updated_at = datetime.now().isoformat()
-            mgr.update_session_title(session.session_id, message)
+            mgr.update_session_title(
+                session.session_id,
+                build_session_title_source(original_message, uploaded_file_name),
+            )
 
             # 9. 保存对话历史
             session.save_turn(
-                user_input=message,
+                user_input=original_message,
                 assistant_response=reply_text,
+                file_name=uploaded_file_name,
+                file_path=str(input_file_path) if input_file_path else None,
+                file_size=uploaded_file_size,
                 chart_data=chart_data,
                 table_data=table_data,
                 map_data=map_data,
                 data_type=data_type,
                 file_id=session.session_id if download_file else None,  # 添加 file_id
                 download_file=download_file,
-                message_id=assistant_message_id
+                message_id=assistant_message_id,
+                trace_friendly=trace_friendly,
             )
             mgr.save_session()
 
@@ -370,7 +490,8 @@ async def chat_stream(
                 "file_id": session.session_id if download_file else None,
                 "download_file": download_file,
                 "map_data": map_data,
-                "message_id": assistant_message_id
+                "message_id": assistant_message_id,
+                "trace_friendly": trace_friendly,
             }, ensure_ascii=False) + "\n"
 
         except Exception as e:
@@ -566,17 +687,14 @@ async def download_file(file_id: str, request: Request, user_id: Optional[str] =
     if isinstance(session.last_result_file, dict):
         filename = session.last_result_file.get('filename', f"emission_result_{file_id}.xlsx")
         file_path_raw = session.last_result_file.get('path')
-        if file_path_raw:
-            file_path = Path(file_path_raw)
-        else:
-            from config import get_config
-            config = get_config()
-            file_path = config.outputs_dir / filename
+        file_path = resolve_download_path(filename, file_path_raw)
     else:
         file_path = Path(session.last_result_file)
         filename = f"emission_result_{file_id}.xlsx"
+        if not file_path.exists():
+            file_path = resolve_download_path(filename, None)
 
-    if not file_path.exists():
+    if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
 
     return FileResponse(
@@ -616,19 +734,16 @@ async def download_file_by_message(session_id: str, message_id: str, request: Re
     if isinstance(download_meta, dict):
         filename = download_meta.get("filename")
         path_raw = download_meta.get("path")
-        if path_raw:
-            file_path = Path(path_raw)
+        file_path = resolve_download_path(filename, path_raw)
 
-    if not file_path:
+    if not file_path or not file_path.exists():
         td = target.get("table_data")
         if isinstance(td, dict):
             td_download = td.get("download")
             if isinstance(td_download, dict):
                 filename = filename or td_download.get("filename")
         if filename:
-            from config import get_config
-            config = get_config()
-            file_path = config.outputs_dir / filename
+            file_path = resolve_download_path(filename, None)
 
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -776,25 +891,45 @@ async def get_session_history(session_id: str, request: Request):
     # 回填下载元数据（兼容旧历史记录）
     normalized_messages = []
     for idx, msg in enumerate(messages):
-        msg_copy = dict(msg)
+        msg_copy = normalize_user_history_message(msg)
         if msg_copy.get("role") == "assistant":
             if not msg_copy.get("message_id"):
                 msg_copy["message_id"] = f"legacy-{idx}"
-            if not msg_copy.get("download_file"):
+            download_meta = build_history_download_meta(
+                msg_copy.get("download_file"),
+                session_id,
+                msg_copy["message_id"],
+                user_id,
+            )
+            if not download_meta:
                 td = msg_copy.get("table_data")
                 if isinstance(td, dict):
                     td_download = td.get("download")
                     if isinstance(td_download, dict) and td_download.get("filename"):
-                        filename = td_download.get("filename")
-                        download_meta = {
-                            "filename": filename,
-                            "url": f"/api/file/download/message/{session_id}/{msg_copy['message_id']}",
-                            "file_id": session_id
-                        }
                         from config import get_config
                         config = get_config()
-                        download_meta["path"] = str(config.outputs_dir / filename)
-                        msg_copy["download_file"] = download_meta
+                        filename = td_download.get("filename")
+                        download_meta = build_history_download_meta(
+                            {
+                                "path": str(config.outputs_dir / filename),
+                                "filename": filename,
+                            },
+                            session_id,
+                            msg_copy["message_id"],
+                            user_id,
+                        )
+            if download_meta:
+                msg_copy["download_file"] = download_meta
+                td = msg_copy.get("table_data")
+                if isinstance(td, dict):
+                    td_copy = dict(td)
+                    td_copy["download"] = {
+                        "url": download_meta["url"],
+                        "filename": download_meta["filename"],
+                    }
+                    if download_meta.get("file_id"):
+                        td_copy["file_id"] = download_meta["file_id"]
+                    msg_copy["table_data"] = td_copy
             if not msg_copy.get("file_id") and msg_copy.get("download_file"):
                 msg_copy["file_id"] = session_id
         normalized_messages.append(msg_copy)

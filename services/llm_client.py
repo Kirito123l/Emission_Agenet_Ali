@@ -177,7 +177,8 @@ class LLMClientService:
         self,
         messages: List[Dict[str, str]],
         system: Optional[str] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        seed: Optional[int] = None,
     ) -> LLMResponse:
         """
         Simple chat without tools
@@ -202,6 +203,7 @@ class LLMClientService:
                     model=self.model,
                     messages=full_messages,
                     temperature=temperature or self.temperature,
+                    **({"seed": seed} if seed is not None else {}),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM chat"
@@ -224,7 +226,8 @@ class LLMClientService:
         messages: List[Dict[str, str]],
         tools: List[Dict],
         system: Optional[str] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        seed: Optional[int] = None,
     ) -> LLMResponse:
         """
         Chat with Tool Use support
@@ -252,6 +255,7 @@ class LLMClientService:
                     tools=tools,
                     tool_choice="auto",  # Let LLM decide
                     temperature=temperature or self.temperature,
+                    **({"seed": seed} if seed is not None else {}),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM chat with tools"
@@ -286,6 +290,52 @@ class LLMClientService:
 
         except Exception as e:
             logger.error(f"LLM chat with tools failed: {e}")
+            raise
+
+    async def chat_json(
+        self,
+        messages: List[Dict[str, str]],
+        system: Optional[str] = None,
+        temperature: Optional[float] = None,
+        seed: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Async JSON-object chat for lightweight planning and other structured calls.
+
+        Args:
+            messages: List of message dicts
+            system: Optional system message
+            temperature: Optional temperature override
+
+        Returns:
+            Parsed JSON response
+        """
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+
+        try:
+            response = self._request_with_failover(
+                lambda cli: cli.chat.completions.create(
+                    model=self.model,
+                    messages=full_messages,
+                    temperature=0.0 if temperature is None else temperature,
+                    response_format={"type": "json_object"},
+                    **({"seed": seed} if seed is not None else {}),
+                    max_tokens=self.max_tokens,
+                ),
+                operation="LLM async JSON chat",
+            )
+
+            content = response.choices[0].message.content or "{}"
+            return json.loads(content)
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse async JSON response: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"LLM async JSON chat failed: {e}")
             raise
 
     def chat_sync(

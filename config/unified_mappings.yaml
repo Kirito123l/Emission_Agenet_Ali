@@ -286,6 +286,144 @@ seasons:
       - "冬天"
       - "winter"
 
+road_types:
+  快速路:
+    aliases:
+      - 城市快速路
+      - 快速路
+      - urban expressway
+      - expressway
+  高速公路:
+    aliases:
+      - 高速
+      - freeway
+      - highway
+      - motorway
+      - interstate
+  主干道:
+    aliases:
+      - 主干路
+      - 干道
+      - arterial
+      - major road
+      - arterial road
+  次干道:
+    aliases:
+      - 次干路
+      - minor arterial
+      - secondary road
+      - collector road
+  支路:
+    aliases:
+      - 地方道路
+      - 支路
+      - local road
+      - local
+      - residential
+      - 居民区道路
+
+# ============ Meteorology Presets ============
+meteorology:
+  presets:
+    urban_summer_day:
+      aliases:
+        - 城市夏季白天
+        - 夏季白天
+        - 夏天白天
+        - 城市夏天
+        - summer day
+        - urban summer
+        - urban summer daytime
+    urban_summer_night:
+      aliases:
+        - 城市夏季夜间
+        - 夏季夜间
+        - 夏天晚上
+        - summer night
+        - urban summer night
+    urban_winter_day:
+      aliases:
+        - 城市冬季白天
+        - 冬季白天
+        - 冬天白天
+        - winter day
+        - urban winter daytime
+    urban_winter_night:
+      aliases:
+        - 城市冬季夜间
+        - 冬季夜间
+        - 冬天晚上
+        - winter night
+        - urban winter night
+    windy_neutral:
+      aliases:
+        - 大风中性
+        - 大风
+        - 强风
+        - windy
+        - neutral windy
+        - high wind
+    calm_stable:
+      aliases:
+        - 静风稳定
+        - 静风
+        - 无风
+        - calm
+        - calm stable
+        - no wind
+
+stability_classes:
+  VS:
+    aliases:
+      - very stable
+      - 非常稳定
+      - 强稳定
+      - "F"
+      - "f"
+      - pasquill f
+      - class f
+  S:
+    aliases:
+      - stable
+      - 稳定
+      - "E"
+      - "e"
+      - pasquill e
+      - class e
+  N1:
+    aliases:
+      - neutral
+      - 中性
+      - "D"
+      - "d"
+      - pasquill d
+      - class d
+  N2:
+    aliases:
+      - neutral2
+      - neutral 2
+      - "C"
+      - "c"
+      - pasquill c
+      - class c
+  U:
+    aliases:
+      - unstable
+      - 不稳定
+      - "B"
+      - "b"
+      - pasquill b
+      - class b
+  VU:
+    aliases:
+      - very unstable
+      - 非常不稳定
+      - 强不稳定
+      - "A"
+      - "a"
+      - pasquill a
+      - class a
+
 # ============ Column Patterns ============
 column_patterns:
   micro_emission:

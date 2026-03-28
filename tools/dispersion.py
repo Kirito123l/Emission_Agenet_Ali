@@ -1,0 +1,486 @@
+"""
+Tool: calculate_dispersion
+
+Computes pollutant concentration distribution using the PS-XGB-RLINE surrogate model.
+Bridges macro emission results -> DispersionCalculator -> spatial concentration field.
+"""
+
+from __future__ import annotations
+
+import logging
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import yaml
+
+from core.coverage_assessment import assess_coverage
+from tools.base import BaseTool, ToolResult
+
+logger = logging.getLogger(__name__)
+
+PRESET_METEOROLOGY = {
+    "urban_summer_day",
+    "urban_summer_night",
+    "urban_winter_day",
+    "urban_winter_night",
+    "windy_neutral",
+    "calm_stable",
+}
+CUSTOM_STABILITY_TO_L = {
+    "VS": 100.0,
+    "S": 500.0,
+    "N1": 2000.0,
+    "N2": -2000.0,
+    "U": -500.0,
+    "VU": -100.0,
+}
+CUSTOM_STABILITY_TO_H = {
+    "VS": 0.0,
+    "S": 0.0,
+    "N1": 0.0,
+    "N2": 50.0,
+    "U": 100.0,
+    "VU": 150.0,
+}
+MET_OVERRIDE_KEYS = ("wind_speed", "wind_direction", "stability_class", "mixing_height")
+
+
+@lru_cache(maxsize=1)
+def _load_meteorology_presets() -> Dict[str, Dict[str, Any]]:
+    presets_path = Path(__file__).resolve().parent.parent / "config" / "meteorology_presets.yaml"
+    with presets_path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    return data.get("presets", {})
+
+
+class DispersionTool(BaseTool):
+    """
+    Dispersion calculation tool.
+
+    Wraps DispersionCalculator and EmissionToDispersionAdapter to provide
+    a tool-layer interface compatible with the agent's executor framework.
+    """
+
+    def __init__(self):
+        super().__init__()
+        from calculators.dispersion import DispersionCalculator, DispersionConfig
+        from calculators.dispersion_adapter import EmissionToDispersionAdapter
+
+        self.name = "calculate_dispersion"
+        self.description = "Calculate pollutant dispersion using PS-XGB-RLINE surrogate model"
+        self._calculator_class = DispersionCalculator
+        self._config_class = DispersionConfig
+        self._adapter = EmissionToDispersionAdapter
+        self._calculator_cache: Dict[float, Any] = {}
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """
+        Execute dispersion calculation.
+
+        Expected kwargs:
+            emission_source: "last_result" or a file path
+            meteorology: preset name | "custom" | .sfc path
+            wind_speed / wind_direction / stability_class / mixing_height for custom met
+            roughness_height: 0.05 | 0.5 | 1.0
+            pollutant: currently only NOx
+            _last_result: injected upstream previous tool result payload
+        """
+        try:
+            emission_source = kwargs.get("emission_source", "last_result")
+            meteorology = kwargs.get("meteorology", "urban_summer_day")
+            roughness = float(kwargs.get("roughness_height", 0.5))
+            pollutant = kwargs.get("pollutant", "NOx")
+            grid_resolution = float(kwargs.get("grid_resolution", 50))
+
+            # Track which parameters used defaults
+            defaults_used = {}
+            if "meteorology" not in kwargs:
+                defaults_used["meteorology"] = "urban_summer_day"
+            if "roughness_height" not in kwargs:
+                defaults_used["roughness_height"] = 0.5
+            if "pollutant" not in kwargs:
+                defaults_used["pollutant"] = "NOx"
+            if "grid_resolution" not in kwargs:
+                defaults_used["grid_resolution"] = 50
+
+            emission_data = self._resolve_emission_source(emission_source, kwargs)
+            if emission_data is None:
+                return ToolResult(
+                    success=False,
+                    error="No emission data available. Please run calculate_macro_emission first.",
+                    data=None,
+                )
+
+            inferred_label = self._extract_scenario_label(emission_data)
+            scenario_label = str(kwargs.get("scenario_label") or inferred_label or "baseline")
+
+            roads_gdf, emissions_df = self._adapter.adapt(emission_data)
+            if roads_gdf.empty:
+                return ToolResult(
+                    success=False,
+                    error="No road geometry found in emission results. Cannot compute dispersion without spatial data.",
+                    data=None,
+                )
+
+            coverage = assess_coverage(roads_gdf)
+            logger.info(
+                "Coverage assessment: %s, density=%.1f km/km²",
+                coverage.level,
+                coverage.road_density_km_per_km2,
+            )
+
+            met_input = self._build_met_input(meteorology, kwargs)
+            calculator = self._get_calculator(roughness)
+            if hasattr(calculator, "config"):
+                calculator.config.display_grid_resolution_m = grid_resolution
+            result = calculator.calculate(
+                roads_gdf=roads_gdf,
+                emissions_df=emissions_df,
+                met_input=met_input,
+                pollutant=pollutant,
+                coverage_assessment=coverage,
+            )
+
+            if result.get("status") != "success":
+                return ToolResult(
+                    success=False,
+                    error=result.get("message", "Dispersion calculation failed"),
+                    data=result,
+                )
+
+            data = result["data"]
+            data.setdefault("coverage_assessment", coverage.to_dict())
+            data["meteorology_used"] = self._build_meteorology_used(meteorology, met_input)
+            data["scenario_label"] = scenario_label
+            if defaults_used:
+                data["defaults_used"] = defaults_used
+            summary = self._build_summary(data, meteorology, roughness, pollutant)
+            return ToolResult(
+                success=True,
+                error=None,
+                data=data,
+                summary=summary,
+                map_data=self._build_map_data(data, pollutant),
+            )
+        except Exception as exc:
+            logger.error("Dispersion tool execution failed: %s", exc, exc_info=True)
+            return ToolResult(
+                success=False,
+                error=f"Dispersion calculation error: {exc}",
+                data=None,
+            )
+
+    def _resolve_emission_source(
+        self,
+        emission_source: str,
+        kwargs: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Resolve emission input from the previous macro-emission result or a future file source."""
+        if emission_source == "last_result":
+            last_result = kwargs.get("_last_result")
+            if not isinstance(last_result, dict):
+                return None
+
+            if last_result.get("status") == "success" and isinstance(last_result.get("data"), dict):
+                normalized = last_result
+            elif last_result.get("success") and isinstance(last_result.get("data"), dict):
+                normalized = {"status": "success", "data": last_result["data"]}
+            else:
+                return None
+
+            results = normalized["data"].get("results")
+            if not isinstance(results, list) or not results:
+                logger.warning("calculate_dispersion received last_result without data.results")
+                return None
+
+            sample = next((item for item in results if isinstance(item, dict)), {})
+            if "total_emissions_kg_per_hr" not in sample and "link_length_km" not in sample:
+                logger.warning("calculate_dispersion last_result does not look like macro emission output")
+                return None
+
+            return normalized
+
+        candidate = str(emission_source).strip()
+        if candidate:
+            logger.warning(
+                "calculate_dispersion file-based emission_source is not supported yet: %s",
+                candidate,
+            )
+        return None
+
+    def _extract_scenario_label(self, emission_data: Dict[str, Any]) -> Optional[str]:
+        data = emission_data.get("data", emission_data)
+        if not isinstance(data, dict):
+            return None
+        label = data.get("scenario_label")
+        if isinstance(label, str) and label.strip():
+            return label.strip()
+        return None
+
+    def _build_met_input(self, meteorology: str, kwargs: Dict[str, Any]) -> Any:
+        """Build meteorology input for the calculator from preset, preset+override, custom, or SFC path."""
+        if isinstance(meteorology, str) and Path(meteorology).suffix.lower() == ".sfc":
+            return meteorology
+
+        user_overrides = self._extract_meteorology_overrides(kwargs)
+        if meteorology != "custom":
+            if not user_overrides and meteorology in PRESET_METEOROLOGY:
+                return meteorology
+
+            if meteorology in PRESET_METEOROLOGY or user_overrides:
+                met_dict = self._load_preset(meteorology)
+                if user_overrides:
+                    met_dict["_source_mode"] = "preset_override"
+                    met_dict["_overrides"] = {}
+                    for key, value in user_overrides.items():
+                        original = met_dict.get(key)
+                        met_dict[key] = value
+                        met_dict["_overrides"][key] = {"from": original, "to": value}
+                    if "stability_class" in user_overrides:
+                        self._apply_stability_metadata(met_dict)
+                    logger.info(
+                        "Meteorology: preset '%s' with overrides: %s",
+                        met_dict.get("_preset_name"),
+                        sorted(user_overrides),
+                    )
+                return met_dict
+
+            logger.warning(
+                "Unknown meteorology input '%s', falling back to urban_summer_day",
+                meteorology,
+            )
+            return "urban_summer_day"
+
+        if meteorology == "custom":
+            met_dict = {
+                "wind_speed": float(kwargs.get("wind_speed", 3.0)),
+                "wind_direction": float(kwargs.get("wind_direction", 270.0)),
+                "stability_class": str(kwargs.get("stability_class", "N1")).upper(),
+                "mixing_height": float(kwargs.get("mixing_height", 800.0)),
+                "temperature_k": float(kwargs.get("temperature_k", 293.0)),
+                "_preset_name": None,
+                "_overrides": {},
+                "_source_mode": "custom",
+            }
+            self._apply_stability_metadata(met_dict)
+            return met_dict
+
+        logger.warning(
+            "Unknown meteorology input '%s', falling back to urban_summer_day",
+            meteorology,
+        )
+        return "urban_summer_day"
+
+    def _extract_meteorology_overrides(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Return normalized user-provided meteorology overrides, ignoring null values."""
+        overrides: Dict[str, Any] = {}
+        for key in MET_OVERRIDE_KEYS:
+            value = kwargs.get(key)
+            if value is None:
+                continue
+            if key == "stability_class":
+                normalized = str(value).upper()
+                if normalized not in CUSTOM_STABILITY_TO_L:
+                    raise ValueError(f"Unsupported stability_class for meteorology override: {normalized}")
+                overrides[key] = normalized
+            else:
+                overrides[key] = float(value)
+        return overrides
+
+    def _apply_stability_metadata(self, met_dict: Dict[str, Any]) -> None:
+        """Keep derived stability parameters consistent when stability_class is custom-set or overridden."""
+        stability_class = str(met_dict.get("stability_class", "")).upper()
+        if stability_class not in CUSTOM_STABILITY_TO_L:
+            raise ValueError(f"Unsupported stability_class for meteorology input: {stability_class}")
+        met_dict["stability_class"] = stability_class
+        met_dict["monin_obukhov_length"] = CUSTOM_STABILITY_TO_L[stability_class]
+        met_dict["H"] = CUSTOM_STABILITY_TO_H[stability_class]
+
+    def _load_preset(self, preset_name: str) -> Dict[str, Any]:
+        """Load a meteorology preset from YAML and return a calculator-ready dict."""
+        presets = _load_meteorology_presets()
+        actual_name = preset_name
+        preset_data = presets.get(preset_name)
+        if preset_data is None:
+            logger.warning("Preset '%s' not found, falling back to urban_summer_day", preset_name)
+            actual_name = "urban_summer_day"
+            preset_data = presets[actual_name]
+
+        met_dict = {
+            "wind_speed": float(preset_data["wind_speed_mps"]),
+            "wind_direction": float(preset_data["wind_direction_deg"]),
+            "stability_class": str(preset_data["stability_class"]).upper(),
+            "mixing_height": float(preset_data["mixing_height_m"]),
+            "temperature_k": float(preset_data.get("temperature_k", 293.0)),
+            "monin_obukhov_length": float(preset_data.get("monin_obukhov_length", -200.0)),
+            "_preset_name": actual_name,
+            "_overrides": {},
+            "_source_mode": "preset",
+        }
+        if "description" in preset_data:
+            met_dict["_preset_description"] = preset_data["description"]
+        if actual_name != preset_name:
+            met_dict["_requested_preset_name"] = preset_name
+        return met_dict
+
+    def _build_meteorology_used(self, meteorology: str, met_input: Any) -> Dict[str, Any]:
+        """Build a result-facing meteorology metadata payload for summaries and downstream tools."""
+        if isinstance(met_input, dict):
+            meteorology_used = dict(met_input)
+            if meteorology_used.get("_preset_name"):
+                meteorology_used.setdefault(
+                    "_source_mode",
+                    "preset_override" if meteorology_used.get("_overrides") else "preset",
+                )
+            else:
+                meteorology_used.setdefault("_source_mode", "custom")
+            meteorology_used.setdefault("_overrides", {})
+            return meteorology_used
+
+        if isinstance(met_input, str) and Path(met_input).suffix.lower() == ".sfc":
+            return {
+                "_source_mode": "sfc_file",
+                "_preset_name": None,
+                "_overrides": {},
+                "path": met_input,
+            }
+
+        if isinstance(met_input, str):
+            meteorology_used = self._load_preset(met_input)
+            meteorology_used["_source_mode"] = "preset"
+            return meteorology_used
+
+        return {
+            "_source_mode": "unknown",
+            "_preset_name": meteorology,
+            "_overrides": {},
+        }
+
+    @staticmethod
+    def _format_meteorology_value(value: Any) -> str:
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        if isinstance(value, (int, float)):
+            return f"{float(value):g}"
+        return str(value)
+
+    def _get_calculator(self, roughness: float, grid_resolution: Optional[float] = None) -> Any:
+        """Get or lazily construct a calculator instance for the requested roughness height."""
+        if roughness not in (0.05, 0.5, 1.0):
+            raise ValueError("roughness_height must be one of: 0.05, 0.5, 1.0")
+
+        if roughness not in self._calculator_cache:
+            config = self._config_class(roughness_height=roughness)
+            self._calculator_cache[roughness] = self._calculator_class(config=config)
+        calculator = self._calculator_cache[roughness]
+        if grid_resolution is not None:
+            calculator.config.display_grid_resolution_m = float(grid_resolution)
+        return calculator
+
+    def _build_summary(
+        self,
+        data: Dict[str, Any],
+        meteorology: str,
+        roughness: float,
+        pollutant: str,
+    ) -> str:
+        """Build a concise human-readable summary for synthesis and UI display."""
+        summary = data.get("summary", {})
+        query_info = data.get("query_info", {})
+        receptor_count = summary.get("receptor_count", query_info.get("n_receptors", "N/A"))
+        time_steps = summary.get("time_steps", query_info.get("n_time_steps", "N/A"))
+        mean_conc = float(summary.get("mean_concentration", 0.0))
+        max_conc = float(summary.get("max_concentration", 0.0))
+        unit = summary.get("unit", "μg/m³")
+        summary_parts = [
+            f"{pollutant} dispersion calculation completed.",
+            f"Receptors: {receptor_count}, Time steps: {time_steps}",
+        ]
+
+        met_info = data.get("meteorology_used", {})
+        if isinstance(met_info, dict) and met_info:
+            preset_name = met_info.get("_preset_name")
+            overrides = met_info.get("_overrides", {})
+            source_mode = met_info.get("_source_mode")
+            if source_mode == "sfc_file":
+                summary_parts.append(f"Meteorology: SFC file '{met_info.get('path', meteorology)}'")
+            elif preset_name:
+                if overrides:
+                    override_desc = ", ".join(
+                        f"{key}: {self._format_meteorology_value(change.get('from'))}"
+                        f"→{self._format_meteorology_value(change.get('to'))}"
+                        for key, change in overrides.items()
+                    )
+                    summary_parts.append(
+                        f"Meteorology: preset '{preset_name}' with overrides ({override_desc})"
+                    )
+                else:
+                    summary_parts.append(f"Meteorology: preset '{preset_name}'")
+                summary_parts.append(
+                    "Meteorology detail: "
+                    f"wind={self._format_meteorology_value(met_info.get('wind_speed'))} m/s, "
+                    f"dir={self._format_meteorology_value(met_info.get('wind_direction'))}°, "
+                    f"stability={met_info.get('stability_class')}, "
+                    f"mixing_height={self._format_meteorology_value(met_info.get('mixing_height'))} m"
+                )
+            else:
+                summary_parts.append(
+                    "Meteorology: custom "
+                    f"(wind={self._format_meteorology_value(met_info.get('wind_speed'))} m/s, "
+                    f"dir={self._format_meteorology_value(met_info.get('wind_direction'))}°, "
+                    f"stability={met_info.get('stability_class')}, "
+                    f"mixing_height={self._format_meteorology_value(met_info.get('mixing_height'))} m)"
+                )
+        else:
+            met_desc = meteorology or query_info.get("met_source", "unknown")
+            summary_parts.append(f"Meteorology: {met_desc}")
+
+        summary_parts.append(f"Surface roughness: {roughness} m")
+        summary_parts.append(f"Mean concentration: {mean_conc:.4f} {unit}")
+        summary_parts.append(f"Max concentration: {max_conc:.4f} {unit}")
+
+        coverage = data.get("coverage_assessment", {})
+        warnings = coverage.get("warnings", []) if isinstance(coverage, dict) else []
+        raster = data.get("raster_grid", {})
+        if isinstance(raster, dict) and raster:
+            summary_parts.append(
+                f"Grid resolution: {self._format_meteorology_value(raster.get('resolution_m', 50.0))} m "
+                f"({raster.get('rows', 0)}x{raster.get('cols', 0)} cells)"
+            )
+        for warning in warnings:
+            summary_parts.append(f"⚠️ {warning}")
+
+        # Report default parameters used
+        defaults_used = data.get("defaults_used", {})
+        if defaults_used:
+            default_items = []
+            if "meteorology" in defaults_used:
+                default_items.append(f"气象预设={defaults_used['meteorology']}")
+            if "roughness_height" in defaults_used:
+                default_items.append(f"地表粗糙度={defaults_used['roughness_height']}m")
+            if "pollutant" in defaults_used:
+                default_items.append(f"污染物={defaults_used['pollutant']}")
+            if "grid_resolution" in defaults_used:
+                default_items.append(f"网格分辨率={defaults_used['grid_resolution']}m")
+            summary_parts.append(f"Defaults used: {', '.join(default_items)}")
+
+        return "\n".join(summary_parts)
+
+    def _build_map_data(self, data: Dict[str, Any], pollutant: str) -> Dict[str, Any]:
+        """Build map payload with concentration_grid so spatial_renderer can detect it later."""
+        map_data = {
+            "concentration_grid": data.get("concentration_grid", {}),
+            "type": "concentration",
+            "pollutant": pollutant,
+            "summary": data.get("summary", {}),
+            "query_info": data.get("query_info", {}),
+        }
+        if "raster_grid" in data:
+            map_data["raster_grid"] = data["raster_grid"]
+        if "coverage_assessment" in data:
+            map_data["coverage_assessment"] = data["coverage_assessment"]
+        return map_data
+
+
+__all__ = ["DispersionTool"]

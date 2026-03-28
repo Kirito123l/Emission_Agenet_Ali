@@ -55,6 +55,8 @@ class ChatResponse(BaseModel):
     file_id: Optional[str] = None  # 结果文件ID（用于下载）
     download_file: Optional[Dict[str, Any]] = None  # 下载文件元数据
     message_id: Optional[str] = None  # 助手消息ID（用于消息级下载）
+    trace: Optional[Dict[str, Any]] = None
+    trace_friendly: Optional[List[Dict[str, Any]]] = None
     success: bool = True
     error: Optional[str] = None
 
@@ -82,6 +84,9 @@ class Message(BaseModel):
     content: str
     timestamp: str
     has_data: bool = False
+    file_name: Optional[str] = None
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
     # 新增字段 - 支持历史消息中的图表和表格数据
     chart_data: Optional[Dict[str, Any]] = None
     table_data: Optional[Dict[str, Any]] = None
@@ -90,6 +95,7 @@ class Message(BaseModel):
     message_id: Optional[str] = None  # 消息ID（助手消息）
     file_id: Optional[str] = None  # 历史消息下载ID
     download_file: Optional[Dict[str, Any]] = None  # 历史消息下载元数据
+    trace_friendly: Optional[List[Dict[str, Any]]] = None
 
 
 class UpdateSessionTitleRequest(BaseModel):

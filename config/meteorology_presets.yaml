@@ -1,0 +1,54 @@
+presets:
+  urban_summer_day:
+    description: "城市夏季白天 - 强不稳定"
+    stability_class: "VU"
+    wind_speed_mps: 2.5
+    wind_direction_deg: 225
+    mixing_height_m: 1500
+    monin_obukhov_length: -50
+    temperature_k: 305
+
+  urban_summer_night:
+    description: "城市夏季夜间 - 稳定"
+    stability_class: "S"
+    wind_speed_mps: 1.5
+    wind_direction_deg: 180
+    mixing_height_m: 200
+    monin_obukhov_length: 100
+    temperature_k: 295
+
+  urban_winter_day:
+    description: "城市冬季白天 - 中性偏不稳定"
+    stability_class: "U"
+    wind_speed_mps: 3.0
+    wind_direction_deg: 315
+    mixing_height_m: 800
+    monin_obukhov_length: -300
+    temperature_k: 275
+
+  urban_winter_night:
+    description: "城市冬季夜间 - 强稳定"
+    stability_class: "VS"
+    wind_speed_mps: 1.0
+    wind_direction_deg: 0
+    mixing_height_m: 100
+    monin_obukhov_length: 50
+    temperature_k: 268
+
+  windy_neutral:
+    description: "大风中性条件"
+    stability_class: "N1"
+    wind_speed_mps: 8.0
+    wind_direction_deg: 270
+    mixing_height_m: 1000
+    monin_obukhov_length: 5000
+    temperature_k: 288
+
+  calm_stable:
+    description: "静风稳定条件 - 最不利扩散"
+    stability_class: "VS"
+    wind_speed_mps: 0.5
+    wind_direction_deg: 0
+    mixing_height_m: 50
+    monin_obukhov_length: 30
+    temperature_k: 280

@@ -47,11 +47,178 @@ class Config:
         self.enable_file_analyzer = os.getenv("ENABLE_FILE_ANALYZER", "true").lower() == "true"
         self.enable_file_context_injection = os.getenv("ENABLE_FILE_CONTEXT_INJECTION", "true").lower() == "true"
         self.enable_executor_standardization = os.getenv("ENABLE_EXECUTOR_STANDARDIZATION", "true").lower() == "true"
+        self.enable_state_orchestration = os.getenv("ENABLE_STATE_ORCHESTRATION", "true").lower() == "true"
+        self.enable_trace = os.getenv("ENABLE_TRACE", "true").lower() == "true"
+        self.enable_lightweight_planning = os.getenv("ENABLE_LIGHTWEIGHT_PLANNING", "false").lower() == "true"
+        self.enable_bounded_plan_repair = os.getenv("ENABLE_BOUNDED_PLAN_REPAIR", "false").lower() == "true"
+        self.enable_repair_aware_continuation = os.getenv("ENABLE_REPAIR_AWARE_CONTINUATION", "false").lower() == "true"
+        self.enable_parameter_negotiation = os.getenv("ENABLE_PARAMETER_NEGOTIATION", "false").lower() == "true"
+        self.enable_file_analysis_llm_fallback = os.getenv("ENABLE_FILE_ANALYSIS_LLM_FALLBACK", "false").lower() == "true"
+        self.enable_workflow_templates = os.getenv("ENABLE_WORKFLOW_TEMPLATES", "false").lower() == "true"
+        self.enable_capability_aware_synthesis = (
+            os.getenv("ENABLE_CAPABILITY_AWARE_SYNTHESIS", "true").lower() == "true"
+        )
+        self.enable_readiness_gating = os.getenv("ENABLE_READINESS_GATING", "true").lower() == "true"
+        self.readiness_repairable_enabled = (
+            os.getenv("READINESS_REPAIRABLE_ENABLED", "true").lower() == "true"
+        )
+        self.readiness_already_provided_dedup_enabled = (
+            os.getenv("READINESS_ALREADY_PROVIDED_DEDUP_ENABLED", "true").lower() == "true"
+        )
+        self.enable_input_completion_flow = (
+            os.getenv("ENABLE_INPUT_COMPLETION_FLOW", "true").lower() == "true"
+        )
+        self.input_completion_max_options = int(
+            os.getenv("INPUT_COMPLETION_MAX_OPTIONS", "4")
+        )
+        self.input_completion_allow_uniform_scalar = (
+            os.getenv("INPUT_COMPLETION_ALLOW_UNIFORM_SCALAR", "true").lower() == "true"
+        )
+        self.input_completion_allow_upload_support_file = (
+            os.getenv("INPUT_COMPLETION_ALLOW_UPLOAD_SUPPORT_FILE", "true").lower() == "true"
+        )
+        self.enable_geometry_recovery_path = (
+            os.getenv("ENABLE_GEOMETRY_RECOVERY_PATH", "true").lower() == "true"
+        )
+        self.enable_file_relationship_resolution = (
+            os.getenv("ENABLE_FILE_RELATIONSHIP_RESOLUTION", "true").lower() == "true"
+        )
+        self.file_relationship_resolution_require_new_upload = (
+            os.getenv("FILE_RELATIONSHIP_RESOLUTION_REQUIRE_NEW_UPLOAD", "true").lower() == "true"
+        )
+        self.file_relationship_resolution_allow_llm_fallback = (
+            os.getenv("FILE_RELATIONSHIP_RESOLUTION_ALLOW_LLM_FALLBACK", "true").lower() == "true"
+        )
+        self.enable_supplemental_column_merge = (
+            os.getenv("ENABLE_SUPPLEMENTAL_COLUMN_MERGE", "true").lower() == "true"
+        )
+        self.supplemental_merge_allow_alias_keys = (
+            os.getenv("SUPPLEMENTAL_MERGE_ALLOW_ALIAS_KEYS", "true").lower() == "true"
+        )
+        self.supplemental_merge_require_readiness_refresh = (
+            os.getenv("SUPPLEMENTAL_MERGE_REQUIRE_READINESS_REFRESH", "true").lower() == "true"
+        )
+        self.enable_intent_resolution = (
+            os.getenv("ENABLE_INTENT_RESOLUTION", "true").lower() == "true"
+        )
+        self.intent_resolution_allow_llm_fallback = (
+            os.getenv("INTENT_RESOLUTION_ALLOW_LLM_FALLBACK", "true").lower() == "true"
+        )
+        self.intent_resolution_bias_followup_suggestions = (
+            os.getenv("INTENT_RESOLUTION_BIAS_FOLLOWUP_SUGGESTIONS", "true").lower() == "true"
+        )
+        self.intent_resolution_bias_continuation = (
+            os.getenv("INTENT_RESOLUTION_BIAS_CONTINUATION", "true").lower() == "true"
+        )
+        self.enable_artifact_memory = (
+            os.getenv("ENABLE_ARTIFACT_MEMORY", "true").lower() == "true"
+        )
+        self.artifact_memory_track_textual_summary = (
+            os.getenv("ARTIFACT_MEMORY_TRACK_TEXTUAL_SUMMARY", "true").lower() == "true"
+        )
+        self.artifact_memory_dedup_by_family = (
+            os.getenv("ARTIFACT_MEMORY_DEDUP_BY_FAMILY", "true").lower() == "true"
+        )
+        self.artifact_memory_bias_followup = (
+            os.getenv("ARTIFACT_MEMORY_BIAS_FOLLOWUP", "true").lower() == "true"
+        )
+        self.enable_summary_delivery_surface = (
+            os.getenv("ENABLE_SUMMARY_DELIVERY_SURFACE", "true").lower() == "true"
+        )
+        self.summary_delivery_enable_bar_chart = (
+            os.getenv("SUMMARY_DELIVERY_ENABLE_BAR_CHART", "true").lower() == "true"
+        )
+        self.summary_delivery_default_topk = int(
+            os.getenv("SUMMARY_DELIVERY_DEFAULT_TOPK", "5")
+        )
+        self.summary_delivery_allow_text_fallback = (
+            os.getenv("SUMMARY_DELIVERY_ALLOW_TEXT_FALLBACK", "true").lower() == "true"
+        )
+        self.geometry_recovery_supported_file_types = tuple(
+            item.strip().lower()
+            for item in os.getenv(
+                "GEOMETRY_RECOVERY_SUPPORTED_FILE_TYPES",
+                "geojson,json,shp,zip,csv,xlsx,xls",
+            ).split(",")
+            if item.strip()
+        )
+        self.geometry_recovery_require_readiness_refresh = (
+            os.getenv("GEOMETRY_RECOVERY_REQUIRE_READINESS_REFRESH", "true").lower() == "true"
+        )
+        self.enable_residual_reentry_controller = (
+            os.getenv("ENABLE_RESIDUAL_REENTRY_CONTROLLER", "true").lower() == "true"
+        )
+        self.residual_reentry_require_ready_target = (
+            os.getenv("RESIDUAL_REENTRY_REQUIRE_READY_TARGET", "true").lower() == "true"
+        )
+        self.residual_reentry_prioritize_recovery_target = (
+            os.getenv("RESIDUAL_REENTRY_PRIORITIZE_RECOVERY_TARGET", "true").lower() == "true"
+        )
+        self.enable_policy_based_remediation = (
+            os.getenv("ENABLE_POLICY_BASED_REMEDIATION", "true").lower() == "true"
+        )
+        self.enable_default_typical_profile_policy = (
+            os.getenv("ENABLE_DEFAULT_TYPICAL_PROFILE_POLICY", "true").lower() == "true"
+        )
+        self.default_typical_profile_allowed_task_types = tuple(
+            item.strip().lower()
+            for item in os.getenv(
+                "DEFAULT_TYPICAL_PROFILE_ALLOWED_TASK_TYPES",
+                "macro_emission",
+            ).split(",")
+            if item.strip()
+        )
+        self.workflow_template_max_recommendations = int(
+            os.getenv("WORKFLOW_TEMPLATE_MAX_RECOMMENDATIONS", "3")
+        )
+        self.workflow_template_min_confidence = float(
+            os.getenv("WORKFLOW_TEMPLATE_MIN_CONFIDENCE", "0.55")
+        )
+        self.file_analysis_fallback_confidence_threshold = float(
+            os.getenv("FILE_ANALYSIS_FALLBACK_CONFIDENCE_THRESHOLD", "0.72")
+        )
+        self.file_analysis_fallback_max_sample_rows = int(
+            os.getenv("FILE_ANALYSIS_FALLBACK_MAX_SAMPLE_ROWS", "3")
+        )
+        self.file_analysis_fallback_max_columns = int(
+            os.getenv("FILE_ANALYSIS_FALLBACK_MAX_COLUMNS", "25")
+        )
+        self.file_analysis_fallback_allow_zip_table_selection = (
+            os.getenv("FILE_ANALYSIS_FALLBACK_ALLOW_ZIP_TABLE_SELECTION", "true").lower() == "true"
+        )
+        self.parameter_negotiation_confidence_threshold = float(
+            os.getenv("PARAMETER_NEGOTIATION_CONFIDENCE_THRESHOLD", "0.85")
+        )
+        self.parameter_negotiation_max_candidates = int(
+            os.getenv("PARAMETER_NEGOTIATION_MAX_CANDIDATES", "5")
+        )
+        self.continuation_prompt_variant = (
+            os.getenv("CONTINUATION_PROMPT_VARIANT", "balanced_repair_aware").strip().lower()
+            or "balanced_repair_aware"
+        )
+        self.enable_builtin_map_data = os.getenv("ENABLE_BUILTIN_MAP_DATA", "false").lower() == "true"
+        self.enable_skill_injection = os.getenv("ENABLE_SKILL_INJECTION", "true").lower() == "true"
+        self.max_orchestration_steps = int(os.getenv("MAX_ORCHESTRATION_STEPS", "4"))
         self.macro_column_mapping_modes = tuple(
             mode.strip().lower()
             for mode in os.getenv("MACRO_COLUMN_MAPPING_MODES", "direct,ai,fuzzy").split(",")
             if mode.strip()
         )
+        self.standardization_config = {
+            "llm_enabled": os.getenv(
+                "STANDARDIZATION_LLM_ENABLED",
+                "true" if self.enable_llm_standardization else "false",
+            ).lower() == "true",
+            "llm_backend": os.getenv("STANDARDIZATION_LLM_BACKEND", "api").lower(),
+            "llm_model": os.getenv("STANDARDIZATION_LLM_MODEL") or None,
+            "llm_timeout": float(os.getenv("STANDARDIZATION_LLM_TIMEOUT", "5.0")),
+            "llm_max_retries": int(os.getenv("STANDARDIZATION_LLM_MAX_RETRIES", "1")),
+            "fuzzy_threshold": float(os.getenv("STANDARDIZATION_FUZZY_THRESHOLD", "0.7")),
+            "parameter_negotiation_enabled": self.enable_parameter_negotiation,
+            "parameter_negotiation_confidence_threshold": self.parameter_negotiation_confidence_threshold,
+            "parameter_negotiation_max_candidates": self.parameter_negotiation_max_candidates,
+            "local_model_path": os.getenv("STANDARDIZATION_LOCAL_MODEL_PATH") or None,
+        }
 
         self.data_collection_dir = PROJECT_ROOT / os.getenv("DATA_COLLECTION_DIR", "data/collection")
         self.log_dir = PROJECT_ROOT / os.getenv("LOG_DIR", "data/logs")

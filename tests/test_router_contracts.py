@@ -716,11 +716,12 @@ def test_format_results_as_fallback_preserves_success_and_error_sections():
     assert "### 1. calculate_macro_emission" in fallback_text
     assert "**状态**: ✅ 成功" in fallback_text
     assert "**结果**: 宏观排放计算完成" in fallback_text
-    assert "- links_processed: 2" in fallback_text
     assert "### 2. query_emission_factors" in fallback_text
     assert "**状态**: ❌ 失败" in fallback_text
     assert "**错误**: invalid pollutant" in fallback_text
     assert "- 请检查污染物名称" in fallback_text
+    assert "links_processed" not in fallback_text
+    assert len(fallback_text) < 3000
 
 
 @pytest.mark.anyio

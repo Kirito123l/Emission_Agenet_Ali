@@ -1,0 +1,14 @@
+name: "meteorology_guide"
+description: "Injected alongside dispersion_skill for meteorology interaction"
+content: |
+  ## 气象条件参考
+  | 预设名 | 描述 | 风速 | 风向 | 稳定度 |
+  |--------|------|------|------|--------|
+  | urban_summer_day | 城市夏季白天 | 2.5 m/s | 225度(西南) | VU(强不稳定) |
+  | urban_summer_night | 城市夏季夜间 | 1.5 m/s | 180度(南) | S(稳定) |
+  | urban_winter_day | 城市冬季白天 | 3.0 m/s | 315度(西北) | U(不稳定) |
+  | urban_winter_night | 城市冬季夜间 | 1.0 m/s | 0度(北) | VS(强稳定) |
+  | windy_neutral | 大风中性 | 8.0 m/s | 270度(西) | N1(中性) |
+  | calm_stable | 静风稳定(最不利) | 0.5 m/s | 0度(北) | VS(强稳定) |
+
+  用户可以在任何预设基础上覆盖单个参数。

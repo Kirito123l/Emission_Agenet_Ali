@@ -36,6 +36,7 @@ class FactMemory:
     last_tool_summary: Optional[str] = None
     last_tool_snapshot: Optional[Dict] = None
     user_preferences: Dict = field(default_factory=dict)
+    last_spatial_data: Optional[Dict] = None  # Full spatial results with geometry (not compacted)
 
 
 @dataclass
@@ -94,6 +95,7 @@ class MemoryManager:
             "last_tool_name": self.fact_memory.last_tool_name,
             "last_tool_summary": self.fact_memory.last_tool_summary,
             "last_tool_snapshot": self.fact_memory.last_tool_snapshot,
+            "last_spatial_data": self.fact_memory.last_spatial_data,
         }
 
     def update(
@@ -168,6 +170,9 @@ class MemoryManager:
                         snapshot[k] = data[k]
                 if snapshot:
                     self.fact_memory.last_tool_snapshot = snapshot
+
+            # Full spatial results are captured in core.router before tool data compaction.
+            # This method only sees compacted tool calls, so geometry-bearing results are unavailable here.
 
             # Extract vehicle type
             if "vehicle_type" in args:
@@ -253,6 +258,7 @@ class MemoryManager:
         self.fact_memory.last_tool_name = None
         self.fact_memory.last_tool_summary = None
         self.fact_memory.last_tool_snapshot = None
+        self.fact_memory.last_spatial_data = None
         logger.info("Cleared topic memory")
 
     def _save(self):
@@ -268,6 +274,7 @@ class MemoryManager:
                 "last_tool_name": self.fact_memory.last_tool_name,
                 "last_tool_summary": self.fact_memory.last_tool_summary,
                 "last_tool_snapshot": _convert_paths_to_strings(self.fact_memory.last_tool_snapshot),
+                "last_spatial_data": _convert_paths_to_strings(self.fact_memory.last_spatial_data),
             },
             "compressed_memory": self.compressed_memory,
             "working_memory": [
@@ -310,6 +317,7 @@ class MemoryManager:
                 self.fact_memory.last_tool_name = fm.get("last_tool_name")
                 self.fact_memory.last_tool_summary = fm.get("last_tool_summary")
                 self.fact_memory.last_tool_snapshot = fm.get("last_tool_snapshot")
+                self.fact_memory.last_spatial_data = fm.get("last_spatial_data")
 
             # Load compressed memory
             self.compressed_memory = data.get("compressed_memory", "")

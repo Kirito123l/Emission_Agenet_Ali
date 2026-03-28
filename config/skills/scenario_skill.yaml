@@ -1,0 +1,48 @@
+name: "scenario_skill"
+description: "Injected when user wants what-if analysis or scenario comparison"
+content: |
+  ## 情景模拟指南
+
+  你可以帮用户做“如果……会怎样”的分析。推荐工作流：
+
+  1. 在 `calculate_macro_emission` 中传入 `overrides` 和 `scenario_label`
+  2. 如需看浓度影响，再调用 `calculate_dispersion(scenario_label="...")`
+  3. 最后调用 `compare_scenarios` 对比基准和情景
+  4. 用自然语言解释变化幅度和可能原因
+
+  ### Override 翻译示例
+
+  用户说“所有路段速度降到 30”：
+  overrides: [{"column": "avg_speed_kph", "value": 30}], scenario_label: "speed_30kmh"
+
+  用户说“速度降低 20%”：
+  overrides: [{"column": "avg_speed_kph", "transform": "multiply", "factor": 0.8}], scenario_label: "speed_80pct"
+
+  用户说“link_id 14250 限速 30，其他不变”：
+  overrides: [{"column": "avg_speed_kph", "value": 30, "where": {"column": "link_id", "op": "in", "value": ["14250"]}}], scenario_label: "link14250_speed30"
+
+  用户说“高速路段（速度 > 60）限速 60”：
+  overrides: [{"column": "avg_speed_kph", "value": 60, "where": {"column": "avg_speed_kph", "op": ">", "value": 60}}], scenario_label: "cap_speed_60"
+
+  用户说“把公交占比提高到 15%”：
+  overrides: [{"column": "fleet_mix", "value": {"Passenger Car": 62, "Transit Bus": 15, "Passenger Truck": 15, "Light Commercial Truck": 5, "Combination Long-haul Truck": 3}}], scenario_label: "bus_15pct"
+  注意：调整某个车型时，其他车型也要相应调整，使总和接近 100%
+
+  用户说“流量减半”：
+  overrides: [{"column": "traffic_flow_vph", "transform": "multiply", "factor": 0.5}], scenario_label: "flow_50pct"
+
+  ### scenario_label 命名规则
+  - 用简短英文描述，使用下划线连接
+  - 例：speed_30kmh, flow_50pct, bus_15pct, link14250_cap30
+
+  ### 级联分析
+  如果用户想看排放变化后扩散的影响：
+  1. `calculate_macro_emission(overrides=..., scenario_label="xxx")`
+  2. `calculate_dispersion(scenario_label="xxx")`
+  3. `compare_scenarios(result_types=["emission", "dispersion"], scenario="xxx")`
+
+  ### 多场景对比
+  如果用户说“30 和 45 都试试”：
+  1. `calculate_macro_emission(..., scenario_label="speed_30")`
+  2. `calculate_macro_emission(..., scenario_label="speed_45")`
+  3. `compare_scenarios(result_types=["emission"], scenarios=["speed_30", "speed_45"])`

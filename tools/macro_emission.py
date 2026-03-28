@@ -12,7 +12,7 @@ legacy `skills/` boundary is documented and narrowed.
 import os
 import tempfile
 import zipfile
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List
 from pathlib import Path
 import logging
 from .base import BaseTool, ToolResult
@@ -430,7 +430,11 @@ class MacroEmissionTool(BaseTool):
 
         return map_data
 
-    def _read_from_zip(self, zip_path: str) -> tuple:
+    def _read_from_zip(
+        self,
+        zip_path: str,
+        completion_overrides: Optional[Dict[str, Any]] = None,
+    ) -> tuple:
         """
         Read links data from ZIP file (Shapefile or Excel)
 
@@ -456,7 +460,11 @@ class MacroEmissionTool(BaseTool):
                 # Check for Excel/CSV files
                 excel_files = [f for f in file_list if f.endswith(('.xlsx', '.xls', '.csv'))]
                 if excel_files:
-                    return self._read_excel_from_zip(zip_ref, excel_files[0])
+                    return self._read_excel_from_zip(
+                        zip_ref,
+                        excel_files[0],
+                        completion_overrides=completion_overrides,
+                    )
 
                 return False, None, "ZIP must contain .shp or .xlsx/.xls/.csv file"
 
@@ -533,7 +541,12 @@ class MacroEmissionTool(BaseTool):
             logger.info(f"[MacroEmission] Read {len(links_data)} links from Shapefile")
             return True, links_data, None
 
-    def _read_excel_from_zip(self, zip_ref, filename: str) -> tuple:
+    def _read_excel_from_zip(
+        self,
+        zip_ref,
+        filename: str,
+        completion_overrides: Optional[Dict[str, Any]] = None,
+    ) -> tuple:
         """Read Excel/CSV file from ZIP"""
         import tempfile
         import pandas as pd
@@ -546,7 +559,57 @@ class MacroEmissionTool(BaseTool):
                     target.write(source.read())
 
             # Use ExcelHandler to read
-            return self._excel_handler.read_links_from_excel(extracted_path)
+            return self._excel_handler.read_links_from_excel(
+                extracted_path,
+                completion_overrides=completion_overrides,
+            )
+
+    def _apply_input_completion_overrides_to_links(
+        self,
+        links_data: List[Dict[str, Any]],
+        completion_overrides: Optional[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        overrides = dict(completion_overrides or {})
+        if not overrides:
+            return links_data
+
+        updated_links: List[Dict[str, Any]] = []
+        for link in links_data:
+            new_link = dict(link)
+            for field_name, payload in overrides.items():
+                if not isinstance(payload, dict):
+                    continue
+                mode = str(payload.get("mode") or "").strip().lower()
+                if mode == "uniform_scalar" and payload.get("value") is not None:
+                    new_link[field_name] = payload.get("value")
+                    continue
+                if mode == "source_column_derivation":
+                    source_column = str(payload.get("source_column") or "").strip()
+                    if source_column and source_column in new_link and field_name not in new_link:
+                        new_link[field_name] = new_link[source_column]
+                    continue
+                if mode == "default_typical_profile":
+                    self._apply_default_typical_profile_to_link(new_link, field_name, payload)
+            updated_links.append(new_link)
+        return updated_links
+
+    def _apply_default_typical_profile_to_link(
+        self,
+        link: Dict[str, Any],
+        field_name: str,
+        payload: Dict[str, Any],
+    ) -> None:
+        """Apply default typical profile to a single link for a specific field."""
+        from core.remediation_policy import resolve_traffic_flow_vph, resolve_avg_speed_kph
+
+        if field_name == "traffic_flow_vph":
+            highway = link.get("highway")
+            lanes = link.get("lanes")
+            link[field_name] = resolve_traffic_flow_vph(highway=highway, lanes=lanes)
+        elif field_name == "avg_speed_kph":
+            maxspeed = link.get("maxspeed")
+            highway = link.get("highway")
+            link[field_name] = resolve_avg_speed_kph(maxspeed=maxspeed, highway=highway)
 
     async def execute(self, **kwargs) -> ToolResult:
         """
@@ -574,6 +637,20 @@ class MacroEmissionTool(BaseTool):
             season = kwargs.get("season", "夏季")
             default_fleet_mix = kwargs.get("default_fleet_mix")
             global_fleet_mix = kwargs.get("fleet_mix")
+            overrides = kwargs.get("overrides")
+            completion_overrides = kwargs.get("_input_completion_overrides") or kwargs.get("input_completion_overrides")
+            scenario_label = str(
+                kwargs.get("scenario_label") or ("scenario" if overrides else "baseline")
+            )
+
+            # Track which parameters used defaults
+            defaults_used = {}
+            if "pollutants" not in kwargs:
+                defaults_used["pollutants"] = ["CO2", "NOx"]
+            if "model_year" not in kwargs:
+                defaults_used["model_year"] = 2020
+            if "season" not in kwargs:
+                defaults_used["season"] = "夏季"
             input_file = kwargs.get("input_file")
             output_file = kwargs.get("output_file")
 
@@ -583,10 +660,16 @@ class MacroEmissionTool(BaseTool):
                 input_path = Path(input_file)
                 if input_path.suffix.lower() == '.zip':
                     # Handle ZIP file (may contain Shapefile or Excel)
-                    success, links_data, read_error = self._read_from_zip(input_file)
+                    success, links_data, read_error = self._read_from_zip(
+                        input_file,
+                        completion_overrides=completion_overrides,
+                    )
                 else:
                     # Read from Excel file
-                    success, links_data, read_error = self._excel_handler.read_links_from_excel(input_file)
+                    success, links_data, read_error = self._excel_handler.read_links_from_excel(
+                        input_file,
+                        completion_overrides=completion_overrides,
+                    )
 
                 if not success:
                     return ToolResult(
@@ -611,6 +694,10 @@ class MacroEmissionTool(BaseTool):
 
             # 4. Auto-fix common errors
             links_data = self._fix_common_errors(links_data)
+            links_data = self._apply_input_completion_overrides_to_links(
+                links_data,
+                completion_overrides,
+            )
 
             # 4.1 Apply top-level fleet_mix and standardize fleet names
             links_data = self._apply_global_fleet_mix(links_data, global_fleet_mix)
@@ -618,6 +705,36 @@ class MacroEmissionTool(BaseTool):
             # 4.2 Standardize default_fleet_mix names if provided
             if default_fleet_mix:
                 default_fleet_mix = self._standardize_fleet_mix(default_fleet_mix) or default_fleet_mix
+
+            override_summaries: List[str] = []
+            if overrides:
+                from tools.override_engine import apply_overrides, validate_overrides, OverrideValidationError
+
+                validation_errors = validate_overrides(overrides)
+                if validation_errors:
+                    return ToolResult(
+                        success=False,
+                        error=f"Override validation failed: {'; '.join(validation_errors)}",
+                        data={"scenario_label": scenario_label, "overrides": overrides},
+                    )
+                try:
+                    links_data, override_summaries = apply_overrides(links_data, overrides)
+                except OverrideValidationError as exc:
+                    return ToolResult(
+                        success=False,
+                        error=f"Override validation failed: {exc}",
+                        data={"scenario_label": scenario_label, "overrides": overrides},
+                    )
+
+                standardized_links: List[Dict[str, Any]] = []
+                for link in links_data:
+                    new_link = dict(link)
+                    if isinstance(new_link.get("fleet_mix"), dict):
+                        new_link["fleet_mix"] = (
+                            self._standardize_fleet_mix(new_link["fleet_mix"]) or new_link["fleet_mix"]
+                        )
+                    standardized_links.append(new_link)
+                links_data = standardized_links
 
             # 4.3 Fill per-link missing fleet_mix explicitly for deterministic behavior
             effective_default_fleet_mix = default_fleet_mix or dict(self._calculator.DEFAULT_FLEET_MIX)
@@ -658,6 +775,15 @@ class MacroEmissionTool(BaseTool):
                 "filled_row_indices": fill_info["filled_row_indices"],
                 "default_fleet_mix_used": effective_default_fleet_mix,
             }
+            result["data"]["scenario_label"] = scenario_label
+            if override_summaries:
+                result["data"]["overrides_applied"] = override_summaries
+
+            # Track default parameters for transparency
+            if not default_fleet_mix and not global_fleet_mix and fill_info["filled_count"] > 0:
+                defaults_used["fleet_mix"] = effective_default_fleet_mix
+            if defaults_used:
+                result["data"]["defaults_used"] = defaults_used
 
             # 7. Write output file (if specified)
             if output_file:
@@ -702,6 +828,21 @@ class MacroEmissionTool(BaseTool):
             # 9. Return success result
             # Create enhanced summary with multi-unit formatting
             links_results = result["data"].get("results", [])
+
+            # Merge geometry from original input into calculator results
+            # so render_spatial_map can access it via _last_result
+            if links_results and links_data:
+                original_geom_map = {}
+                for link in links_data:
+                    lid = str(link.get("link_id", ""))
+                    geom = link.get("geometry") or link.get("geom") or link.get("wkt") or link.get("shape")
+                    if lid and geom:
+                        original_geom_map[lid] = geom
+                for res_link in links_results:
+                    lid = str(res_link.get("link_id", ""))
+                    if lid in original_geom_map and "geometry" not in res_link:
+                        res_link["geometry"] = original_geom_map[lid]
+
             summary_data = result["data"].get("summary", {})
 
             num_links = len(links_results)
@@ -728,6 +869,26 @@ class MacroEmissionTool(BaseTool):
             fill_count = result["data"].get("fleet_mix_fill", {}).get("filled_count", 0)
             if fill_count > 0:
                 summary_parts.append(f"**缺失车型分布处理:** 已对 {fill_count} 个路段使用默认车队组成填补空白行")
+
+            if override_summaries:
+                summary_parts.append("**情景参数覆盖:**")
+                for item in override_summaries:
+                    summary_parts.append(f"  - {item}")
+                if scenario_label:
+                    summary_parts.append(f"**情景标签:** {scenario_label}")
+
+            # Report default parameters used
+            if defaults_used:
+                default_items = []
+                if "pollutants" in defaults_used:
+                    default_items.append(f"污染物={', '.join(defaults_used['pollutants'])}")
+                if "model_year" in defaults_used:
+                    default_items.append(f"车型年份={defaults_used['model_year']}")
+                if "season" in defaults_used:
+                    default_items.append(f"季节={defaults_used['season']}")
+                if "fleet_mix" in defaults_used:
+                    default_items.append("车队组成=系统默认")
+                summary_parts.append(f"**使用默认参数:** {', '.join(default_items)}")
 
             # Unit emission rates (average across all links)
             emission_rates = {}
@@ -758,18 +919,20 @@ class MacroEmissionTool(BaseTool):
 
             summary = "\n".join(summary_parts)
 
-            # Build map_data if geometry is available
+            # Build map_data if geometry is available and builtin map generation is enabled
             map_data = None
-            try:
-                map_data = self._build_map_data(
-                    links_data, links_results, pollutants, summary
-                )
-                if map_data:
-                    logger.info(f"[MacroEmission] Built map_data with {len(map_data.get('links', []))} links")
-            except Exception as e:
-                logger.warning(f"[MacroEmission] Failed to build map_data: {e}")
-                # Don't fail the whole calculation if map building fails
-                map_data = None
+            from config import get_config
+            config = get_config()
+            if config.enable_builtin_map_data:
+                try:
+                    map_data = self._build_map_data(
+                        links_data, links_results, pollutants, summary
+                    )
+                    if map_data:
+                        logger.info(f"[MacroEmission] Built map_data with {len(map_data.get('links', []))} links")
+                except Exception as e:
+                    logger.warning(f"[MacroEmission] Failed to build map_data: {e}")
+                    map_data = None
 
             return ToolResult(
                 success=True,

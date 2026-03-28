@@ -34,6 +34,7 @@ The default macro mapping modes are `direct,fuzzy` so the smoke path avoids depe
 - `python evaluation/eval_normalization.py`
 - `python evaluation/eval_file_grounding.py`
 - `python evaluation/eval_end2end.py`
+- `python evaluation/eval_continuation.py`
 
 Use these when you want per-task metrics or custom flags.
 
@@ -105,6 +106,23 @@ python evaluation/eval_file_grounding.py
 python evaluation/eval_end2end.py --mode tool
 ```
 
+### Repair-aware continuation evaluation
+
+```bash
+python evaluation/eval_continuation.py --variant balanced_repair_aware
+python scripts/eval/run_continuation_eval.py --variant-set goal_heavy,next_step_heavy,balanced_repair_aware
+python scripts/eval/run_continuation_eval.py --mode deterministic --variant balanced_repair_aware
+python scripts/eval/run_continuation_eval.py --mode live_model --variant balanced_repair_aware --max-cases 4 --temperature 0
+python scripts/eval/run_continuation_eval.py --mode-set deterministic,live_model --variant-set goal_heavy,next_step_heavy,balanced_repair_aware --max-cases 12
+```
+
+This runner evaluates residual-plan continuation behavior over fixed continuation cases. It now supports two execution backends under the same protocol:
+
+- `deterministic`: mock-friendly selector for stable calibration and CI-style regression checks
+- `live_model`: real LLM tool-selection path for small, controlled first-step continuation experiments
+
+The harness keeps the same case schema, metrics surface, per-case result schema, and Markdown summary structure across both modes. Use `--max-cases`, `--categories`, `--case-ids`, and `--dry-run` to keep live runs bounded and reproducible.
+
 ### Router-based end-to-end evaluation
 
 ```bash
@@ -124,10 +142,35 @@ evaluation/logs/<run_name>/
   normalization/
   file_grounding/
   end2end/
+  continuation/
   smoke_summary.json
 ```
 
 The exact files depend on the runner, but metrics are written as `*_metrics.json` and per-sample logs as `*_logs.jsonl`.
+
+For continuation evaluation, the mode-aware structure looks like this:
+
+```text
+evaluation/logs/<run_name>/
+  deterministic/
+    <variant>/
+      continuation_case_results.jsonl
+      continuation_metrics.json
+      continuation_summary.md
+    continuation_variant_comparison.json
+    continuation_variant_comparison.md
+  live_model/
+    <variant>/
+      continuation_case_results.jsonl
+      continuation_metrics.json
+      continuation_summary.md
+    continuation_variant_comparison.json
+    continuation_variant_comparison.md
+  continuation_mode_comparison.json
+  continuation_mode_comparison.md
+```
+
+When only one execution mode is used, the runner also preserves the legacy top-level `<variant>/...` output path for backward compatibility.
 
 ## Practical Notes
 

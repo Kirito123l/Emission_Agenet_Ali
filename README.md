@@ -1,11 +1,22 @@
 # Emission Agent
 
-Emission Agent is a research-oriented LLM + tool-use system for vehicle emission analysis. It combines a FastAPI backend, chat-style web UI, domain calculation tools, file-grounded workflows, and an engineering evaluation harness in one repository.
+Emission Agent is a research-oriented LLM + tool-use system for vehicle emission analysis. It combines a FastAPI backend, chat-style web UI, domain calculation tools, file-grounded workflows, knowledge/RAG retrieval, GIS result visualization, and an engineering evaluation harness in one repository.
+
+## What This Repo Actually Does
+
+In practical terms, this repository lets a user:
+
+- ask emission-analysis questions in natural language through a web UI, CLI, or API
+- retrieve MOVES-based emission-factor curves for specific vehicles, pollutants, and model years
+- upload trajectory or road-link files and run micro/macro emission calculations
+- query a knowledge base for emission-related methods, standards, and regulations
+- view results as text, charts, tables, downloadable files, and GIS map payloads
+- validate the current system with a regression suite and a small evaluation/smoke harness
 
 ## Project Status
 
 - Current maturity: active research/engineering prototype with a working app surface, regression baseline, and usable evaluation harness
-- Current stage: repo-surface consolidation for easier maintenance, collaboration, and future open-source release
+- Current stage: deployment-validated baseline stabilization for easier maintenance, collaboration, future experiments, and later open-source release
 - Stable day-to-day surfaces: `python run_api.py`, `python main.py health`, `pytest`, and `python evaluation/run_smoke_suite.py`
 - Intentionally deferred: deeper `core/router.py` extraction and broad historical-report cleanup
 
@@ -31,6 +42,8 @@ Historical phase reports now live under [docs/reports/phases/](docs/reports/phas
 - **Tool Use Architecture**: Modern LLM function calling with transparent parameter standardization
 - **Emission-Factor Queries**: EPA MOVES speed-emission curves and key-point outputs
 - **Micro and Macro Emission Calculation**: file-grounded workflows for trajectory and link-level data
+- **Knowledge / RAG Retrieval**: emission-related standards, methods, and regulations through the active `query_knowledge` tool path
+- **GIS Result Visualization**: macro-emission map payloads for link-level road-network exploration
 - **Smart File Caching**: File modification-time detection for accurate cache invalidation
 - **Web + API Surface**: chat-based web UI, session management, charts, tables, and downloads
 - **Evaluation Harness**: normalization, file-grounding, end-to-end, and ablation runners
@@ -124,22 +137,31 @@ emission_agent/
 │   ├── router.py           # UnifiedRouter - main entry point
 │   ├── assembler.py        # Context assembly
 │   ├── executor.py         # Tool execution with standardization
-│   └── memory.py           # Three-layer memory management
+│   ├── memory.py           # Three-layer memory management
+│   ├── router_memory_utils.py
+│   ├── router_payload_utils.py
+│   ├── router_render_utils.py
+│   └── router_synthesis_utils.py
 ├── tools/                   # Tool implementations
 │   ├── emission_factors.py # Emission factor queries
 │   ├── micro_emission.py   # Microscale emission calculations
 │   ├── macro_emission.py   # Macroscale emission calculations
-│   └── file_analyzer.py    # File analysis
+│   ├── file_analyzer.py    # File analysis / task detection
+│   └── knowledge.py        # Knowledge / RAG retrieval
 ├── calculators/            # Calculation engines
 │   ├── emission_factors.py # EPA MOVES data queries
-│   ├── micro.py           # VSP-based calculations
-│   └── macro.py           # Fleet-based calculations
+│   ├── micro_emission.py   # VSP-based calculations
+│   ├── macro_emission.py   # Fleet/link-based calculations
+│   └── vsp.py             # VSP / opMode support logic
 ├── services/              # Service layer
 │   ├── llm_client.py     # LLM client with tool use
 │   └── standardizer.py   # Parameter standardization
 ├── api/                   # API layer
-│   ├── routes.py         # FastAPI endpoints
-│   └── session.py        # Session management
+│   ├── main.py           # FastAPI app entrypoint
+│   ├── routes.py         # Chat/file/download/auth/session endpoints
+│   ├── session.py        # Session management
+│   ├── auth.py           # JWT auth service
+│   └── database.py       # User/session persistence
 └── web/                   # Frontend
     ├── index.html        # Web UI
     └── app.js            # Frontend logic
@@ -181,7 +203,30 @@ Recent consolidation work already completed in the repository:
 3. **Macroscale Emission Calculation**
    - Upload road link data Excel file (with link length, traffic flow, average speed, fleet composition)
    - Input: "Calculate emissions for these road links"
-   - Output: Link emission summary table + downloadable detailed Excel file
+   - Output: Link emission summary table + downloadable detailed Excel file + optional GIS map payload
+
+4. **Knowledge / RAG Query**
+   - Input: "What does MOVES mean by opMode 300?" or "What are the main pollutants in this workflow?"
+   - Output: knowledge-grounded answer with source-backed retrieval content when available
+
+### Representative End-to-End Workflow
+
+One realistic workflow that exercises the current RAG + calculation + GIS surface looks like this:
+
+1. Start the app with `python run_api.py` and open `http://localhost:8000`
+2. Ask a knowledge question such as:
+   - `"What does MOVES opMode 300 represent, and why is it used in macro emission calculations?"`
+3. Upload a road-link Excel file and ask:
+   - `"Calculate CO2 and NOx emissions for these road links with model year 2025"`
+4. The system can then:
+   - use `query_knowledge` to ground the method explanation
+   - use `analyze_file` to infer the uploaded file structure
+   - use `calculate_macro_emission` to compute link-level emissions
+5. The response surface can include:
+   - a natural-language explanation
+   - link-level table previews
+   - downloadable result files
+   - GIS map payloads for road-network visualization when map-capable macro results are produced
 
 ### Command Line
 
@@ -232,6 +277,24 @@ Calculate emissions for road network using fleet composition and traffic data
 - `file_path` or road link data
 
 **Output**: Link-level emission summary + downloadable Excel file
+
+### 4. analyze_file - File Analysis
+Detect uploaded file structure and infer likely task type before tool execution.
+
+**Typical output**:
+- inferred task type such as `micro_emission` or `macro_emission`
+- column mapping hints
+- file preview metadata used by the API/web layer
+
+### 5. query_knowledge - Knowledge / RAG Retrieval
+Query the project knowledge base for emission-related methods, standards, and regulations.
+
+**Typical parameters**:
+- `query`
+- `top_k` (optional)
+- `expectation` (optional)
+
+**Output**: knowledge-grounded answer text plus retrieval/source metadata when available
 
 ## API Endpoints
 

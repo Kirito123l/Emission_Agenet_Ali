@@ -124,5 +124,96 @@ async def test_session_routes_create_list_and_history_backfill_legacy_download_m
         assert assistant_message["message_id"] == "legacy-0"
         assert assistant_message["file_id"] == session_id
         assert assistant_message["download_file"]["filename"] == "legacy_result.xlsx"
-        assert assistant_message["download_file"]["url"] == f"/api/file/download/message/{session_id}/legacy-0"
+        assert assistant_message["download_file"]["url"] == f"/api/file/download/message/{session_id}/legacy-0?user_id={user_id}"
         assert assistant_message["download_file"]["path"] == str(get_config().outputs_dir / "legacy_result.xlsx")
+
+
+@pytest.mark.anyio
+async def test_session_history_returns_uploaded_user_attachment_metadata(api_app):
+    from api.session import SessionRegistry
+
+    user_id = "history-attachment-user"
+    headers = {"X-User-ID": user_id}
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        create_response = await api_client.post("/api/sessions/new", headers=headers)
+        assert create_response.status_code == 200
+
+        session_id = create_response.json()["session_id"]
+        manager = SessionRegistry.get(user_id)
+        session = manager.get_session(session_id)
+        session.save_turn(
+            user_input="帮我计算排放",
+            assistant_response="收到",
+            file_name="test_20links.xlsx",
+            file_path="/tmp/emission_agent/test_20links.xlsx",
+            file_size=2048,
+        )
+        manager.save_session()
+
+        history_response = await api_client.get(f"/api/sessions/{session_id}/history", headers=headers)
+        assert history_response.status_code == 200
+
+        history_payload = history_response.json()
+        assert len(history_payload["messages"]) == 2
+
+        user_message = history_payload["messages"][0]
+        assert user_message["role"] == "user"
+        assert user_message["content"] == "帮我计算排放"
+        assert user_message["file_name"] == "test_20links.xlsx"
+        assert user_message["file_path"] == "/tmp/emission_agent/test_20links.xlsx"
+        assert user_message["file_size"] == 2048
+
+
+@pytest.mark.anyio
+async def test_session_history_normalizes_legacy_uploaded_user_message(api_app):
+    from api.session import SessionRegistry
+
+    user_id = "legacy-upload-user"
+    headers = {"X-User-ID": user_id}
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        create_response = await api_client.post("/api/sessions/new", headers=headers)
+        assert create_response.status_code == 200
+
+        session_id = create_response.json()["session_id"]
+        manager = SessionRegistry.get(user_id)
+        session = manager.get_session(session_id)
+        session._history = [
+            {
+                "role": "user",
+                "content": "帮我计算这几个路段的排放\n\n文件已上传，路径: /tmp/emission_agent/test_20links.xlsx\n请使用 input_file 参数处理此文件。",
+                "timestamp": "2026-03-23T00:00:00",
+            }
+        ]
+        manager.save_session()
+
+        history_response = await api_client.get(f"/api/sessions/{session_id}/history", headers=headers)
+        assert history_response.status_code == 200
+
+        history_payload = history_response.json()
+        assert len(history_payload["messages"]) == 1
+
+        user_message = history_payload["messages"][0]
+        assert user_message["content"] == "帮我计算这几个路段的排放"
+        assert user_message["file_name"] == "test_20links.xlsx"
+        assert user_message["file_path"] == "/tmp/emission_agent/test_20links.xlsx"
+
+
+def test_resolve_download_path_falls_back_to_outputs_dir_when_stored_path_is_stale():
+    from config import get_config
+    from api.routes import resolve_download_path
+
+    config = get_config()
+    filename = "history_download_fallback.xlsx"
+    output_path = config.outputs_dir / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(b"test-download")
+
+    try:
+        resolved = resolve_download_path(filename, "E:\\stale\\history_download_fallback.xlsx")
+        assert resolved == output_path
+    finally:
+        output_path.unlink(missing_ok=True)

@@ -18,17 +18,39 @@ venv/
 env/
 
 # ============ Runtime Data (Server-Specific) ============
-data/sessions/          # User session data
-data/users.db           # User database
-logs/                   # Application logs
-outputs/                # Generated outputs
+# User session data
+data/sessions/
+# User database
+data/users.db
+# Nested runtime logs
+data/logs/
+# Application logs
+logs/
+# Generated outputs
+outputs/
 *.log
 
 # ============ Large Static Files (Excluded) ============
-GIS文件/                # Original Shapefiles (replaced by static_gis/)
+# Original Shapefiles (replaced by static_gis/)
+GIS文件/
+# Local ad hoc raw test files (not tests/)
+test/
+# Extracted shapefile artifacts; keep top-level xlsx/zip
+test_data/test_20links/
+# Extracted shapefile artifacts
+test_data/test_shanghai_allroads/
+# Generated subnet exports
+test_data/test_subnets/
+# Generated minimal GIS case exports
+test_data/精简文件/
+# Oversized raw CSV
+test_data/师兄测试/逐小时排放数据_插值以补全缺失值.csv
 test_data/test_shanghai_allroads.*
 test_data/*.zip
-static_gis.tar.gz       # Compressed archive
+test_data/*.xlsx
+test_data/*.csv
+# Compressed archive
+static_gis.tar.gz
 
 # ============ Development Files ============
 .claude/

@@ -10,6 +10,32 @@ logger = logging.getLogger(__name__)
 MAX_PREVIEW_ROWS = 4
 
 
+def _collect_map_payloads(tool_results: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Collect all map payloads from tool results while preserving order."""
+    collected: list[Dict[str, Any]] = []
+
+    def add_map_payload(candidate: Any) -> None:
+        if not isinstance(candidate, dict) or not candidate:
+            return
+
+        if candidate.get("type") == "map_collection" and isinstance(candidate.get("items"), list):
+            for item in candidate["items"]:
+                add_map_payload(item)
+            return
+
+        collected.append(candidate)
+
+    for item in tool_results:
+        result = item["result"]
+        add_map_payload(result.get("map_data"))
+
+        data = result.get("data", {})
+        if data:
+            add_map_payload(data.get("map_data"))
+
+    return collected
+
+
 def format_emission_factors_chart(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Format emission-factor tool output for the frontend chart payload."""
     if "pollutants" in data:
@@ -272,23 +298,37 @@ def extract_download_file(tool_results: list[Dict[str, Any]]) -> Optional[Dict[s
 
 
 def extract_map_data(tool_results: list[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Extract map payloads from tool results."""
+    """Extract map payloads from tool results.
+
+    Single-map responses keep the legacy object shape. Multi-map responses are
+    wrapped in a collection so the frontend can render every map card in order.
+    """
     logger.info(f"[DEBUG] Extracting map_data from {len(tool_results)} tool results")
+    map_payloads = _collect_map_payloads(tool_results)
 
-    for item in tool_results:
-        result = item["result"]
-        logger.info(f"[DEBUG] Checking tool: {item['name']}")
+    if not map_payloads:
+        logger.info("[DEBUG] No map_data found in any tool result")
+        return None
 
-        if result.get("map_data"):
-            map_data = result["map_data"]
-            logger.info(f"[DEBUG] Found map_data with {len(map_data.get('links', []))} links")
-            return map_data
+    if len(map_payloads) == 1:
+        map_data = map_payloads[0]
+        logger.info(
+            "[DEBUG] Returning single map_data payload of type=%s",
+            map_data.get("type", "emission"),
+        )
+        return map_data
 
-        data = result.get("data", {})
-        if data and data.get("map_data"):
-            map_data = data["map_data"]
-            logger.info(f"[DEBUG] Found map_data in data with {len(map_data.get('links', []))} links")
-            return map_data
-
-    logger.info("[DEBUG] No map_data found in any tool result")
-    return None
+    map_types = [payload.get("type", "emission") for payload in map_payloads]
+    logger.info(
+        "[DEBUG] Returning map collection with %s payloads: %s",
+        len(map_payloads),
+        ", ".join(map_types),
+    )
+    return {
+        "type": "map_collection",
+        "items": map_payloads,
+        "summary": {
+            "map_count": len(map_payloads),
+            "map_types": map_types,
+        },
+    }

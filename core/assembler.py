@@ -1,15 +1,23 @@
 """
 Context Assembler - Assembles context for LLM
 No decision-making, just information assembly
+
+Supports two modes:
+  - Legacy: loads core.yaml + all TOOL_DEFINITIONS (enable_skill_injection=False)
+  - Skill injection: loads core_v3.yaml + SkillInjector (enable_skill_injection=True)
 """
 import logging
 import json
+import yaml
+from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 from config import get_config
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
+
+CONFIG_DIR = Path(__file__).parent.parent / "config"
 
 
 @dataclass
@@ -33,21 +41,127 @@ class ContextAssembler:
 
     def __init__(self):
         self.config = ConfigLoader.load_prompts()
-        self.tools = ConfigLoader.load_tool_definitions()
+        self.all_tool_definitions = ConfigLoader.load_tool_definitions()
         self.runtime_config = get_config()
+
+        # Skill injection setup
+        if self.runtime_config.enable_skill_injection:
+            from core.skill_injector import SkillInjector
+            self.skill_injector = SkillInjector()
+            self._core_v3_prompt = self._load_prompt_file(
+                CONFIG_DIR / "prompts" / "core_v3.yaml"
+            )
+        else:
+            self.skill_injector = None
+            self._core_v3_prompt = None
+
+        # Legacy alias
+        self.tools = self.all_tool_definitions
 
     # Max chars to keep per assistant response in working memory
     MAX_ASSISTANT_RESPONSE_CHARS = 300
+
+    @staticmethod
+    def _load_prompt_file(path: Path) -> str:
+        """Load system_prompt text from a YAML file."""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            return data.get("system_prompt", "")
+        except Exception as e:
+            logger.error(f"Failed to load prompt file {path}: {e}")
+            return ""
 
     def assemble(
         self,
         user_message: str,
         working_memory: List[Dict],
         fact_memory: Dict,
-        file_context: Optional[Dict] = None
+        file_context: Optional[Dict] = None,
+        context_summary: Optional[str] = None,
     ) -> AssembledContext:
         """
-        Assemble complete context for LLM
+        Assemble complete context for LLM.
+
+        Routes to skill-injection or legacy mode based on config.
+        """
+        if self.runtime_config.enable_skill_injection and self.skill_injector:
+            return self._assemble_with_skills(
+                user_message, working_memory, fact_memory, file_context, context_summary
+            )
+        return self._assemble_legacy(user_message, working_memory, fact_memory, file_context, context_summary)
+
+    def _assemble_with_skills(
+        self,
+        user_message: str,
+        working_memory: List[Dict],
+        fact_memory: Dict,
+        file_context: Optional[Dict] = None,
+        context_summary: Optional[str] = None,
+    ) -> AssembledContext:
+        """Assemble context using skill-based prompt injection."""
+        has_file = file_context is not None
+        used_tokens = 0
+
+        # 1. Detect intents
+        intents = self.skill_injector.detect_intents(
+            user_message=user_message,
+            last_tool_name=fact_memory.get("last_tool_name"),
+            file_context=file_context,
+            available_results=fact_memory.get("available_results"),
+        )
+        logger.info(f"Detected intents: {intents}")
+
+        # 2. Layer 1 + Layer 2/3: Core prompt with situational injection
+        situational = self.skill_injector.get_situational_prompt(
+            intents=intents,
+            last_tool_name=fact_memory.get("last_tool_name"),
+        )
+        system_prompt = self._core_v3_prompt.replace(
+            "{situational_prompt}", situational
+        )
+        if context_summary:
+            system_prompt = f"{system_prompt}\n\n{context_summary}"
+        used_tokens += self._estimate_tokens(system_prompt)
+
+        # 3. Always expose the full tool surface and let the LLM decide.
+        tools = list(self.all_tool_definitions)
+        tool_names = [t["function"]["name"] for t in tools]
+        logger.info(
+            f"Injecting {len(tools)} tools (of {len(self.all_tool_definitions)} total): "
+            f"{tool_names}"
+        )
+        used_tokens += self._estimate_tokens(json.dumps(tool_names))
+
+        # 4. Build messages (same logic as legacy)
+        messages = self._build_messages(
+            user_message, working_memory, fact_memory, file_context, used_tokens
+        )
+        used_tokens += self._estimate_tokens(str(messages))
+
+        logger.info(
+            f"Assembled context (skill mode): ~{used_tokens} tokens, "
+            f"{len(messages)} messages, has_file={has_file}, "
+            f"intents={intents}, tools={len(tools)}"
+        )
+
+        return AssembledContext(
+            system_prompt=system_prompt,
+            tools=tools,
+            messages=messages,
+            estimated_tokens=used_tokens
+        )
+
+    def _assemble_legacy(
+        self,
+        user_message: str,
+        working_memory: List[Dict],
+        fact_memory: Dict,
+        file_context: Optional[Dict] = None,
+        context_summary: Optional[str] = None,
+    ) -> AssembledContext:
+        """
+        Assemble complete context for LLM (legacy mode, unchanged behavior).
 
         Token budget priority:
         1. Core prompt (~200 tokens) - MUST
@@ -55,58 +169,25 @@ class ContextAssembler:
         3. Fact memory (~100 tokens) - Important
         4. Working memory (~3000 tokens) - Important
         5. File context (~500 tokens) - When file uploaded, ELEVATED priority
-
-        Args:
-            user_message: Current user message
-            working_memory: Recent conversation turns
-            fact_memory: Structured facts
-            file_context: Optional file information
-
-        Returns:
-            AssembledContext ready for LLM
         """
         has_file = file_context is not None
         used_tokens = 0
 
         # 1. Core prompt (MUST)
         system_prompt = self.config["system_prompt"]
+        if context_summary:
+            system_prompt = f"{system_prompt}\n\n{context_summary}"
         used_tokens += self._estimate_tokens(system_prompt)
 
         # 2. Tool definitions (MUST)
-        tools = self.tools
+        tools = self.all_tool_definitions
         used_tokens += 400  # Estimated
 
         # 3. Build messages
-        messages = []
-
-        # 3.1 Add fact memory if available
-        if fact_memory and any(fact_memory.values()):
-            fact_summary = self._format_fact_memory(fact_memory)
-            if fact_summary:
-                messages.append({
-                    "role": "system",
-                    "content": f"[Context from previous conversations]\n{fact_summary}"
-                })
-                used_tokens += self._estimate_tokens(fact_summary)
-
-        # 3.2 Add working memory (recent conversations)
-        remaining_budget = self.MAX_CONTEXT_TOKENS - used_tokens - 500
-        working_memory_messages = self._format_working_memory(
-            working_memory,
-            max_tokens=remaining_budget,
-            max_turns=3
+        messages = self._build_messages(
+            user_message, working_memory, fact_memory, file_context, used_tokens
         )
-        messages.extend(working_memory_messages)
-        used_tokens += self._estimate_tokens(str(working_memory_messages))
-
-        # 3.3 Add file context if available — make it prominent
-        if file_context and self.runtime_config.enable_file_context_injection:
-            file_summary = self._format_file_context(file_context, max_tokens=500)
-            user_message = f"{file_summary}\n\n{user_message}"
-
-        # 3.4 Add current user message
-        messages.append({"role": "user", "content": user_message})
-        used_tokens += self._estimate_tokens(user_message)
+        used_tokens += self._estimate_tokens(str(messages))
 
         logger.info(
             f"Assembled context: ~{used_tokens} tokens, {len(messages)} messages, "
@@ -119,6 +200,47 @@ class ContextAssembler:
             messages=messages,
             estimated_tokens=used_tokens
         )
+
+    def _build_messages(
+        self,
+        user_message: str,
+        working_memory: List[Dict],
+        fact_memory: Dict,
+        file_context: Optional[Dict],
+        used_tokens: int,
+    ) -> List[Dict]:
+        """Build the messages list (shared by both modes)."""
+        messages = []
+
+        # Fact memory
+        if fact_memory and any(fact_memory.values()):
+            fact_summary = self._format_fact_memory(fact_memory)
+            if fact_summary:
+                messages.append({
+                    "role": "system",
+                    "content": f"[Context from previous conversations]\n{fact_summary}"
+                })
+                used_tokens += self._estimate_tokens(fact_summary)
+
+        # Working memory
+        remaining_budget = self.MAX_CONTEXT_TOKENS - used_tokens - 500
+        working_memory_messages = self._format_working_memory(
+            working_memory,
+            max_tokens=remaining_budget,
+            max_turns=3
+        )
+        messages.extend(working_memory_messages)
+        used_tokens += self._estimate_tokens(str(working_memory_messages))
+
+        # File context
+        if file_context and self.runtime_config.enable_file_context_injection:
+            file_summary = self._format_file_context(file_context, max_tokens=500)
+            user_message = f"{file_summary}\n\n{user_message}"
+
+        # Current user message
+        messages.append({"role": "user", "content": user_message})
+
+        return messages
 
     def _format_fact_memory(self, fact_memory: Dict) -> str:
         """Format fact memory for LLM"""

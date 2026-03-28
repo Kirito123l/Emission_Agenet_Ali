@@ -106,7 +106,63 @@ class ExcelHandler:
         self.llm_client = llm_client
         self.runtime_config = get_config()
 
-    def read_links_from_excel(self, file_path: str) -> Tuple[bool, Optional[List[Dict]], Optional[str]]:
+    def _get_completion_override(
+        self,
+        completion_overrides: Optional[Dict[str, Any]],
+        field_name: str,
+    ) -> Optional[Dict[str, Any]]:
+        payload = (completion_overrides or {}).get(field_name)
+        return dict(payload) if isinstance(payload, dict) else None
+
+    def _apply_field_override_to_mapping(
+        self,
+        field_to_column: Dict[str, str],
+        completion_overrides: Optional[Dict[str, Any]],
+        available_columns: List[str],
+    ) -> Dict[str, str]:
+        updated = dict(field_to_column or {})
+        for field_name in self.REQUIRED_FIELDS:
+            override = self._get_completion_override(completion_overrides, field_name)
+            if not override:
+                continue
+            mode = str(override.get("mode") or "").strip().lower()
+            if mode not in {"source_column_derivation", "use_derivation"}:
+                continue
+            source_column = str(override.get("source_column") or "").strip()
+            if source_column and source_column in available_columns:
+                updated[field_name] = source_column
+        return updated
+
+    def _extract_required_value(
+        self,
+        row: pd.Series,
+        *,
+        field_name: str,
+        field_to_column: Dict[str, str],
+        completion_overrides: Optional[Dict[str, Any]],
+    ) -> Any:
+        if field_name in field_to_column:
+            source_column = field_to_column[field_name]
+            return row[source_column]
+
+        override = self._get_completion_override(completion_overrides, field_name)
+        if not override:
+            return None
+
+        mode = str(override.get("mode") or "").strip().lower()
+        if mode == "uniform_scalar":
+            return override.get("value")
+        if mode in {"source_column_derivation", "use_derivation"}:
+            source_column = str(override.get("source_column") or "").strip()
+            if source_column and source_column in row.index:
+                return row[source_column]
+        return None
+
+    def read_links_from_excel(
+        self,
+        file_path: str,
+        completion_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[bool, Optional[List[Dict]], Optional[str]]:
         """从Excel文件读取路段数据"""
         try:
             path = Path(file_path)
@@ -127,9 +183,20 @@ class ExcelHandler:
             logger.info(f"[MacroEmission] 读取列名: {list(df.columns)}")
 
             mapping_result = self._resolve_column_mapping(df)
-            field_to_column = mapping_result["field_to_column"]
+            field_to_column = self._apply_field_override_to_mapping(
+                mapping_result["field_to_column"],
+                completion_overrides,
+                list(df.columns),
+            )
 
-            missing_fields = [f for f in self.REQUIRED_FIELDS if f not in field_to_column]
+            missing_fields = []
+            for field_name in self.REQUIRED_FIELDS:
+                if field_name in field_to_column:
+                    continue
+                override = self._get_completion_override(completion_overrides, field_name)
+                if override and str(override.get("mode") or "").strip().lower() == "uniform_scalar":
+                    continue
+                missing_fields.append(field_name)
             if missing_fields:
                 return False, None, self._build_mapping_error(df, mapping_result, missing_fields)
 
@@ -137,15 +204,34 @@ class ExcelHandler:
             links_data: List[Dict] = []
 
             for i, row in df.iterrows():
-                flow_raw = row[field_to_column["traffic_flow_vph"]]
+                flow_raw = self._extract_required_value(
+                    row,
+                    field_name="traffic_flow_vph",
+                    field_to_column=field_to_column,
+                    completion_overrides=completion_overrides,
+                )
                 flow_vph = self._normalize_flow_to_vph(
                     flow_raw,
-                    field_to_column["traffic_flow_vph"]
+                    field_to_column.get("traffic_flow_vph", "traffic_flow_vph")
                 )
                 link_data = {
-                    "link_length_km": self._safe_float(row[field_to_column["link_length_km"]]),
+                    "link_length_km": self._safe_float(
+                        self._extract_required_value(
+                            row,
+                            field_name="link_length_km",
+                            field_to_column=field_to_column,
+                            completion_overrides=completion_overrides,
+                        )
+                    ),
                     "traffic_flow_vph": flow_vph,
-                    "avg_speed_kph": self._safe_float(row[field_to_column["avg_speed_kph"]]),
+                    "avg_speed_kph": self._safe_float(
+                        self._extract_required_value(
+                            row,
+                            field_name="avg_speed_kph",
+                            field_to_column=field_to_column,
+                            completion_overrides=completion_overrides,
+                        )
+                    ),
                 }
 
                 link_id_col = field_to_column.get("link_id")

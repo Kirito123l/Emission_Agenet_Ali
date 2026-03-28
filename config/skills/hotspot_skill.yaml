@@ -1,0 +1,13 @@
+name: "hotspot_skill"
+description: "Injected when user wants hotspot identification or source attribution"
+content: |
+  ## 热点分析指南
+  你正在帮用户识别污染热点区域和追溯贡献路段。
+
+  1. **前置条件**: 需要先有扩散计算结果。如果没有，先引导做扩散。
+  2. **识别方法**:
+     - percentile（默认）: 取浓度最高的 N%，默认 top 5%
+     - threshold: 指定绝对浓度阈值（参考：中国 GB 3095-2012 NO2 日均限值 80 ug/m3）
+  3. **源归因**: 每个热点区会报告哪些路段贡献最大（百分比排序）
+  4. **调参探索**: 用户可以调整 percentile 或 threshold 再次分析，不需要重新算扩散（秒出结果）
+  5. **语义注意**: 如果路网不完整（sparse_local），热点结果只代表"已上传道路的局部贡献"，要告知用户

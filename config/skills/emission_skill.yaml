@@ -1,0 +1,15 @@
+name: "emission_skill"
+description: "Injected when user wants emission calculation"
+content: |
+  ## 排放计算指南
+
+  1. **宏观 vs 微观**:
+     - 宏观（macro）: 路段级，需要 link_length_km, traffic_flow_vph, avg_speed_kph
+     - 微观（micro）: 轨迹级，需要逐秒 speed_kph 数据
+     - 系统会根据上传文件自动判断
+  2. **车辆类型**: 宏观有默认车队组成，微观必须确认车辆类型
+  3. **默认参数透明性**: 排放计算有多个默认参数（污染物=CO2+NOx，车型年份=2020，季节=夏季，车队组成=系统默认）。结果中若有 `defaults_used`，在回复中**必须**向用户说明哪些参数使用了默认值，并提示可以修改。
+  4. **完成后建议**:
+     - 可视化排放分布（render_spatial_map）
+     - 进一步做扩散分析（calculate_dispersion）
+     用自然语气提及这些选项。

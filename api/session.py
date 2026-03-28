@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Import new architecture components
+from config import get_config
 from core.router import UnifiedRouter
 
 
@@ -44,37 +45,51 @@ class Session:
         异步聊天接口
 
         Returns:
-            Dict with keys: text, chart_data, table_data, map_data, download_file
+            Dict with keys: text, chart_data, table_data, map_data, download_file, trace, trace_friendly
         """
-        result = await self.router.chat(user_message=message, file_path=file_path)
+        trace = {} if get_config().enable_trace else None
+        result = await self.router.chat(user_message=message, file_path=file_path, trace=trace)
 
         return {
             "text": result.text,
             "chart_data": result.chart_data,
             "table_data": result.table_data,
             "map_data": result.map_data,
-            "download_file": result.download_file
+            "download_file": result.download_file,
+            "trace": result.trace,
+            "trace_friendly": result.trace_friendly,
         }
 
     def save_turn(
         self,
         user_input: str,
         assistant_response: str,
+        file_name: Optional[str] = None,
+        file_path: Optional[str] = None,
+        file_size: Optional[int] = None,
         chart_data: Optional[Dict] = None,
         table_data: Optional[Dict] = None,
         map_data: Optional[Dict] = None,
         data_type: Optional[str] = None,
         file_id: Optional[str] = None,  # 添加 file_id 参数
         download_file: Optional[Dict] = None,
-        message_id: Optional[str] = None
+        message_id: Optional[str] = None,
+        trace_friendly: Optional[List[Dict[str, Any]]] = None,
     ):
         """保存一轮对话到历史"""
         assistant_message_id = message_id or uuid.uuid4().hex[:12]
-        self._history.append({
+        user_message = {
             "role": "user",
             "content": user_input,
             "timestamp": datetime.now().isoformat()
-        })
+        }
+        if file_name:
+            user_message["file_name"] = file_name
+        if file_path:
+            user_message["file_path"] = file_path
+        if file_size is not None:
+            user_message["file_size"] = file_size
+        self._history.append(user_message)
         self._history.append({
             "role": "assistant",
             "content": assistant_response,
@@ -85,6 +100,7 @@ class Session:
             "message_id": assistant_message_id,
             "file_id": file_id,  # 保存 file_id
             "download_file": download_file,  # 保存下载文件元数据
+            "trace_friendly": trace_friendly,
             "timestamp": datetime.now().isoformat()
         })
         self.message_count += 1

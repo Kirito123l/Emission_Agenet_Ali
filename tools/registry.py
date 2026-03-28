@@ -9,6 +9,14 @@ from tools.base import BaseTool
 logger = logging.getLogger(__name__)
 
 
+class ToolName(str):
+    """String-compatible tool name wrapper with a `.name` attribute for compatibility."""
+
+    @property
+    def name(self) -> str:
+        return str(self)
+
+
 class ToolRegistry:
     """
     Tool registry for managing available tools
@@ -48,8 +56,8 @@ class ToolRegistry:
         return self._tools.get(name)
 
     def list_tools(self) -> list:
-        """Get list of registered tool names"""
-        return list(self._tools.keys())
+        """Get list of registered tool names as string-compatible wrappers."""
+        return [ToolName(name) for name in self._tools.keys()]
 
     def clear(self):
         """Clear all registered tools (useful for testing)"""
@@ -109,5 +117,29 @@ def init_tools():
         register_tool("query_knowledge", KnowledgeTool())
     except Exception as e:
         logger.error(f"Failed to register knowledge tool: {e}")
+
+    try:
+        from tools.dispersion import DispersionTool
+        register_tool("calculate_dispersion", DispersionTool())
+    except Exception as e:
+        logger.warning(f"Failed to register calculate_dispersion: {e}")
+
+    try:
+        from tools.hotspot import HotspotTool
+        register_tool("analyze_hotspots", HotspotTool())
+    except Exception as e:
+        logger.warning(f"Failed to register analyze_hotspots: {e}")
+
+    try:
+        from tools.spatial_renderer import SpatialRendererTool
+        register_tool("render_spatial_map", SpatialRendererTool())
+    except Exception as e:
+        logger.warning(f"Failed to register render_spatial_map: {e}")
+
+    try:
+        from tools.scenario_compare import ScenarioCompareTool
+        register_tool("compare_scenarios", ScenarioCompareTool())
+    except Exception as e:
+        logger.warning(f"Failed to register compare_scenarios: {e}")
 
     logger.info(f"Initialized {len(_registry.list_tools())} tools: {_registry.list_tools()}")
