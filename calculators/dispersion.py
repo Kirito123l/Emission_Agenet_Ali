@@ -117,7 +117,12 @@ def _get_utm_crs(utm_zone: int, utm_hemisphere: str) -> str:
 
 def _default_model_base_dir() -> Path:
     """Infer the surrogate model directory from the repository layout."""
-    return Path(__file__).resolve().parents[1] / "ps-xgb-aermod-rline-surrogate" / "models"
+    repo_root = Path(__file__).resolve().parents[1]
+    vendored_dir = repo_root / "calculators" / "data" / "dispersion_models"
+    legacy_dir = repo_root / "ps-xgb-aermod-rline-surrogate" / "models"
+    if vendored_dir.exists():
+        return vendored_dir
+    return legacy_dir
 
 
 def _default_presets_path() -> Path:
