@@ -6,6 +6,7 @@ import pytest
 
 from services.standardization_engine import (
     BatchStandardizationError,
+    NoModelBackend,
     PARAM_TYPE_REGISTRY,
     StandardizationEngine,
 )
@@ -324,6 +325,22 @@ class TestEngineConfiguration:
         strict_result = strict_engine.standardize("vehicle_type", "小客车")
         assert strict_result.success is False
         assert strict_result.strategy == "abstain"
+
+    def test_fuzzy_disabled_config(self):
+        engine = StandardizationEngine({"llm_enabled": False, "fuzzy_enabled": False})
+        result = engine.standardize("vehicle_type", "小客车")
+        assert result.success is False
+        assert result.strategy == "abstain"
+
+    def test_local_backend_disabled_when_model_switch_off(self):
+        engine = StandardizationEngine(
+            {
+                "llm_enabled": False,
+                "use_local_standardizer": True,
+                "local_standardizer_config": {"enabled": True},
+            }
+        )
+        assert isinstance(engine._model_backend, NoModelBackend)
 
 
 class TestDeclarativeRegistry:

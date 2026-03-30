@@ -28,6 +28,8 @@ class TestConfigLoading:
         config = get_config()
         assert config.enable_llm_standardization is True
         assert config.enable_standardization_cache is True
+        assert config.persist_trace is False
+        assert config.standardization_fuzzy_enabled is True
         assert config.continuation_prompt_variant == "balanced_repair_aware"
         assert config.enable_cross_constraint_validation is True
         assert config.enable_parameter_negotiation is False
@@ -83,9 +85,13 @@ class TestConfigLoading:
 
     def test_feature_flag_override(self, monkeypatch):
         monkeypatch.setenv("ENABLE_LLM_STANDARDIZATION", "false")
+        monkeypatch.setenv("PERSIST_TRACE", "true")
+        monkeypatch.setenv("STANDARDIZATION_FUZZY_ENABLED", "false")
         reset_config()
         config = get_config()
         assert config.enable_llm_standardization is False
+        assert config.persist_trace is True
+        assert config.standardization_fuzzy_enabled is False
 
     def test_directories_created(self):
         config = get_config()

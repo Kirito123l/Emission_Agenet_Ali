@@ -20,6 +20,11 @@ env/
 # ============ Runtime Data (Server-Specific) ============
 # User session data
 data/sessions/
+# Persisted trace audit artifacts
+data/traces/
+# Evaluation result artifacts
+evaluation/results/*
+!evaluation/results/.gitignore
 # User database
 data/users.db
 # Nested runtime logs

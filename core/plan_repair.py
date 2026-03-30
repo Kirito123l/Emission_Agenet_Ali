@@ -2,20 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional
 
 from core.plan import ExecutionPlan, PlanStatus, PlanStep, PlanStepStatus
 from core.tool_dependencies import (
     TOOL_GRAPH,
     get_required_result_tokens,
     get_tool_provides,
-    normalize_result_token,
     normalize_tokens,
     validate_plan_steps,
 )
-
-if TYPE_CHECKING:
-    from core.context_store import SessionContextStore
 
 
 class RepairTriggerType(str, Enum):

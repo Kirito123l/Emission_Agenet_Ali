@@ -49,6 +49,10 @@ class Config:
         self.enable_executor_standardization = os.getenv("ENABLE_EXECUTOR_STANDARDIZATION", "true").lower() == "true"
         self.enable_state_orchestration = os.getenv("ENABLE_STATE_ORCHESTRATION", "true").lower() == "true"
         self.enable_trace = os.getenv("ENABLE_TRACE", "true").lower() == "true"
+        self.persist_trace = os.getenv("PERSIST_TRACE", "false").lower() == "true"
+        self.standardization_fuzzy_enabled = (
+            os.getenv("STANDARDIZATION_FUZZY_ENABLED", "true").lower() == "true"
+        )
         self.enable_lightweight_planning = os.getenv("ENABLE_LIGHTWEIGHT_PLANNING", "false").lower() == "true"
         self.enable_bounded_plan_repair = os.getenv("ENABLE_BOUNDED_PLAN_REPAIR", "false").lower() == "true"
         self.enable_repair_aware_continuation = os.getenv("ENABLE_REPAIR_AWARE_CONTINUATION", "false").lower() == "true"
@@ -212,6 +216,7 @@ class Config:
                 "STANDARDIZATION_LLM_ENABLED",
                 "true" if self.enable_llm_standardization else "false",
             ).lower() == "true",
+            "fuzzy_enabled": self.standardization_fuzzy_enabled,
             "llm_backend": os.getenv("STANDARDIZATION_LLM_BACKEND", "api").lower(),
             "llm_model": os.getenv("STANDARDIZATION_LLM_MODEL") or None,
             "llm_timeout": float(os.getenv("STANDARDIZATION_LLM_TIMEOUT", "5.0")),

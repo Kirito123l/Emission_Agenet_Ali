@@ -1,0 +1,816 @@
+version: "1.0"
+tool_definition_order:
+  - query_emission_factors
+  - calculate_micro_emission
+  - calculate_macro_emission
+  - analyze_file
+  - query_knowledge
+  - calculate_dispersion
+  - analyze_hotspots
+  - render_spatial_map
+  - compare_scenarios
+readiness_action_order:
+  - run_macro_emission
+  - run_micro_emission
+  - run_dispersion
+  - run_hotspot_analysis
+  - render_emission_map
+  - render_dispersion_map
+  - render_hotspot_map
+  - download_detailed_csv
+  - download_topk_summary
+  - render_rank_chart
+  - deliver_quick_structured_summary
+  - compare_scenario
+tools:
+  query_emission_factors:
+    display_name: 排放因子查询
+    description: Query vehicle emission factor curves by speed. Returns chart and data table.
+    parameters:
+      vehicle_type:
+        required: true
+        standardization: vehicle_type
+        schema:
+          type: string
+          description: Vehicle type. Pass user's original expression (e.g., '小汽车', '公交车', 'SUV'). System will automatically recognize it.
+      pollutants:
+        required: false
+        standardization: pollutant_list
+        schema:
+          type: array
+          items:
+            type: string
+          description: List of pollutants to query (e.g., ['CO2', 'NOx', 'PM2.5']). Single pollutant also uses this array.
+      model_year:
+        required: true
+        standardization: null
+        schema:
+          type: integer
+          description: "Vehicle model year (e.g., 2020). Range: 1995-2025."
+      season:
+        required: false
+        standardization: season
+        schema:
+          type: string
+          description: Season (春季/夏季/秋季/冬季). Optional, defaults to summer if not provided.
+      road_type:
+        required: false
+        standardization: road_type
+        schema:
+          type: string
+          description: Road type (快速路/地面道路). Optional, defaults to expressway if not provided.
+      return_curve:
+        required: false
+        standardization: null
+        schema:
+          type: boolean
+          description: Whether to return full curve data. Default false.
+    dependencies:
+      requires: []
+      provides:
+        - emission_factors
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types: []
+    continuation_keywords:
+      - 排放因子
+      - emission factor
+  calculate_micro_emission:
+    display_name: 微观排放计算
+    description: Calculate second-by-second emissions from vehicle trajectory data (time + speed). Use file_path for uploaded files.
+    parameters:
+      file_path:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Path to trajectory data file. REQUIRED when user uploaded a file. You will see this path in the file context.
+      trajectory_data:
+        required: false
+        standardization: null
+        schema:
+          type: array
+          items:
+            type: object
+          description: Trajectory data array. Each point should have 't' (time in seconds) and 'speed_kph' (speed in km/h). Use this if user provides data directly.
+      vehicle_type:
+        required: true
+        standardization: vehicle_type
+        schema:
+          type: string
+          description: Vehicle type. Pass user's original expression. REQUIRED.
+      pollutants:
+        required: false
+        standardization: pollutant_list
+        schema:
+          type: array
+          items:
+            type: string
+          description: List of pollutants to calculate. Defaults to [CO2, NOx, PM2.5] if not provided.
+      model_year:
+        required: false
+        standardization: null
+        schema:
+          type: integer
+          description: Vehicle model year. Defaults to 2020 if not provided.
+      season:
+        required: false
+        standardization: season
+        schema:
+          type: string
+          description: Season. Optional.
+    dependencies:
+      requires: []
+      provides:
+        - emission
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types:
+        - micro_emission
+    continuation_keywords:
+      - 排放
+      - emission
+      - 微观
+      - 轨迹
+    action_variants:
+      - action_id: run_micro_emission
+        display_name: 计算微观排放
+        description: 基于轨迹级逐点字段生成微观排放结果。
+        tool_name: calculate_micro_emission
+        arguments: {}
+        guidance_utterance: "“帮我计算轨迹排放” - 生成逐点或逐段排放结果"
+        required_task_types:
+          - micro_emission
+        required_result_tokens: []
+        requires_geometry_support: false
+        requires_spatial_result_token: null
+        provided_conflicts: []
+        artifact_key: null
+        alternative_action_ids:
+          - render_emission_map
+        guidance_enabled: false
+        pre_execution_enabled: true
+        category: compute
+  calculate_macro_emission:
+    display_name: 宏观排放计算
+    description: Calculate road link emissions from traffic data (length + flow + speed). Use file_path for uploaded files.
+    parameters:
+      file_path:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Path to road link data file.
+      links_data:
+        required: false
+        standardization: null
+        schema:
+          type: array
+          items:
+            type: object
+          description: Road link data array. Each link should have 'link_length_km', 'traffic_flow_vph', 'avg_speed_kph'. Use this if user provides data directly.
+      pollutants:
+        required: false
+        standardization: pollutant_list
+        schema:
+          type: array
+          items:
+            type: string
+          description: List of pollutants to calculate.
+      fleet_mix:
+        required: false
+        standardization: null
+        schema:
+          type: object
+          description: Fleet composition (vehicle type percentages). Optional, uses default if not provided.
+      model_year:
+        required: false
+        standardization: null
+        schema:
+          type: integer
+          description: Vehicle model year.
+      season:
+        required: false
+        standardization: season
+        schema:
+          type: string
+          description: Season. Optional.
+      overrides:
+        required: false
+        standardization: null
+        schema:
+          type: array
+          description: Parameter overrides for scenario simulation. Each override modifies one input column.
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+                enum:
+                  - avg_speed_kph
+                  - traffic_flow_vph
+                  - link_length_km
+                  - fleet_mix
+                description: Column to override
+              value:
+                description: Fixed value to set, or a fleet_mix object when column=fleet_mix
+              transform:
+                type: string
+                enum:
+                  - set
+                  - multiply
+                  - add
+                description: "Transform type. Default: set"
+              factor:
+                type: number
+                description: Multiplication factor for transform=multiply
+              offset:
+                type: number
+                description: Additive offset for transform=add
+              where:
+                type: object
+                description: Condition to filter affected rows
+                properties:
+                  column:
+                    type: string
+                  op:
+                    type: string
+                    enum:
+                      - ">"
+                      - ">="
+                      - "<"
+                      - "<="
+                      - "=="
+                      - "!="
+                      - in
+                      - not_in
+                  value: {}
+            required:
+              - column
+      scenario_label:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Short scenario label such as 'speed_30kmh' or 'bus_15pct'.
+    dependencies:
+      requires: []
+      provides:
+        - emission
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types:
+        - macro_emission
+    continuation_keywords:
+      - 排放
+      - emission
+      - 宏观
+    action_variants:
+      - action_id: run_macro_emission
+        display_name: 计算宏观排放
+        description: 基于路段级交通字段生成宏观排放结果。
+        tool_name: calculate_macro_emission
+        arguments: {}
+        guidance_utterance: "“帮我计算路段排放” - 生成路段级排放结果"
+        required_task_types:
+          - macro_emission
+        required_result_tokens: []
+        requires_geometry_support: false
+        requires_spatial_result_token: null
+        provided_conflicts: []
+        artifact_key: null
+        alternative_action_ids:
+          - render_emission_map
+          - run_dispersion
+        guidance_enabled: false
+        pre_execution_enabled: true
+        category: compute
+  analyze_file:
+    display_name: 文件分析
+    description: Analyze uploaded file structure. Returns columns, data type, and preview.
+    parameters:
+      file_path:
+        required: true
+        standardization: null
+        schema:
+          type: string
+          description: Path to the file to analyze
+    dependencies:
+      requires: []
+      provides:
+        - file_analysis
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types: []
+    continuation_keywords: []
+  query_knowledge:
+    display_name: 知识查询
+    description: Search emission knowledge base for standards, regulations, and technical concepts.
+    parameters:
+      query:
+        required: true
+        standardization: null
+        schema:
+          type: string
+          description: The question or topic to search for in the knowledge base
+      top_k:
+        required: false
+        standardization: null
+        schema:
+          type: integer
+          description: Number of knowledge entries to retrieve. Optional, defaults to 5.
+      expectation:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Expected type of information (e.g., 'standard definition', 'regulation details'). Optional.
+    dependencies:
+      requires: []
+      provides:
+        - knowledge
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types: []
+    continuation_keywords:
+      - 解释
+      - 说明
+      - 知识
+      - knowledge
+      - why
+      - how
+  calculate_dispersion:
+    display_name: 扩散模拟
+    description: Calculate pollutant dispersion/concentration distribution from vehicle emissions using the PS-XGB-RLINE surrogate model. Requires emission results (typically from calculate_macro_emission). Produces a spatial concentration raster field. Supports meteorology presets, custom parameters, or .sfc files.
+    parameters:
+      emission_source:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Source of emission data. 'last_result' or a file path.
+          default: last_result
+      meteorology:
+        required: false
+        standardization: meteorology
+        schema:
+          type: string
+          description: "Meteorology preset name, 'custom', or .sfc file path. Default: urban_summer_day."
+          default: urban_summer_day
+      wind_speed:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: Wind speed in m/s. Use with 'custom' or to override a preset.
+      wind_direction:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: Wind direction in degrees (0=N, 90=E, 180=S, 270=W). Use with 'custom' or to override a preset.
+      stability_class:
+        required: false
+        standardization: stability_class
+        schema:
+          type: string
+          description: "Atmospheric stability: VS, S, N1, N2, U, VU."
+          enum:
+            - VS
+            - S
+            - N1
+            - N2
+            - U
+            - VU
+      mixing_height:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: "Mixing layer height in meters. Default: 800."
+      roughness_height:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: "Surface roughness: 0.05 (open), 0.5 (suburban), 1.0 (urban). Default: 0.5."
+          enum:
+            - 0.05
+            - 0.5
+            - 1.0
+      grid_resolution:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: "Display grid resolution in meters: 50, 100, or 200. Default: 50."
+          enum:
+            - 50
+            - 100
+            - 200
+          default: 50
+      pollutant:
+        required: false
+        standardization: pollutant
+        schema:
+          type: string
+          description: Pollutant name. Currently only NOx.
+          default: NOx
+      scenario_label:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Scenario label used to resolve/store scenario-specific emission and dispersion results.
+    dependencies:
+      requires:
+        - emission
+      provides:
+        - dispersion
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: true
+      required_task_types: []
+    continuation_keywords:
+      - 扩散
+      - dispersion
+      - 浓度
+      - concentration
+      - raster
+    action_variants:
+      - action_id: run_dispersion
+        display_name: 模拟污染物扩散浓度
+        description: 基于当前排放结果继续进行扩散分析。
+        tool_name: calculate_dispersion
+        arguments: {}
+        guidance_utterance: "“帮我做扩散分析” - 了解污染物如何在大气中扩散"
+        required_task_types: []
+        required_result_tokens: []
+        requires_geometry_support: true
+        requires_spatial_result_token: null
+        provided_conflicts: []
+        artifact_key: null
+        alternative_action_ids:
+          - render_emission_map
+          - compare_scenario
+        guidance_enabled: true
+        pre_execution_enabled: true
+        category: analysis
+  analyze_hotspots:
+    display_name: 热点分析
+    description: Identify pollution hotspot areas and trace contributing road sources from dispersion results. Supports percentile or threshold methods. Does not re-run dispersion - analyzes stored results instantly.
+    parameters:
+      method:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: "Identification method: 'percentile' (top N%) or 'threshold' (above value)."
+          enum:
+            - percentile
+            - threshold
+          default: percentile
+      threshold_value:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: Concentration threshold in ug/m3. Required when method='threshold'.
+      percentile:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: "Top N percent to identify as hotspots. Default: 5."
+          default: 5
+      min_hotspot_area_m2:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: "Minimum cluster area in m2. Default: 2500."
+          default: 2500
+      max_hotspots:
+        required: false
+        standardization: null
+        schema:
+          type: integer
+          description: "Max hotspot areas to return. Default: 10."
+          default: 10
+      source_attribution:
+        required: false
+        standardization: null
+        schema:
+          type: boolean
+          description: "Compute road contribution per hotspot. Default: true."
+          default: true
+      scenario_label:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Scenario label used to resolve/store scenario-specific hotspot results.
+    dependencies:
+      requires:
+        - dispersion
+      provides:
+        - hotspot
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types: []
+    continuation_keywords:
+      - 热点
+      - hotspot
+      - 高值区
+    action_variants:
+      - action_id: run_hotspot_analysis
+        display_name: 识别污染热点
+        description: 基于扩散结果识别高浓度区域和贡献路段。
+        tool_name: analyze_hotspots
+        arguments: {}
+        guidance_utterance: "“帮我识别污染热点” - 找出高浓度区域和主要贡献路段"
+        required_task_types: []
+        required_result_tokens: []
+        requires_geometry_support: false
+        requires_spatial_result_token: null
+        provided_conflicts: []
+        artifact_key: null
+        alternative_action_ids:
+          - render_dispersion_map
+          - compare_scenario
+        guidance_enabled: true
+        pre_execution_enabled: true
+        category: analysis
+  render_spatial_map:
+    display_name: 空间地图渲染
+    description: Render spatial data as an interactive map. Use this to visualize emission results, dispersion results, or any geo-referenced data on a map. Can use data from the previous calculation step.
+    parameters:
+      data_source:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Data to render. Use 'last_result' to visualize the previous calculation output.
+          default: last_result
+      pollutant:
+        required: false
+        standardization: pollutant
+        schema:
+          type: string
+          description: Which pollutant to visualize (e.g., CO2, NOx, PM2.5). If not specified, uses the first available.
+      title:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Optional map title
+      layer_type:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          enum:
+            - emission
+            - raster
+            - hotspot
+            - concentration
+            - points
+          description: Type of spatial layer. Auto-detected if not specified.
+      scenario_label:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Optional scenario label to render a stored scenario-specific result instead of baseline.
+    dependencies:
+      requires: []
+      provides:
+        - visualization
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: true
+      required_task_types: []
+    continuation_keywords:
+      - 地图
+      - 渲染
+      - 可视化
+      - render
+      - visualization
+      - map
+    action_variants:
+      - action_id: render_emission_map
+        display_name: 可视化排放空间分布
+        description: 在地图上查看各路段排放强度。
+        tool_name: render_spatial_map
+        arguments:
+          layer_type: emission
+        guidance_utterance: "“帮我可视化排放分布” - 在地图上查看各路段排放强度"
+        required_task_types: []
+        required_result_tokens: []
+        requires_geometry_support: true
+        requires_spatial_result_token: null
+        provided_conflicts:
+          - map:emission
+          - map:any
+        artifact_key: null
+        alternative_action_ids:
+          - run_dispersion
+          - compare_scenario
+        guidance_enabled: true
+        pre_execution_enabled: true
+        category: render
+      - action_id: render_dispersion_map
+        display_name: 可视化扩散浓度分布
+        description: 在地图上查看浓度栅格或受体点分布。
+        tool_name: render_spatial_map
+        arguments:
+          layer_type: dispersion
+        guidance_utterance: "“在地图上展示浓度分布” - 查看栅格浓度场"
+        required_task_types: []
+        required_result_tokens: []
+        requires_geometry_support: false
+        requires_spatial_result_token: dispersion
+        provided_conflicts:
+          - map:dispersion
+          - map:any
+        artifact_key: null
+        alternative_action_ids:
+          - run_hotspot_analysis
+          - compare_scenario
+        guidance_enabled: true
+        pre_execution_enabled: true
+        category: render
+      - action_id: render_hotspot_map
+        display_name: 可视化热点区域
+        description: 在地图上查看热点区域和贡献路段。
+        tool_name: render_spatial_map
+        arguments:
+          layer_type: hotspot
+        guidance_utterance: "“在地图上展示热点” - 查看热点区域和贡献路段"
+        required_task_types: []
+        required_result_tokens: []
+        requires_geometry_support: false
+        requires_spatial_result_token: hotspot
+        provided_conflicts:
+          - map:hotspot
+          - map:any
+        artifact_key: null
+        alternative_action_ids:
+          - compare_scenario
+        guidance_enabled: true
+        pre_execution_enabled: true
+        category: render
+  compare_scenarios:
+    display_name: 情景对比
+    description: Compare baseline analysis results with one or more scenario variants. Shows metric deltas, percentage changes, and per-link differences using data already stored in the session.
+    parameters:
+      result_types:
+        required: true
+        standardization: null
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+              - emission
+              - dispersion
+              - hotspot
+          description: Which result types to compare
+      baseline:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          default: baseline
+          description: Label of baseline results
+      scenario:
+        required: false
+        standardization: null
+        schema:
+          type: string
+          description: Single scenario label to compare against baseline
+      scenarios:
+        required: false
+        standardization: null
+        schema:
+          type: array
+          items:
+            type: string
+          description: Multiple scenario labels to compare against baseline
+      metrics:
+        required: false
+        standardization: null
+        schema:
+          type: array
+          items:
+            type: string
+          description: Optional metric names to focus on
+    dependencies:
+      requires: []
+      provides:
+        - scenario_comparison
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types: []
+    continuation_keywords:
+      - 对比
+      - 比较
+      - scenario
+      - compare
+    action_variants:
+      - action_id: compare_scenario
+        display_name: 对比情景结果
+        description: 比较不同情景下的排放、扩散或热点结果。
+        tool_name: compare_scenarios
+        arguments: {}
+        guidance_utterance: "“把速度降到 30 再比较一下” - 对比不同情景下的分析结果"
+        required_task_types: []
+        required_result_tokens: []
+        requires_geometry_support: false
+        requires_spatial_result_token: null
+        provided_conflicts: []
+        artifact_key: null
+        alternative_action_ids:
+          - run_dispersion
+          - render_emission_map
+        guidance_enabled: true
+        pre_execution_enabled: true
+        category: analysis
+artifact_actions:
+  - action_id: download_detailed_csv
+    display_name: 下载详细结果文件
+    description: 获取当前结果的详细表格导出文件。
+    tool_name: null
+    arguments: {}
+    guidance_utterance: null
+    required_task_types: []
+    required_result_tokens: []
+    requires_geometry_support: false
+    requires_spatial_result_token: null
+    provided_conflicts: []
+    artifact_key: download_detailed_csv
+    alternative_action_ids: []
+    guidance_enabled: false
+    pre_execution_enabled: false
+    category: delivery
+  - action_id: download_topk_summary
+    display_name: 下载摘要结果文件
+    description: 获取当前摘要或 Top-K 结果导出文件。
+    tool_name: null
+    arguments: {}
+    guidance_utterance: "“给我前5高排放路段摘要表” - 查看当前结果的 Top-K 排名摘要"
+    required_task_types:
+      - macro_emission
+    required_result_tokens:
+      - emission
+    requires_geometry_support: false
+    requires_spatial_result_token: null
+    provided_conflicts: []
+    artifact_key: download_topk_summary
+    alternative_action_ids: []
+    guidance_enabled: true
+    pre_execution_enabled: false
+    category: delivery
+  - action_id: render_rank_chart
+    display_name: 查看结果图表
+    description: 查看或导出当前结果图表。
+    tool_name: null
+    arguments: {}
+    guidance_utterance: "“给我画个前5高排放路段条形图” - 用排序图查看当前结果的高值对象"
+    required_task_types:
+      - macro_emission
+    required_result_tokens:
+      - emission
+    requires_geometry_support: false
+    requires_spatial_result_token: null
+    provided_conflicts: []
+    artifact_key: render_rank_chart
+    alternative_action_ids: []
+    guidance_enabled: true
+    pre_execution_enabled: false
+    category: delivery
+  - action_id: deliver_quick_structured_summary
+    display_name: 查看结构化摘要
+    description: 用简洁结构化摘要概览当前结果。
+    tool_name: null
+    arguments: {}
+    guidance_utterance: "“先给我一个摘要” - 用结构化摘要快速查看当前结果"
+    required_task_types:
+      - macro_emission
+    required_result_tokens:
+      - emission
+    requires_geometry_support: false
+    requires_spatial_result_token: null
+    provided_conflicts: []
+    artifact_key: quick_summary_text
+    alternative_action_ids: []
+    guidance_enabled: true
+    pre_execution_enabled: false
+    category: delivery

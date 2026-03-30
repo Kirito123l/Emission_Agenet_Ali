@@ -188,7 +188,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / f"evaluation/logs/file_grounding_{now_ts()}",
+        default=PROJECT_ROOT / f"evaluation/results/file_grounding/file_grounding_{now_ts()}",
     )
     parser.add_argument("--disable-file-analyzer", action="store_true")
     parser.add_argument("--disable-file-context-injection", action="store_true")

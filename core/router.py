@@ -74,8 +74,6 @@ from core.memory import MemoryManager
 from core.output_safety import sanitize_response
 from core.remediation_policy import (
     RemediationPolicy,
-    RemediationPolicyApplicationResult,
-    RemediationPolicyDecision,
     RemediationPolicyType,
     apply_default_typical_profile,
     check_default_typical_profile_eligibility,
@@ -114,7 +112,6 @@ from core.readiness import (
 from core.residual_reentry import (
     RecoveredWorkflowReentryContext,
     ReentryDecision,
-    ReentryStatus,
     build_recovered_workflow_reentry_context,
     build_reentry_guidance_summary,
 )
@@ -131,7 +128,6 @@ from core.summary_delivery import (
     SummaryDeliveryContext,
     SummaryDeliveryPlan,
     SummaryDeliveryResult,
-    SummaryDeliveryType,
     build_summary_delivery_plan,
     execute_summary_delivery_plan,
 )
@@ -160,6 +156,7 @@ from core.workflow_templates import (
     select_primary_template,
     summarize_template_prior,
 )
+from tools.contract_loader import get_tool_contract_registry
 from core.router_memory_utils import (
     build_memory_tool_calls as build_memory_tool_calls_helper,
     compact_tool_data as compact_tool_data_helper,
@@ -293,16 +290,9 @@ Requirements:
 """
 
 
-CONTINUATION_TOOL_KEYWORDS = {
-    "calculate_macro_emission": ["排放", "emission", "宏观"],
-    "calculate_micro_emission": ["排放", "emission", "微观", "轨迹"],
-    "calculate_dispersion": ["扩散", "dispersion", "浓度", "concentration", "raster"],
-    "analyze_hotspots": ["热点", "hotspot", "高值区"],
-    "render_spatial_map": ["地图", "渲染", "可视化", "render", "visualization", "map"],
-    "compare_scenarios": ["对比", "比较", "scenario", "compare"],
-    "query_emission_factors": ["排放因子", "emission factor"],
-    "query_knowledge": ["解释", "说明", "知识", "knowledge", "why", "how"],
-}
+CONTINUATION_TOOL_KEYWORDS = (
+    get_tool_contract_registry().get_continuation_keywords()
+)
 
 CONTINUATION_PROMPT_VARIANTS = (
     "goal_heavy",
@@ -910,6 +900,11 @@ class UnifiedRouter:
             trace_obj.finish(final_stage=state.stage.value)
 
         response = await self._state_build_response(state, user_message, trace_obj=trace_obj)
+        if trace_obj and getattr(config, "persist_trace", False):
+            try:
+                trace_obj.persist(session_id=self.session_id)
+            except Exception as exc:
+                logger.warning("Failed to persist trace: %s", exc)
         self._sync_live_continuation_state(state)
 
         tool_calls_data = None
@@ -7404,6 +7399,28 @@ class UnifiedRouter:
             context_store=self._ensure_context_store(),
             include_stale=False,
         )
+        if (
+            not validation.is_valid
+            and self._should_allow_tool_level_dependency_resolution(
+                state=state,
+                tool_name=tool_name,
+                arguments=arguments,
+                validation=validation,
+            )
+        ):
+            validation = DependencyValidationResult(
+                tool_name=tool_name,
+                required_tokens=validation.required_tokens,
+                available_tokens=validation.available_tokens,
+                missing_tokens=[],
+                stale_tokens=[],
+                is_valid=True,
+                message=(
+                    f"Allowing {tool_name} to attempt direct input resolution without "
+                    "stored prerequisite context."
+                ),
+                issues=[],
+            )
         if trace_obj:
             trace_obj.record(
                 step_type=(
@@ -7423,6 +7440,24 @@ class UnifiedRouter:
                 reasoning=validation.message,
             )
         return validation
+
+    def _should_allow_tool_level_dependency_resolution(
+        self,
+        *,
+        state: TaskState,
+        tool_name: str,
+        arguments: Optional[Dict[str, Any]],
+        validation: DependencyValidationResult,
+    ) -> bool:
+        if state.plan is not None:
+            return False
+        if validation.stale_tokens:
+            return False
+        allowed_missing = {
+            "calculate_dispersion": ["emission"],
+            "analyze_hotspots": ["dispersion"],
+        }
+        return validation.missing_tokens == allowed_missing.get(tool_name)
 
     def _mark_blocked_plan_step(
         self,

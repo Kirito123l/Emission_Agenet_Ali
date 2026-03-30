@@ -139,7 +139,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / f"evaluation/logs/normalization_{now_ts()}",
+        default=PROJECT_ROOT / f"evaluation/results/normalization/normalization_{now_ts()}",
     )
     parser.add_argument(
         "--disable-executor-standardization",

@@ -16,6 +16,7 @@ from core.tool_dependencies import (
     suggest_prerequisite_tool,
     validate_tool_prerequisites,
 )
+from tools.contract_loader import get_tool_contract_registry
 
 if TYPE_CHECKING:
     from core.context_store import SessionContextStore
@@ -756,135 +757,10 @@ def _build_already_provided_affordance(
 
 
 def get_action_catalog() -> List[ActionCatalogEntry]:
+    registry = get_tool_contract_registry()
     return [
-        ActionCatalogEntry(
-            action_id="run_macro_emission",
-            display_name="计算宏观排放",
-            description="基于路段级交通字段生成宏观排放结果。",
-            tool_name="calculate_macro_emission",
-            guidance_utterance='“帮我计算路段排放” - 生成路段级排放结果',
-            required_task_types=["macro_emission"],
-            alternative_action_ids=["render_emission_map", "run_dispersion"],
-            guidance_enabled=False,
-            category="compute",
-        ),
-        ActionCatalogEntry(
-            action_id="run_micro_emission",
-            display_name="计算微观排放",
-            description="基于轨迹级逐点字段生成微观排放结果。",
-            tool_name="calculate_micro_emission",
-            guidance_utterance='“帮我计算轨迹排放” - 生成逐点或逐段排放结果',
-            required_task_types=["micro_emission"],
-            alternative_action_ids=["render_emission_map"],
-            guidance_enabled=False,
-            category="compute",
-        ),
-        ActionCatalogEntry(
-            action_id="run_dispersion",
-            display_name="模拟污染物扩散浓度",
-            description="基于当前排放结果继续进行扩散分析。",
-            tool_name="calculate_dispersion",
-            guidance_utterance='“帮我做扩散分析” - 了解污染物如何在大气中扩散',
-            requires_geometry_support=True,
-            alternative_action_ids=["render_emission_map", "compare_scenario"],
-            category="analysis",
-        ),
-        ActionCatalogEntry(
-            action_id="run_hotspot_analysis",
-            display_name="识别污染热点",
-            description="基于扩散结果识别高浓度区域和贡献路段。",
-            tool_name="analyze_hotspots",
-            guidance_utterance='“帮我识别污染热点” - 找出高浓度区域和主要贡献路段',
-            alternative_action_ids=["render_dispersion_map", "compare_scenario"],
-            category="analysis",
-        ),
-        ActionCatalogEntry(
-            action_id="render_emission_map",
-            display_name="可视化排放空间分布",
-            description="在地图上查看各路段排放强度。",
-            tool_name="render_spatial_map",
-            arguments={"layer_type": "emission"},
-            guidance_utterance='“帮我可视化排放分布” - 在地图上查看各路段排放强度',
-            requires_geometry_support=True,
-            provided_conflicts=["map:emission", "map:any"],
-            alternative_action_ids=["run_dispersion", "compare_scenario"],
-            category="render",
-        ),
-        ActionCatalogEntry(
-            action_id="render_dispersion_map",
-            display_name="可视化扩散浓度分布",
-            description="在地图上查看浓度栅格或受体点分布。",
-            tool_name="render_spatial_map",
-            arguments={"layer_type": "dispersion"},
-            guidance_utterance='“在地图上展示浓度分布” - 查看栅格浓度场',
-            requires_spatial_result_token="dispersion",
-            provided_conflicts=["map:dispersion", "map:any"],
-            alternative_action_ids=["run_hotspot_analysis", "compare_scenario"],
-            category="render",
-        ),
-        ActionCatalogEntry(
-            action_id="render_hotspot_map",
-            display_name="可视化热点区域",
-            description="在地图上查看热点区域和贡献路段。",
-            tool_name="render_spatial_map",
-            arguments={"layer_type": "hotspot"},
-            guidance_utterance='“在地图上展示热点” - 查看热点区域和贡献路段',
-            requires_spatial_result_token="hotspot",
-            provided_conflicts=["map:hotspot", "map:any"],
-            alternative_action_ids=["compare_scenario"],
-            category="render",
-        ),
-        ActionCatalogEntry(
-            action_id="download_detailed_csv",
-            display_name="下载详细结果文件",
-            description="获取当前结果的详细表格导出文件。",
-            artifact_key="download_detailed_csv",
-            guidance_enabled=False,
-            pre_execution_enabled=False,
-            category="delivery",
-        ),
-        ActionCatalogEntry(
-            action_id="download_topk_summary",
-            display_name="下载摘要结果文件",
-            description="获取当前摘要或 Top-K 结果导出文件。",
-            artifact_key="download_topk_summary",
-            guidance_utterance='“给我前5高排放路段摘要表” - 查看当前结果的 Top-K 排名摘要',
-            required_task_types=["macro_emission"],
-            required_result_tokens=["emission"],
-            pre_execution_enabled=False,
-            category="delivery",
-        ),
-        ActionCatalogEntry(
-            action_id="render_rank_chart",
-            display_name="查看结果图表",
-            description="查看或导出当前结果图表。",
-            artifact_key="render_rank_chart",
-            guidance_utterance='“给我画个前5高排放路段条形图” - 用排序图查看当前结果的高值对象',
-            required_task_types=["macro_emission"],
-            required_result_tokens=["emission"],
-            pre_execution_enabled=False,
-            category="delivery",
-        ),
-        ActionCatalogEntry(
-            action_id="deliver_quick_structured_summary",
-            display_name="查看结构化摘要",
-            description="用简洁结构化摘要概览当前结果。",
-            artifact_key="quick_summary_text",
-            guidance_utterance='“先给我一个摘要” - 用结构化摘要快速查看当前结果',
-            required_task_types=["macro_emission"],
-            required_result_tokens=["emission"],
-            pre_execution_enabled=False,
-            category="delivery",
-        ),
-        ActionCatalogEntry(
-            action_id="compare_scenario",
-            display_name="对比情景结果",
-            description="比较不同情景下的排放、扩散或热点结果。",
-            tool_name="compare_scenarios",
-            guidance_utterance='“把速度降到 30 再比较一下” - 对比不同情景下的分析结果',
-            alternative_action_ids=["run_dispersion", "render_emission_map"],
-            category="analysis",
-        ),
+        ActionCatalogEntry(**entry)
+        for entry in registry.get_action_catalog_entries()
     ]
 
 

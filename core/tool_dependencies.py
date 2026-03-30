@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Set
 
 from core.plan import PlanStatus, PlanStep, PlanStepStatus
+from tools.contract_loader import get_tool_contract_registry
 
 if TYPE_CHECKING:
     from core.context_store import SessionContextStore
@@ -27,44 +28,9 @@ CANONICAL_RESULT_ALIASES: Dict[str, str] = {
 
 # Each tool declares what results it requires and what it provides.
 # Canonical result tokens are used throughout this graph.
-TOOL_GRAPH: Dict[str, Dict[str, List[str]]] = {
-    "query_emission_factors": {
-        "requires": [],
-        "provides": ["emission_factors"],
-    },
-    "calculate_micro_emission": {
-        "requires": [],
-        "provides": ["emission"],
-    },
-    "calculate_macro_emission": {
-        "requires": [],
-        "provides": ["emission"],
-    },
-    "calculate_dispersion": {
-        "requires": ["emission"],
-        "provides": ["dispersion"],
-    },
-    "analyze_hotspots": {
-        "requires": ["dispersion"],
-        "provides": ["hotspot"],
-    },
-    "render_spatial_map": {
-        "requires": [],
-        "provides": ["visualization"],
-    },
-    "compare_scenarios": {
-        "requires": [],
-        "provides": ["scenario_comparison"],
-    },
-    "analyze_file": {
-        "requires": [],
-        "provides": ["file_analysis"],
-    },
-    "query_knowledge": {
-        "requires": [],
-        "provides": ["knowledge"],
-    },
-}
+TOOL_GRAPH: Dict[str, Dict[str, List[str]]] = (
+    get_tool_contract_registry().get_tool_graph()
+)
 
 
 def normalize_result_token(token: Optional[str]) -> Optional[str]:
@@ -88,6 +54,61 @@ def normalize_tokens(tokens: Optional[Iterable[str]]) -> List[str]:
         seen.add(mapped)
         normalized.append(mapped)
     return normalized
+
+
+def _extract_result_data(payload: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return None
+    if "data" in payload and isinstance(payload.get("data"), dict):
+        if payload.get("success") is False:
+            return None
+        return payload["data"]
+    return payload if isinstance(payload, dict) else None
+
+
+def _infer_result_tokens_from_payload(payload: Any) -> List[str]:
+    data = _extract_result_data(payload)
+    if not isinstance(data, dict):
+        return []
+
+    inferred: List[str] = []
+    results = data.get("results")
+    if isinstance(results, list):
+        sample = [item for item in results[:3] if isinstance(item, dict)]
+        if any("total_emissions_kg_per_hr" in item for item in sample):
+            inferred.append("emission")
+
+    if "raster_grid" in data or "concentration_grid" in data:
+        inferred.append("dispersion")
+
+    if "hotspots" in data or data.get("hotspot_count") is not None:
+        inferred.append("hotspot")
+
+    summary = data.get("summary")
+    if isinstance(summary, dict):
+        if "mean_concentration" in summary or "receptor_count" in summary:
+            inferred.append("dispersion")
+        if "hotspot_count" in summary or "total_hotspot_area_m2" in summary:
+            inferred.append("hotspot")
+
+    return normalize_tokens(inferred)
+
+
+def _infer_inline_available_tokens(
+    tool_name: str,
+    arguments: Optional[Dict[str, Any]],
+) -> List[str]:
+    if not isinstance(arguments, dict):
+        return []
+
+    inferred = _infer_result_tokens_from_payload(arguments.get("_last_result"))
+    if not inferred:
+        return []
+
+    required_tokens = set(get_required_result_tokens(tool_name, arguments))
+    if not required_tokens:
+        return inferred
+    return [token for token in inferred if token in required_tokens]
 
 
 def get_required_result_tokens(
@@ -167,6 +188,7 @@ def validate_tool_prerequisites(
     required_tokens = get_required_result_tokens(tool_name, arguments)
     normalized_available = set(normalize_tokens(available_tokens))
     resolved_available = set(normalized_available)
+    resolved_available.update(_infer_inline_available_tokens(tool_name, arguments))
     missing_tokens: List[str] = []
     stale_tokens: List[str] = []
     issues: List[DependencyValidationIssue] = []

@@ -1325,7 +1325,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / f"evaluation/logs/continuation_{now_ts()}",
+        default=PROJECT_ROOT / f"evaluation/results/continuation/continuation_{now_ts()}",
     )
     parser.add_argument("--variant", choices=list(CONTINUATION_PROMPT_VARIANTS))
     parser.add_argument("--variant-set")

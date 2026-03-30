@@ -1,6 +1,7 @@
 """Tests for core.trace module."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -88,6 +89,26 @@ class TestTrace:
         assert isinstance(json_str, str)
         assert d["step_count"] == 1
         assert d["final_stage"] == "DONE"
+
+    def test_persist_writes_json_file(self, tmp_path):
+        t = Trace.start(session_id="persist-session")
+        t.record(
+            step_type=TraceStepType.TOOL_EXECUTION,
+            stage_before="EXECUTING",
+            action="calculate_macro_emission",
+            output_summary={"success": True},
+        )
+        t.finish("DONE")
+
+        persisted_path = Path(t.persist(output_dir=tmp_path))
+
+        assert persisted_path.exists()
+        assert persisted_path.name.startswith("trace_persist-session_")
+
+        payload = json.loads(persisted_path.read_text(encoding="utf-8"))
+        assert payload["session_id"] == "persist-session"
+        assert payload["final_stage"] == "DONE"
+        assert payload["step_count"] == 1
 
     def test_to_user_friendly_file_grounding(self):
         t = Trace.start()

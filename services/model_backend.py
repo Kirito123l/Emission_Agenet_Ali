@@ -80,6 +80,7 @@ class APIModelBackend(ParameterModelBackend):
         self._timeout = float(_config_value(self._config, "llm_timeout", 5.0))
         self._max_retries = int(_config_value(self._config, "llm_max_retries", 1))
         self._enabled = bool(_config_value(self._config, "llm_enabled", True))
+        self._disabled_reason: Optional[str] = None
         self._client = None
 
     def infer(
@@ -90,12 +91,13 @@ class APIModelBackend(ParameterModelBackend):
         aliases: Dict[str, List[str]],
         context: Optional[Dict[str, Any]] = None,
     ) -> Optional["StandardizationResult"]:
-        if not self._enabled or self._backend != "api":
+        if not self._enabled or self._backend != "api" or self._disabled_reason is not None:
             return None
 
         try:
             payload = self._call_llm(param_type, raw_value, candidates, aliases, context)
         except Exception as exc:
+            self._disabled_reason = str(exc)
             logger.warning("LLM standardization failed for %s=%r: %s", param_type, raw_value, exc)
             return None
 
@@ -322,12 +324,17 @@ def create_local_model_backend(config: Optional[Any] = None) -> ParameterModelBa
 def create_model_backend(config: Optional[Any] = None) -> ParameterModelBackend:
     """Create the configured parameter standardization backend."""
     resolved_config = config if config is not None else get_config()
+    model_enabled = bool(
+        _config_value(
+            resolved_config,
+            "llm_enabled",
+            _config_value(resolved_config, "enable_llm_standardization", True),
+        )
+    )
+    if not model_enabled:
+        return NoModelBackend()
     if _config_value(resolved_config, "use_local_standardizer", False):
         return LocalModelBackend(resolved_config)
-    if _config_value(
-        resolved_config,
-        "llm_enabled",
-        _config_value(resolved_config, "enable_llm_standardization", True),
-    ):
+    if model_enabled:
         return APIModelBackend(resolved_config)
     return NoModelBackend()

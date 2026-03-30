@@ -140,6 +140,18 @@ def test_validate_tool_prerequisites_passes_when_required_token_available():
     assert validation.stale_tokens == []
 
 
+def test_validate_tool_prerequisites_passes_with_injected_last_result():
+    validation = validate_tool_prerequisites(
+        "calculate_dispersion",
+        arguments={"_last_result": make_emission_result("baseline")},
+        available_tokens=set(),
+    )
+
+    assert validation.is_valid is True
+    assert validation.missing_tokens == []
+    assert "emission" in validation.available_tokens
+
+
 def test_validate_tool_prerequisites_fails_when_required_token_missing():
     validation = validate_tool_prerequisites(
         "analyze_hotspots",

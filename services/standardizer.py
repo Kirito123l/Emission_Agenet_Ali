@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import logging
 from typing import Optional, Dict, List, Any
 
+from config import get_config
 from services.config_loader import ConfigLoader
 from services.model_backend import NoModelBackend, ParameterModelBackend, create_local_model_backend
 
@@ -63,8 +64,11 @@ class UnifiedStandardizer:
     """
 
     def __init__(self):
+        runtime_config = get_config()
         self.mappings = ConfigLoader.load_mappings()
         self.config = self.mappings
+        self._fuzzy_enabled = bool(getattr(runtime_config, "standardization_fuzzy_enabled", True))
+        self._model_enabled = bool(getattr(runtime_config, "enable_llm_standardization", True))
         self._build_lookup_tables()
         self._local_model: Optional[ParameterModelBackend] = None  # Lazy load
 
@@ -172,6 +176,8 @@ class UnifiedStandardizer:
         model_method: str,
     ) -> Optional[StandardizationResult]:
         """Use the optional local model backend and normalize its response."""
+        if not self._model_enabled:
+            return None
         local_model = self._get_local_model()
         if not local_model:
             return None
@@ -264,7 +270,7 @@ class UnifiedStandardizer:
                 best_score = score
                 best_match = standard_name
 
-        if best_score >= 70 and best_match:
+        if self._fuzzy_enabled and best_score >= 70 and best_match:
             logger.debug(f"Vehicle fuzzy match: '{cleaned}' -> '{best_match}' (score: {best_score})")
             return StandardizationResult(
                 success=True,
@@ -333,7 +339,7 @@ class UnifiedStandardizer:
                 best_score = score
                 best_match = standard_name
 
-        if best_score >= 80 and best_match:
+        if self._fuzzy_enabled and best_score >= 80 and best_match:
             logger.debug(f"Pollutant fuzzy match: '{cleaned}' -> '{best_match}' (score: {best_score})")
             return StandardizationResult(
                 success=True,
@@ -404,7 +410,7 @@ class UnifiedStandardizer:
                 best_score = score
                 best_match = standard_name
 
-        if best_score >= 60 and best_match:
+        if self._fuzzy_enabled and best_score >= 60 and best_match:
             return StandardizationResult(
                 success=True,
                 original=cleaned,
@@ -453,7 +459,7 @@ class UnifiedStandardizer:
                 best_score = score
                 best_match = standard_name
 
-        if best_score >= 60 and best_match:
+        if self._fuzzy_enabled and best_score >= 60 and best_match:
             return StandardizationResult(
                 success=True,
                 original=cleaned,
@@ -514,7 +520,7 @@ class UnifiedStandardizer:
                 best_score = score
                 best_match = standard_name
 
-        if best_score >= 75 and best_match:
+        if self._fuzzy_enabled and best_score >= 75 and best_match:
             return StandardizationResult(
                 success=True,
                 original=cleaned,
@@ -565,7 +571,7 @@ class UnifiedStandardizer:
                 best_score = score
                 best_match = standard_name
 
-        if best_score >= 75 and best_match:
+        if self._fuzzy_enabled and best_score >= 75 and best_match:
             return StandardizationResult(
                 success=True,
                 original=cleaned,
@@ -760,3 +766,9 @@ def get_standardizer() -> UnifiedStandardizer:
     if _standardizer_instance is None:
         _standardizer_instance = UnifiedStandardizer()
     return _standardizer_instance
+
+
+def reset_standardizer() -> None:
+    """Reset cached standardizer so runtime config overrides take effect."""
+    global _standardizer_instance
+    _standardizer_instance = None

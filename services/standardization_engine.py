@@ -29,7 +29,7 @@ from config import get_config
 from services.config_loader import ConfigLoader
 from services.cross_constraints import CrossConstraintResult, CrossConstraintViolation, get_cross_constraint_validator
 from services.model_backend import APIModelBackend, NoModelBackend, ParameterModelBackend, create_model_backend
-from services.standardizer import StandardizationResult, UnifiedStandardizer, get_standardizer
+from services.standardizer import StandardizationResult, UnifiedStandardizer
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,11 @@ class RuleBackend(StandardizationBackend):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, standardizer: Optional[UnifiedStandardizer] = None):
         self._config = config or {}
-        self._standardizer = standardizer or get_standardizer()
+        self._standardizer = standardizer or UnifiedStandardizer()
+        if "fuzzy_enabled" in self._config:
+            self._standardizer._fuzzy_enabled = bool(self._config["fuzzy_enabled"])
+        if "llm_enabled" in self._config:
+            self._standardizer._model_enabled = bool(self._config["llm_enabled"])
         self._mappings = ConfigLoader.load_mappings()
 
     @property
@@ -224,6 +228,12 @@ class RuleBackend(StandardizationBackend):
             return False
         threshold = self._threshold_for(param_type)
         return abs(threshold - legacy) > 1e-9
+
+    def _is_fuzzy_enabled(self, param_type: str) -> bool:
+        return bool(
+            self._config.get("fuzzy_enabled", True)
+            and PARAM_TYPE_CONFIG.get(param_type, {}).get("fuzzy_enabled", True)
+        )
 
     def _threshold_for(self, param_type: str) -> float:
         thresholds = self._config.get("fuzzy_thresholds", {}) or {}
@@ -272,7 +282,7 @@ class RuleBackend(StandardizationBackend):
                 best_match = standard_name
 
         threshold = int(round(self._threshold_for(param_type) * 100))
-        if best_match and best_score >= threshold:
+        if self._is_fuzzy_enabled(param_type) and best_match and best_score >= threshold:
             return StandardizationResult(
                 success=True,
                 original=cleaned,

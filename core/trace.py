@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
@@ -227,6 +228,32 @@ class Trace:
             "step_count": len(self.steps),
             "steps": [s.to_dict() for s in self.steps],
         }
+
+    def persist(
+        self,
+        output_dir: Optional[str | Path] = None,
+        session_id: Optional[str] = None,
+    ) -> str:
+        """Persist the trace as a JSON audit artifact on disk."""
+        import json
+
+        if output_dir is None:
+            resolved_output_dir = Path(__file__).parent.parent / "data" / "traces"
+        else:
+            resolved_output_dir = Path(output_dir)
+
+        resolved_output_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        resolved_session_id = session_id or self.session_id
+        session_part = f"_{resolved_session_id}" if resolved_session_id else ""
+        filename = f"trace{session_part}_{timestamp}.json"
+        filepath = resolved_output_dir / filename
+
+        with filepath.open("w", encoding="utf-8") as fh:
+            json.dump(self.to_dict(), fh, ensure_ascii=False, indent=2, default=str)
+
+        return str(filepath)
 
     def to_user_friendly(self) -> List[Dict[str, str]]:
         """Convert to user-friendly display format for frontend trace panel.
