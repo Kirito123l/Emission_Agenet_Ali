@@ -958,6 +958,41 @@ def emission_to_line_source_strength(
     return nox_kg_h * 1000 / 3600 / (length_km * 1000 * road_width_m)
 
 
+def get_model_paths(
+    stability_abbrev: str, roughness_height: float, model_base_dir: str = ""
+) -> Tuple[Path, Path]:
+    """Get model file paths for a given stability class and roughness height."""
+    if roughness_height not in ROUGHNESS_MAP:
+        raise ValueError(
+            f"Unsupported roughness_height: {roughness_height}. "
+            f"Expected one of {sorted(ROUGHNESS_MAP)}"
+        )
+    if stability_abbrev not in STABILITY_ABBREV:
+        raise ValueError(f"Unknown stability class: {stability_abbrev}")
+
+    roughness_suffix = ROUGHNESS_MAP[roughness_height]
+    roughness_dir = ROUGHNESS_DIR_MAP[roughness_height]
+    base_dir = Path(model_base_dir) if model_base_dir else _default_model_base_dir()
+    model_dir = base_dir / roughness_dir
+
+    stability_name = STABILITY_ABBREV[stability_abbrev]
+    infix = "" if stability_name in {"neutral1", "neutral2"} else "_2000"
+    x0_path = model_dir / f"model_RLINE_remet_multidir_{stability_name}{infix}_x0_{roughness_suffix}.json"
+    xneg_path = model_dir / f"model_RLINE_remet_multidir_{stability_name}{infix}_x-1_{roughness_suffix}.json"
+    return x0_path, xneg_path
+
+
+def load_models_for_stability(
+    stability_abbrev: str, roughness_height: float, model_base_dir: str = ""
+) -> Dict[str, xgb.Booster]:
+    """Load models for a single stability class. Returns {"x0": Booster, "x-1": Booster}."""
+    x0_path, xneg_path = get_model_paths(stability_abbrev, roughness_height, model_base_dir)
+    return {
+        "x0": load_model(x0_path),
+        "x-1": load_model(xneg_path),
+    }
+
+
 def load_all_models(model_base_dir: str, roughness_height: float) -> Dict[str, Dict[str, xgb.Booster]]:
     """
     Load all 12 XGBoost models for a given roughness height.
@@ -973,24 +1008,9 @@ def load_all_models(model_base_dir: str, roughness_height: float) -> Dict[str, D
             f"Expected one of {sorted(ROUGHNESS_MAP)}"
         )
 
-    roughness_suffix = ROUGHNESS_MAP[roughness_height]
-    roughness_dir = ROUGHNESS_DIR_MAP[roughness_height]
-    base_dir = Path(model_base_dir) if model_base_dir else _default_model_base_dir()
-    model_dir = base_dir / roughness_dir
-
     models: Dict[str, Dict[str, xgb.Booster]] = {}
-    for stability_abbrev, stability_name in STABILITY_ABBREV.items():
-        infix = "" if stability_name in {"neutral1", "neutral2"} else "_2000"
-        x0_name = (
-            f"model_RLINE_remet_multidir_{stability_name}{infix}_x0_{roughness_suffix}.json"
-        )
-        xneg_name = (
-            f"model_RLINE_remet_multidir_{stability_name}{infix}_x-1_{roughness_suffix}.json"
-        )
-        models[stability_abbrev] = {
-            "x0": load_model(model_dir / x0_name),
-            "x-1": load_model(model_dir / xneg_name),
-        }
+    for stability_abbrev in STABILITY_ABBREV.keys():
+        models[stability_abbrev] = load_models_for_stability(stability_abbrev, roughness_height, model_base_dir)
     return models
 
 
@@ -1030,7 +1050,7 @@ class DispersionCalculator:
             _, sources_re = self._build_source_arrays(segments_df, utm_roads)
             met_df = self._process_meteorology(met_input)
             met_df, sources_re = self._align_sources_and_met(met_df, sources_re)
-            models = self._ensure_models_loaded()
+            self._ensure_models_loaded()
             road_id_map = (
                 merged[["road_index", "NAME_1"]]
                 .drop_duplicates()
@@ -1038,8 +1058,13 @@ class DispersionCalculator:
                 .tolist()
             )
 
+            stab_classes = met_df["Stab_Class"].unique()
+            models_for_prediction = {}
+            for stab_class in stab_classes:
+                models_for_prediction[stab_class] = self._get_or_load_model(stab_class)
+
             prediction_result = predict_time_series_xgb(
-                models=models,
+                models=models_for_prediction,
                 receptors_x=receptors_df["x"].to_numpy(dtype=float),
                 receptors_y=receptors_df["y"].to_numpy(dtype=float),
                 sources=sources_re,
@@ -1078,6 +1103,17 @@ class DispersionCalculator:
                 road_contributions=road_contributions,
                 road_id_map=road_id_map,
             )
+        except FileNotFoundError as exc:
+            logger.error("Model file missing: %s", exc, exc_info=True)
+            return {
+                "status": "error",
+                "error_code": "MODEL_ASSET_MISSING",
+                "message": str(exc),
+                "failure_detail": {
+                    "error_type": "MODEL_ASSET_MISSING",
+                    "details": str(exc),
+                },
+            }
         except Exception as exc:
             logger.error("Dispersion calculation failed: %s", exc, exc_info=True)
             return {
@@ -1378,8 +1414,19 @@ class DispersionCalculator:
         normalized = met_df.copy().reset_index(drop=True)
         if "H" not in normalized.columns:
             normalized["H"] = normalized.get("Temp", 0.0)
-        if "Stab_Class" not in normalized.columns or normalized["Stab_Class"].isna().any():
+
+        if "Stab_Class" not in normalized.columns:
             normalized["Stab_Class"] = normalized.apply(
+                lambda row: classify_stability(
+                    float(row["L"]),
+                    float(row["WSPD"]),
+                    float(row["MixHGT_C"]),
+                ),
+                axis=1,
+            )
+        elif normalized["Stab_Class"].isna().any():
+            mask = normalized["Stab_Class"].isna()
+            normalized.loc[mask, "Stab_Class"] = normalized.loc[mask].apply(
                 lambda row: classify_stability(
                     float(row["L"]),
                     float(row["WSPD"]),
@@ -1431,8 +1478,21 @@ class DispersionCalculator:
                 resolved_base_dir,
                 self.config.roughness_height,
             )
-            self._models = load_all_models(resolved_base_dir, self.config.roughness_height)
+            self._models = {}
         return self._models
+
+    def _get_or_load_model(self, stability_abbrev: str) -> Dict[str, xgb.Booster]:
+        """Lazily load model for a specific stability class."""
+        if stability_abbrev not in self._models:
+            try:
+                self._models[stability_abbrev] = load_models_for_stability(
+                    stability_abbrev, self.config.roughness_height, self._model_base_dir
+                )
+            except FileNotFoundError as exc:
+                raise FileNotFoundError(
+                    f"Model file missing for stability class '{stability_abbrev}': {exc}"
+                ) from exc
+        return self._models[stability_abbrev]
 
     def _assemble_result(
         self,

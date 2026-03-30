@@ -27,6 +27,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from config import get_config
 from services.config_loader import ConfigLoader
+from services.cross_constraints import CrossConstraintResult, CrossConstraintViolation, get_cross_constraint_validator
+from services.model_backend import APIModelBackend, NoModelBackend, ParameterModelBackend, create_model_backend
 from services.standardizer import StandardizationResult, UnifiedStandardizer, get_standardizer
 
 logger = logging.getLogger(__name__)
@@ -363,143 +365,8 @@ class RuleBackend(StandardizationBackend):
         return method_map[param_type](raw_value)
 
 
-class LLMBackend(StandardizationBackend):
-    """
-    LLM-based standardization for unresolved rule cases.
-
-    The current implementation uses the project's OpenAI-compatible client.
-    A future local backend can be introduced behind the same interface.
-    """
-
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        self._config = config or {}
-        self._backend = str(self._config.get("llm_backend", "api") or "api").lower()
-        self._model = self._config.get("llm_model")
-        self._timeout = float(self._config.get("llm_timeout", 5.0))
-        self._max_retries = int(self._config.get("llm_max_retries", 1))
-        self._enabled = bool(self._config.get("llm_enabled", True))
-        self._client = None
-
-    def standardize(
-        self,
-        param_type: str,
-        raw_value: str,
-        candidates: List[str],
-        aliases: Dict[str, List[str]],
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[StandardizationResult]:
-        if not self._enabled or self._backend != "api":
-            return None
-
-        try:
-            payload = self._call_llm(param_type, raw_value, candidates, aliases, context)
-        except Exception as exc:
-            logger.warning("LLM standardization failed for %s=%r: %s", param_type, raw_value, exc)
-            return None
-
-        if not isinstance(payload, dict):
-            return None
-
-        raw_choice = payload.get("value")
-        if raw_choice is None:
-            return None
-
-        candidate_lookup = {candidate.lower(): candidate for candidate in candidates}
-        normalized = candidate_lookup.get(str(raw_choice).strip().lower())
-        if not normalized:
-            logger.warning(
-                "LLM returned invalid candidate for %s=%r: %r",
-                param_type,
-                raw_value,
-                raw_choice,
-            )
-            return None
-
-        try:
-            confidence = float(payload.get("confidence", 0.8) or 0.8)
-        except (TypeError, ValueError):
-            confidence = 0.8
-
-        return StandardizationResult(
-            success=True,
-            original=_clean_string(raw_value),
-            normalized=normalized,
-            strategy="llm",
-            confidence=min(max(confidence, 0.0), 0.95),
-        )
-
-    def _get_client(self):
-        if self._client is not None:
-            return self._client
-
-        from services.llm_client import LLMClientService
-
-        client = LLMClientService(model=self._model, purpose="standardizer")
-        if abs(getattr(client, "_request_timeout", 120.0) - self._timeout) > 1e-9:
-            client._request_timeout = self._timeout
-            client._client_proxy = client._create_openai_client(use_proxy=True) if client._proxy else None
-            client._client_direct = client._create_openai_client(use_proxy=False)
-            client.client = client._client_proxy if client._use_proxy_primary and client._client_proxy else client._client_direct
-        self._client = client
-        return self._client
-
-    def _call_llm(
-        self,
-        param_type: str,
-        raw_value: str,
-        candidates: List[str],
-        aliases: Dict[str, List[str]],
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
-        prompt = self._build_prompt(param_type, raw_value, candidates, aliases)
-        system = "你是一个参数标准化助手。只能从给定候选中选择，不要解释，不要输出 Markdown。"
-        last_error = None
-
-        for _ in range(max(self._max_retries, 0) + 1):
-            try:
-                client = self._get_client()
-                response = client.chat_json_sync(prompt=prompt, system=system)
-                return response if isinstance(response, dict) else None
-            except Exception as exc:
-                last_error = exc
-                continue
-
-        if last_error is not None:
-            raise last_error
-        return None
-
-    def _build_prompt(
-        self,
-        param_type: str,
-        raw_value: str,
-        candidates: List[str],
-        aliases: Dict[str, List[str]],
-    ) -> str:
-        descriptions = {
-            "vehicle_type": "车辆类型（MOVES 机动车分类）",
-            "pollutant": "大气污染物种类",
-            "season": "季节",
-            "road_type": "道路功能分类",
-            "meteorology": "气象条件预设",
-            "stability_class": "大气稳定度等级（Pasquill-Gifford 分类）",
-        }
-        desc = descriptions.get(param_type, param_type)
-
-        candidate_lines = []
-        for candidate in candidates:
-            alias_items = aliases.get(candidate, [])[:3]
-            if alias_items:
-                candidate_lines.append(f"- {candidate}（{', '.join(alias_items)}）")
-            else:
-                candidate_lines.append(f"- {candidate}")
-
-        return (
-            f"将以下{desc}参数值映射到标准值。\n"
-            f"输入：\"{_clean_string(raw_value)}\"\n"
-            f"标准值列表：\n{chr(10).join(candidate_lines)}\n\n"
-            "只返回 JSON："
-            '{"value": "匹配的标准值或null", "confidence": 0.0到1.0}'
-        )
+class LLMBackend(APIModelBackend):
+    """Backward-compatible alias for the remote API model backend."""
 
 
 class StandardizationEngine:
@@ -507,12 +374,19 @@ class StandardizationEngine:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         runtime_config = get_config()
-        base_config = getattr(runtime_config, "standardization_config", {})
+        base_config = dict(getattr(runtime_config, "standardization_config", {}))
+        base_config.setdefault("use_local_standardizer", getattr(runtime_config, "use_local_standardizer", False))
+        base_config.setdefault(
+            "local_standardizer_config",
+            dict(getattr(runtime_config, "local_standardizer_config", {})),
+        )
         self._config = _merge_config(base_config, config)
         self._rule_backend = RuleBackend(config=self._config)
-        self._llm_backend = self._init_llm_backend()
+        self._model_backend = self._init_model_backend()
+        self._llm_backend = self._model_backend if isinstance(self._model_backend, APIModelBackend) else None
         self._param_registry = self._load_param_registry()
         self._catalog = self._load_catalog()
+        self._last_constraint_result: Optional[CrossConstraintResult] = None
 
     @property
     def rule_backend(self) -> RuleBackend:
@@ -522,8 +396,8 @@ class StandardizationEngine:
     def rule_standardizer(self) -> UnifiedStandardizer:
         return self._rule_backend.rule_standardizer
 
-    def _init_llm_backend(self) -> Optional[LLMBackend]:
-        return LLMBackend(self._config)
+    def _init_model_backend(self) -> ParameterModelBackend:
+        return create_model_backend(self._config)
 
     def _load_param_registry(self) -> Dict[str, str]:
         return dict(PARAM_TYPE_REGISTRY)
@@ -659,17 +533,19 @@ class StandardizationEngine:
         if self._should_accept_rule_result(param_type, raw_value, rule_result):
             return rule_result
 
-        if self._can_try_llm(param_type, raw_value, type_config):
-            llm_result = self._llm_backend.standardize(param_type, raw_value, candidates, aliases, context) if self._llm_backend else None
-            if llm_result is not None and llm_result.success:
+        if self._can_try_model(param_type, raw_value, type_config):
+            backend = self._llm_backend if self._llm_backend is not None else self._model_backend
+            model_result = self._infer_with_model_backend(backend, param_type, raw_value, candidates, aliases, context)
+            if model_result is not None and model_result.success:
                 logger.info(
-                    "LLM resolved %s=%r -> %r (confidence=%.2f)",
+                    "Model backend resolved %s=%r -> %r (strategy=%s, confidence=%.2f)",
                     param_type,
                     raw_value,
-                    llm_result.normalized,
-                    llm_result.confidence,
+                    model_result.normalized,
+                    model_result.strategy,
+                    model_result.confidence,
                 )
-                return llm_result
+                return model_result
 
         if rule_result.success:
             return rule_result
@@ -691,6 +567,7 @@ class StandardizationEngine:
     ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         standardized: Dict[str, Any] = {}
         records: List[Dict[str, Any]] = []
+        self._last_constraint_result = None
 
         for key, value in dict(params or {}).items():
             param_type = self._param_registry.get(key)
@@ -752,6 +629,28 @@ class StandardizationEngine:
                     else "standardization_abstain_no_safe_candidates"
                 ),
             )
+
+        if self._cross_constraint_validation_enabled():
+            constraint_result = get_cross_constraint_validator().validate(standardized)
+            self._last_constraint_result = constraint_result
+            self._append_cross_constraint_warnings(records, constraint_result.warnings)
+
+            if not constraint_result.all_valid:
+                violation = constraint_result.violations[0]
+                suggestions = violation.suggestions or [
+                    f"修改 {violation.param_a_name} 的值",
+                    f"修改 {violation.param_b_name} 的值",
+                ]
+                records.append(self._build_cross_constraint_record(violation, success=False))
+                raise BatchStandardizationError(
+                    message=f"参数组合不合法: {violation.reason}",
+                    param_name=violation.param_b_name,
+                    original_value=violation.param_b_value,
+                    suggestions=suggestions,
+                    records=records,
+                    negotiation_eligible=True,
+                    trigger_reason=f"cross_constraint_violation:{violation.constraint_name}",
+                )
 
         return standardized, records
 
@@ -916,24 +815,52 @@ class StandardizationEngine:
         if result.success and result.strategy != "default":
             return True
         if result.success and result.strategy == "default":
-            return not cleaned or not self._is_llm_enabled_for(param_type)
+            return not cleaned or not self._is_model_enabled_for(param_type)
         if result.strategy == "none":
             return not cleaned
         return False
 
-    def _can_try_llm(self, param_type: str, raw_value: Any, type_config: Dict[str, Any]) -> bool:
+    def _can_try_model(self, param_type: str, raw_value: Any, type_config: Dict[str, Any]) -> bool:
         return bool(
-            self._llm_backend
-            and self._is_llm_enabled_for(param_type)
+            self._model_backend
+            and not isinstance(self._model_backend, NoModelBackend)
+            and (
+                callable(getattr(self._model_backend, "infer", None))
+                or callable(getattr(self._model_backend, "standardize", None))
+            )
+            and self._is_model_enabled_for(param_type)
             and isinstance(raw_value, str)
             and raw_value.strip()
             and type_config.get("llm_enabled", True)
         )
 
-    def _is_llm_enabled_for(self, param_type: str) -> bool:
-        if not self._config.get("llm_enabled", True):
+    def _is_model_enabled_for(self, param_type: str) -> bool:
+        if isinstance(self._model_backend, NoModelBackend):
             return False
         return PARAM_TYPE_CONFIG.get(param_type, {}).get("llm_enabled", True)
+
+    def _is_llm_enabled_for(self, param_type: str) -> bool:
+        """Backward-compatible alias for tests and existing callers."""
+        return self._is_model_enabled_for(param_type)
+
+    @staticmethod
+    def _infer_with_model_backend(
+        backend: Any,
+        param_type: str,
+        raw_value: Any,
+        candidates: List[str],
+        aliases: Dict[str, List[str]],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[StandardizationResult]:
+        infer_method = getattr(backend, "infer", None)
+        if callable(infer_method):
+            return infer_method(param_type, raw_value, candidates, aliases, context)
+
+        standardize_method = getattr(backend, "standardize", None)
+        if callable(standardize_method):
+            return standardize_method(param_type, raw_value, candidates, aliases, context)
+
+        return None
 
     def _get_suggestions(self, param_type: str, raw_value: Any) -> List[str]:
         cleaned = _clean_string(raw_value)
@@ -966,6 +893,11 @@ class StandardizationEngine:
             f"Parameter '{param_name}' for value '{raw_value}' requires confirmation before execution. "
             f"Candidates: {suggestion_text}"
         )
+
+    def get_last_constraint_trace(self) -> Optional[Dict[str, Any]]:
+        if self._last_constraint_result is None:
+            return None
+        return self._last_constraint_result.to_dict()
 
     def _parameter_negotiation_enabled(self) -> bool:
         return bool(self._config.get("parameter_negotiation_enabled", False))
@@ -1027,3 +959,35 @@ class StandardizationEngine:
         if key == "meteorology" and result.strategy == "passthrough" and isinstance(raw_value, str):
             return False
         return True
+
+    def _cross_constraint_validation_enabled(self) -> bool:
+        return bool(self._config.get("enable_cross_constraint_validation", True))
+
+    def _append_cross_constraint_warnings(
+        self,
+        records: List[Dict[str, Any]],
+        warnings: List[CrossConstraintViolation],
+    ) -> None:
+        for warning in warnings:
+            records.append(self._build_cross_constraint_record(warning, success=True))
+
+    @staticmethod
+    def _build_cross_constraint_record(
+        violation: CrossConstraintViolation,
+        *,
+        success: bool,
+    ) -> Dict[str, Any]:
+        strategy = "cross_constraint_warning" if success else "cross_constraint_violation"
+        return {
+            "param": f"{violation.param_a_name}+{violation.param_b_name}",
+            "success": success,
+            "original": f"{violation.param_a_value} | {violation.param_b_value}",
+            "normalized": f"{violation.param_a_value} | {violation.param_b_value}",
+            "strategy": strategy,
+            "confidence": 1.0,
+            "record_type": strategy,
+            "constraint_name": violation.constraint_name,
+            "violation_type": violation.violation_type,
+            "reason": violation.reason,
+            "suggestions": list(violation.suggestions),
+        }

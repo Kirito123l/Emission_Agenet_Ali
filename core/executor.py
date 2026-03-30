@@ -227,6 +227,7 @@ class ToolExecutor:
                 logger.info("[Executor] Standardized arguments for %s: %s", tool_name, summarized_standardized_args)
             exec_trace["standardized_arguments"] = summarized_standardized_args
             exec_trace["standardization_records"] = std_records
+            exec_trace["cross_constraint_validation"] = self._std_engine.get_last_constraint_trace()
         except StandardizationError as e:
             logger.error(f"Standardization failed for {tool_name}: {e}")
             return {
@@ -243,6 +244,7 @@ class ToolExecutor:
                 "_trace": {
                     **exec_trace,
                     "standardization_records": e.records if hasattr(e, "records") else std_records,
+                    "cross_constraint_validation": self._std_engine.get_last_constraint_trace(),
                     "error": str(e),
                     "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
                 },
@@ -280,6 +282,7 @@ class ToolExecutor:
                 "_trace": {
                     **exec_trace,
                     "standardization_records": std_records,
+                    "cross_constraint_validation": self._std_engine.get_last_constraint_trace(),
                     "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
                 },
             }
@@ -295,6 +298,7 @@ class ToolExecutor:
                 "_trace": {
                     **exec_trace,
                     "standardization_records": std_records,
+                    "cross_constraint_validation": self._std_engine.get_last_constraint_trace(),
                     "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
                 },
             }
@@ -310,6 +314,7 @@ class ToolExecutor:
                 "_trace": {
                     **exec_trace,
                     "standardization_records": std_records,
+                    "cross_constraint_validation": self._std_engine.get_last_constraint_trace(),
                     "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
                 },
             }

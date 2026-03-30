@@ -2,7 +2,57 @@
 VSP (Vehicle Specific Power) 计算器
 严格按照 MOVES 模型实现
 """
-from shared.standardizer.constants import VSP_PARAMETERS, VSP_BINS
+from __future__ import annotations
+
+from typing import Dict, Tuple
+
+from services.config_loader import ConfigLoader
+
+
+def _normalize_vsp_bound(value: float) -> float:
+    """Translate YAML sentinel bounds into open-ended ranges."""
+    if value <= -999999:
+        return float("-inf")
+    if value >= 999999:
+        return float("inf")
+    return float(value)
+
+
+def _load_vsp_parameters() -> Dict[int, Dict[str, float]]:
+    """Load VSP parameter sets from the unified mappings configuration."""
+    params: Dict[int, Dict[str, float]] = {}
+    for vehicle_entry in ConfigLoader.get_vehicle_types():
+        vehicle_id = vehicle_entry.get("id")
+        if not isinstance(vehicle_id, int):
+            continue
+        vehicle_params = ConfigLoader.get_vsp_params(vehicle_id)
+        if not isinstance(vehicle_params, dict):
+            continue
+        params[vehicle_id] = {
+            key: float(value)
+            for key, value in vehicle_params.items()
+        }
+    return params
+
+
+def _load_vsp_bins() -> Dict[int, Tuple[float, float]]:
+    """Load VSP bins from the unified mappings configuration."""
+    bins: Dict[int, Tuple[float, float]] = {}
+    for raw_bin_id, range_config in ConfigLoader.get_vsp_bins().items():
+        if not isinstance(range_config, dict):
+            continue
+        try:
+            bin_id = int(raw_bin_id)
+        except (TypeError, ValueError):
+            continue
+        minimum = _normalize_vsp_bound(float(range_config["min"]))
+        maximum = _normalize_vsp_bound(float(range_config["max"]))
+        bins[bin_id] = (minimum, maximum)
+    return bins
+
+
+VSP_PARAMETERS = _load_vsp_parameters()
+VSP_BINS = _load_vsp_bins()
 
 class VSPCalculator:
     """VSP计算器"""

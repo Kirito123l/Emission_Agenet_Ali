@@ -29,6 +29,7 @@ class TestConfigLoading:
         assert config.enable_llm_standardization is True
         assert config.enable_standardization_cache is True
         assert config.continuation_prompt_variant == "balanced_repair_aware"
+        assert config.enable_cross_constraint_validation is True
         assert config.enable_parameter_negotiation is False
         assert config.parameter_negotiation_confidence_threshold == 0.85
         assert config.parameter_negotiation_max_candidates == 5

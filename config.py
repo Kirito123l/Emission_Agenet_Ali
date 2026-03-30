@@ -52,6 +52,9 @@ class Config:
         self.enable_lightweight_planning = os.getenv("ENABLE_LIGHTWEIGHT_PLANNING", "false").lower() == "true"
         self.enable_bounded_plan_repair = os.getenv("ENABLE_BOUNDED_PLAN_REPAIR", "false").lower() == "true"
         self.enable_repair_aware_continuation = os.getenv("ENABLE_REPAIR_AWARE_CONTINUATION", "false").lower() == "true"
+        self.enable_cross_constraint_validation = (
+            os.getenv("ENABLE_CROSS_CONSTRAINT_VALIDATION", "true").lower() == "true"
+        )
         self.enable_parameter_negotiation = os.getenv("ENABLE_PARAMETER_NEGOTIATION", "false").lower() == "true"
         self.enable_file_analysis_llm_fallback = os.getenv("ENABLE_FILE_ANALYSIS_LLM_FALLBACK", "false").lower() == "true"
         self.enable_workflow_templates = os.getenv("ENABLE_WORKFLOW_TEMPLATES", "false").lower() == "true"
@@ -214,6 +217,7 @@ class Config:
             "llm_timeout": float(os.getenv("STANDARDIZATION_LLM_TIMEOUT", "5.0")),
             "llm_max_retries": int(os.getenv("STANDARDIZATION_LLM_MAX_RETRIES", "1")),
             "fuzzy_threshold": float(os.getenv("STANDARDIZATION_FUZZY_THRESHOLD", "0.7")),
+            "enable_cross_constraint_validation": self.enable_cross_constraint_validation,
             "parameter_negotiation_enabled": self.enable_parameter_negotiation,
             "parameter_negotiation_confidence_threshold": self.parameter_negotiation_confidence_threshold,
             "parameter_negotiation_max_candidates": self.parameter_negotiation_max_candidates,
@@ -245,6 +249,8 @@ class Config:
             "max_length": int(os.getenv("LOCAL_STANDARDIZER_MAX_LENGTH", "256")),
             "vllm_url": os.getenv("LOCAL_STANDARDIZER_VLLM_URL", "http://localhost:8001"),
         }
+        self.standardization_config["use_local_standardizer"] = self.use_local_standardizer
+        self.standardization_config["local_standardizer_config"] = dict(self.local_standardizer_config)
 
         # ============ RAG配置 ============
         # Embedding模式: "api" 或 "local"

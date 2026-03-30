@@ -1,3 +1,9 @@
+"""Legacy direct macro-emission skill retained for compatibility.
+
+The active runtime uses `tools.macro_emission`. This direct skill interface is
+kept only for older scripts and transitional call sites.
+"""
+
 from pathlib import Path
 from typing import Dict, Tuple, Optional, List
 import logging

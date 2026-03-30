@@ -1,0 +1,37 @@
+version: "1.0"
+
+constraints:
+  - name: "vehicle_road_compatibility"
+    description: "Certain vehicle types cannot legally use specific road types."
+    param_a: "vehicle_type"
+    param_b: "road_type"
+    type: "blocked_combinations"
+    rules:
+      "Motorcycle":
+        blocked:
+          - "高速公路"
+        reason: "摩托车不允许上高速公路"
+
+  - name: "vehicle_pollutant_relevance"
+    description: "Reserved rule slot for vehicle and pollutant relevance checks."
+    param_a: "vehicle_type"
+    param_b: "pollutants"
+    type: "conditional_warning"
+    rules: {}
+
+  - name: "season_meteorology_consistency"
+    description: "Season and meteorology presets should remain broadly consistent."
+    param_a: "season"
+    param_b: "meteorology"
+    type: "consistency_warning"
+    rules:
+      "冬季":
+        inconsistent:
+          - "urban_summer_day"
+          - "urban_summer_night"
+        reason: "冬季使用夏季气象预设可能导致结果不准确"
+      "夏季":
+        inconsistent:
+          - "urban_winter_day"
+          - "urban_winter_night"
+        reason: "夏季使用冬季气象预设可能导致结果不准确"

@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 import yaml
 
 from core.coverage_assessment import assess_coverage
-from tools.base import BaseTool, ToolResult
+from tools.base import BaseTool, PreflightCheckResult, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +143,12 @@ class DispersionTool(BaseTool):
             )
 
             if result.get("status") != "success":
+                error_data = result.copy()
+                error_data.pop("failure_detail", None)
                 return ToolResult(
                     success=False,
                     error=result.get("message", "Dispersion calculation failed"),
-                    data=result,
+                    data=error_data,
                 )
 
             data = result["data"]
@@ -377,6 +379,85 @@ class DispersionTool(BaseTool):
         if grid_resolution is not None:
             calculator.config.display_grid_resolution_m = float(grid_resolution)
         return calculator
+
+    def preflight_check(self, parameters: Dict[str, Any]) -> PreflightCheckResult:
+        """Check that dispersion model files exist for the requested parameters."""
+        from calculators.dispersion import get_model_paths, STABILITY_ABBREV
+
+        try:
+            meteorology = str(parameters.get("meteorology", "urban_summer_day"))
+            # .sfc inputs: stability class is unknown until the file is parsed at runtime
+            if Path(meteorology).suffix.lower() == ".sfc":
+                return PreflightCheckResult(is_ready=True)
+
+            try:
+                roughness_height = float(parameters.get("roughness_height", 0.5))
+            except (TypeError, ValueError):
+                roughness_height = 0.5
+
+            stability_abbrev = self._resolve_stability_class(meteorology, parameters)
+            if stability_abbrev is None:
+                # Cannot determine stability ahead of time; let execute() handle it
+                return PreflightCheckResult(is_ready=True)
+
+            try:
+                x0_path, xneg_path = get_model_paths(stability_abbrev, roughness_height)
+            except ValueError:
+                # Invalid roughness or stability value; let execute() handle with proper error
+                return PreflightCheckResult(is_ready=True)
+
+            missing = [p for p in (x0_path, xneg_path) if not p.exists()]
+            if not missing:
+                return PreflightCheckResult(is_ready=True)
+
+            # Build availability map across all stability classes for the LLM
+            available: list = []
+            for abbrev in STABILITY_ABBREV:
+                try:
+                    p0, pn = get_model_paths(abbrev, roughness_height)
+                    if p0.exists() and pn.exists():
+                        available.append(abbrev)
+                except Exception:
+                    pass
+
+            return PreflightCheckResult(
+                is_ready=False,
+                reason_code="model_asset_missing",
+                message=(
+                    f"Dispersion model files missing for stability class '{stability_abbrev}': "
+                    + ", ".join(p.name for p in missing)
+                ),
+                missing_requirements=[f"model:{stability_abbrev}"],
+                details={
+                    "stability_class": stability_abbrev,
+                    "roughness_height": roughness_height,
+                    "missing_files": [p.name for p in missing],
+                    "available_stability_classes": available,
+                },
+            )
+
+        except Exception:
+            logger.warning("Dispersion preflight check error, skipping", exc_info=True)
+            return PreflightCheckResult(is_ready=True)
+
+    def _resolve_stability_class(self, meteorology: str, parameters: Dict[str, Any]) -> Optional[str]:
+        """Resolve the stability class abbreviation from the meteorology parameter."""
+        from calculators.dispersion import STABILITY_ABBREV
+        valid = set(STABILITY_ABBREV.keys())
+
+        if meteorology == "custom":
+            sc = str(parameters.get("stability_class", "N1")).upper()
+            return sc if sc in valid else "N1"
+
+        if meteorology in PRESET_METEOROLOGY:
+            try:
+                preset = self._load_preset(meteorology)
+                sc = str(preset.get("stability_class", "N1")).upper()
+                return sc if sc in valid else None
+            except Exception:
+                return None
+
+        return None
 
     def _build_summary(
         self,

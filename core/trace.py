@@ -100,6 +100,9 @@ class TraceStepType(str, Enum):
     REMEDIATION_POLICY_APPLIED = "remediation_policy_applied"
     REMEDIATION_POLICY_FAILED = "remediation_policy_failed"
     PARAMETER_STANDARDIZATION = "parameter_standardization"
+    CROSS_CONSTRAINT_VALIDATED = "cross_constraint_validated"
+    CROSS_CONSTRAINT_VIOLATION = "cross_constraint_violation"
+    CROSS_CONSTRAINT_WARNING = "cross_constraint_warning"
     TOOL_SELECTION = "tool_selection"
     TOOL_EXECUTION = "tool_execution"
     STATE_TRANSITION = "state_transition"
@@ -955,6 +958,18 @@ class Trace:
             if step.standardization_records:
                 lines = []
                 for rec in step.standardization_records:
+                    record_type = rec.get("record_type")
+                    if record_type == "cross_constraint_violation":
+                        lines.append(
+                            f"{rec.get('param', '?')}: incompatible ({rec.get('reason', 'cross constraint violation')})"
+                        )
+                        continue
+                    if record_type == "cross_constraint_warning":
+                        lines.append(
+                            f"{rec.get('param', '?')}: warning ({rec.get('reason', 'cross constraint warning')})"
+                        )
+                        continue
+
                     param = rec.get("param", "?")
                     original = rec.get("original", "?")
                     normalized = rec.get("normalized", original)
@@ -970,6 +985,30 @@ class Trace:
                 "title": "参数标准化 / Parameter Standardization",
                 "description": desc,
                 "status": "success",
+                "step_type": step.step_type.value,
+            }
+
+        elif step.step_type == TraceStepType.CROSS_CONSTRAINT_VALIDATED:
+            return {
+                "title": "交叉约束校验 / Cross-Constraint Validation",
+                "description": step.reasoning or "Cross-parameter constraints were evaluated.",
+                "status": "success",
+                "step_type": step.step_type.value,
+            }
+
+        elif step.step_type == TraceStepType.CROSS_CONSTRAINT_VIOLATION:
+            return {
+                "title": "交叉约束冲突 / Cross-Constraint Violation",
+                "description": step.reasoning or step.error or "A cross-parameter constraint was violated.",
+                "status": "error",
+                "step_type": step.step_type.value,
+            }
+
+        elif step.step_type == TraceStepType.CROSS_CONSTRAINT_WARNING:
+            return {
+                "title": "交叉约束警告 / Cross-Constraint Warning",
+                "description": step.reasoning or "A cross-parameter compatibility warning was recorded.",
+                "status": "warning",
                 "step_type": step.step_type.value,
             }
 

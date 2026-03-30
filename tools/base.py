@@ -3,8 +3,8 @@ Tool Base Classes
 Defines the base interface for all tools
 """
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, field
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,16 @@ class ToolResult:
     table_data: Optional[Dict] = None  # Table data for display
     download_file: Optional[str] = None  # File path for download
     map_data: Optional[Dict[str, Any]] = None  # Map data for geographic visualization
+
+
+@dataclass
+class PreflightCheckResult:
+    """Result of tool preflight check (asset availability)."""
+    is_ready: bool
+    reason_code: Optional[str] = None
+    message: Optional[str] = None
+    missing_requirements: Optional[List[str]] = field(default_factory=list)
+    details: Optional[Dict[str, Any]] = field(default_factory=dict)
 
 
 class BaseTool(ABC):
@@ -54,6 +64,19 @@ class BaseTool(ABC):
             ToolResult with success status and data/error
         """
         pass
+
+    def preflight_check(self, parameters: Dict[str, Any]) -> PreflightCheckResult:
+        """
+        Preflight check for tool execution (asset availability).
+        Override in subclass to check tool-specific dependencies.
+
+        Args:
+            parameters: Tool parameters that will be used
+
+        Returns:
+            PreflightCheckResult indicating readiness
+        """
+        return PreflightCheckResult(is_ready=True)
 
     def _success(
         self,

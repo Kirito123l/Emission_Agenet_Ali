@@ -981,6 +981,51 @@ def _missing_field_resolved_by_override(
     return False
 
 
+def _run_tool_preflight_check(
+    tool_name: Optional[str],
+    parameter_locks: Optional[Dict[str, Any]],
+    normalized_completion_overrides: Optional[Dict[str, Any]],
+) -> Optional[BlockedReason]:
+    """
+    Invoke the tool's preflight_check() via the registry and convert the result to a
+    BlockedReason.  Returns None when the tool is ready or when the check cannot run.
+    Exceptions inside the check are swallowed so a broken check never blocks execution.
+    """
+    if not tool_name:
+        return None
+    try:
+        from tools.registry import get_registry
+
+        tool = get_registry().get(tool_name)
+        if tool is None or not hasattr(tool, "preflight_check"):
+            return None
+
+        params: Dict[str, Any] = {}
+        if parameter_locks:
+            params.update(parameter_locks)
+        if normalized_completion_overrides:
+            params.update(normalized_completion_overrides)
+
+        result = tool.preflight_check(params)
+        if result.is_ready:
+            return None
+
+        return BlockedReason(
+            reason_code=result.reason_code or "asset_check_failed",
+            message=result.message or "工具资产检查失败。",
+            missing_requirements=list(result.missing_requirements or []),
+            repair_hint="请确认所需的模型文件或配置资源完整可用。",
+            severity="error",
+            details=dict(result.details or {}),
+        )
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "Preflight check for tool '%s' raised an exception, skipping", tool_name, exc_info=True
+        )
+        return None
+
+
 def assess_action_readiness(
     action: ActionCatalogEntry,
     *,
@@ -1254,6 +1299,29 @@ def assess_action_readiness(
             arguments=dict(action.arguments),
             reason=reason,
             required_conditions=[f"{action.requires_spatial_result_token}_spatial_payload"],
+            available_conditions=available_conditions,
+            alternative_actions=list(action.alternative_action_ids),
+            guidance_utterance=action.guidance_utterance,
+            guidance_enabled=action.guidance_enabled,
+        )
+
+    preflight_reason = _run_tool_preflight_check(
+        action.tool_name,
+        parameter_locks,
+        normalized_completion_overrides,
+    )
+    if preflight_reason is not None:
+        return ActionAffordance(
+            action_id=action.action_id,
+            status=ReadinessStatus.BLOCKED,
+            display_name=action.display_name,
+            description=action.description,
+            tool_name=action.tool_name,
+            arguments=dict(action.arguments),
+            reason=preflight_reason,
+            required_conditions=[
+                f"asset:{req}" for req in (preflight_reason.missing_requirements or [])
+            ],
             available_conditions=available_conditions,
             alternative_actions=list(action.alternative_action_ids),
             guidance_utterance=action.guidance_utterance,

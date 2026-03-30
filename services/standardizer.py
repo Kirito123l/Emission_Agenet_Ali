@@ -9,6 +9,7 @@ import logging
 from typing import Optional, Dict, List, Any
 
 from services.config_loader import ConfigLoader
+from services.model_backend import NoModelBackend, ParameterModelBackend, create_local_model_backend
 
 # Try to import fuzzywuzzy, fallback to difflib
 try:
@@ -65,7 +66,7 @@ class UnifiedStandardizer:
         self.mappings = ConfigLoader.load_mappings()
         self.config = self.mappings
         self._build_lookup_tables()
-        self._local_model = None  # Lazy load
+        self._local_model: Optional[ParameterModelBackend] = None  # Lazy load
 
     def _build_lookup_tables(self):
         """Build fast lookup tables from configuration."""
@@ -170,45 +171,51 @@ class UnifiedStandardizer:
         lookup: Dict[str, str],
         model_method: str,
     ) -> Optional[StandardizationResult]:
-        """Use the optional local standardizer and normalize its response."""
+        """Use the optional local model backend and normalize its response."""
         local_model = self._get_local_model()
         if not local_model:
             return None
 
-        try:
-            model_result = getattr(local_model, model_method)(raw_input)
-            confidence = 0.9
-            normalized_candidate = None
+        param_type = {
+            "standardize_vehicle": "vehicle_type",
+            "standardize_pollutant": "pollutant",
+        }.get(model_method)
+        if param_type is None:
+            return None
 
-            if isinstance(model_result, dict):
-                normalized_candidate = (
-                    model_result.get("standard_name")
-                    or model_result.get("normalized")
-                    or model_result.get("result")
-                )
-                try:
-                    confidence = float(model_result.get("confidence", 0.9) or 0.9)
-                except (TypeError, ValueError):
-                    confidence = 0.9
-            elif isinstance(model_result, str):
-                normalized_candidate = model_result.strip()
-
-            if not normalized_candidate or confidence < 0.9:
-                return None
-
-            normalized = lookup.get(str(normalized_candidate).lower().strip())
-            if normalized:
-                return StandardizationResult(
-                    success=True,
-                    original=raw_input,
-                    normalized=normalized,
-                    strategy="local_model",
-                    confidence=round(confidence, 2),
-                )
-        except Exception as exc:
-            logger.warning(f"Local model failed for '{raw_input}' via {model_method}: {exc}")
-
+        candidates = (
+            list(self.vehicle_catalog.keys())
+            if param_type == "vehicle_type"
+            else list(self.pollutant_catalog.keys())
+        )
+        aliases = self._get_model_aliases(param_type)
+        result = local_model.infer(param_type, raw_input, candidates, aliases)
+        if result is None or not result.success:
+            return None
+        if result.normalized and result.normalized in set(lookup.values()):
+            return result
         return None
+
+    def _get_model_aliases(self, param_type: str) -> Dict[str, List[str]]:
+        """Return candidate aliases for model-based standardization."""
+        aliases: Dict[str, List[str]] = {}
+        if param_type == "vehicle_type":
+            for std_name, entry in self.vehicle_catalog.items():
+                alias_items = []
+                display_name = entry.get("display_name_zh")
+                if display_name:
+                    alias_items.append(str(display_name))
+                alias_items.extend(str(alias) for alias in entry.get("aliases", []) if alias)
+                aliases[std_name] = alias_items
+        elif param_type == "pollutant":
+            for std_name, entry in self.pollutant_catalog.items():
+                alias_items = []
+                display_name = entry.get("display_name_zh")
+                if display_name:
+                    alias_items.append(str(display_name))
+                alias_items.extend(str(alias) for alias in entry.get("aliases", []) if alias)
+                aliases[std_name] = alias_items
+        return aliases
 
     def _rank_standard_names(
         self,
@@ -727,20 +734,17 @@ class UnifiedStandardizer:
         Lazy load local model if available
 
         Returns:
-            Local model client or None
+            Local model backend or None
         """
         if self._local_model is None:
             try:
-                from config import get_config
-
-                config = get_config()
-                if config.use_local_standardizer:
-                    from shared.standardizer.local_client import get_local_standardizer_client
-
-                    self._local_model = get_local_standardizer_client()
-                    logger.info("Local standardizer model loaded")
-                else:
+                backend = create_local_model_backend()
+                if isinstance(backend, NoModelBackend):
                     logger.info("Local standardizer disabled in config")
+                    self._local_model = None
+                else:
+                    self._local_model = backend
+                    logger.info("Local standardizer model backend loaded")
             except Exception as exc:
                 logger.info(f"Local standardizer not available: {exc}")
 
