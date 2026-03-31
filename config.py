@@ -56,6 +56,11 @@ class Config:
         )
         self.contour_n_levels = int(os.getenv("CONTOUR_N_LEVELS", "12"))
         self.contour_smooth_sigma = float(os.getenv("CONTOUR_SMOOTH_SIGMA", "1.0"))
+        self.map_export_dpi = int(os.getenv("MAP_EXPORT_DPI", "300"))
+        self.map_export_default_format = (
+            os.getenv("MAP_EXPORT_DEFAULT_FORMAT", "png").strip().lower() or "png"
+        )
+        self.map_export_ttl_hours = int(os.getenv("MAP_EXPORT_TTL_HOURS", "1"))
         self.standardization_fuzzy_enabled = (
             os.getenv("STANDARDIZATION_FUZZY_ENABLED", "true").lower() == "true"
         )
@@ -238,10 +243,12 @@ class Config:
         self.data_collection_dir = PROJECT_ROOT / os.getenv("DATA_COLLECTION_DIR", "data/collection")
         self.log_dir = PROJECT_ROOT / os.getenv("LOG_DIR", "data/logs")
         self.outputs_dir = PROJECT_ROOT / os.getenv("OUTPUTS_DIR", "outputs")
+        self.map_export_dir = PROJECT_ROOT / os.getenv("MAP_EXPORT_DIR", "data/exports")
 
         self.data_collection_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
+        self.map_export_dir.mkdir(parents=True, exist_ok=True)
 
         # 代理设置
         self.http_proxy = os.getenv("HTTP_PROXY", "")

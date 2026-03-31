@@ -108,6 +108,19 @@ class HistoryResponse(BaseModel):
     messages: List[Message]
     success: bool = True
 
+
+class ExportMapRequest(BaseModel):
+    """静态地图导出请求。"""
+
+    session_id: Optional[str] = None
+    result_type: str = "dispersion"  # "dispersion" | "hotspot" | "emission"
+    scenario_label: str = "baseline"
+    format: str = "png"              # "png" | "svg" | "pdf"
+    dpi: int = 300
+    add_basemap: bool = True
+    add_roads: bool = True
+    language: str = "zh"
+
 class SessionListResponse(BaseModel):
     """会话列表响应"""
     sessions: List[SessionInfo]

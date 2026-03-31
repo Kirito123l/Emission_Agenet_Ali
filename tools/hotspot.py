@@ -94,6 +94,8 @@ class HotspotTool(BaseTool):
                 analysis_data["coverage_assessment"] = coverage_assessment
             if "contour_bands" in dispersion_data:
                 analysis_data["contour_bands"] = dispersion_data["contour_bands"]
+            if "roads_wgs84" in dispersion_data:
+                analysis_data["roads_wgs84"] = dispersion_data["roads_wgs84"]
             if "query_info" in dispersion_data:
                 analysis_data["query_info"] = dispersion_data["query_info"]
             if "meteorology_used" in dispersion_data:
@@ -175,11 +177,14 @@ class HotspotTool(BaseTool):
             "hotspots": data.get("hotspots", []),
             "summary": data.get("summary", {}),
             "interpretation": data.get("interpretation", ""),
+            "scenario_label": str(data.get("scenario_label") or dispersion_data.get("scenario_label") or "baseline"),
         }
         if "raster_grid" in dispersion_data:
             map_data["raster_grid"] = dispersion_data["raster_grid"]
         if "contour_bands" in dispersion_data:
             map_data["contour_bands"] = dispersion_data["contour_bands"]
+        if "roads_wgs84" in dispersion_data:
+            map_data["roads_wgs84"] = dispersion_data["roads_wgs84"]
         if "coverage_assessment" in dispersion_data:
             map_data["coverage_assessment"] = dispersion_data["coverage_assessment"]
         return map_data

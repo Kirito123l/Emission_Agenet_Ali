@@ -7,6 +7,7 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 import pytest
+from shapely.geometry import shape
 
 from calculators import dispersion
 from calculators.hotspot_analyzer import HotspotAnalyzer
@@ -272,6 +273,105 @@ class TestContourBands:
             feature["properties"]["interp_method"]
             for feature in result["geojson"]["features"]
         } == {"nearest"}
+
+    def test_interpolation_mask_preserves_nan_outside_coverage(self):
+        coords, concentrations = _gaussian_field(nx=7, ny=7, spacing=30.0)
+        calculator = dispersion.DispersionCalculator(
+            config=dispersion.DispersionConfig(
+                contour_enabled=True,
+                contour_interp_resolution_m=10.0,
+                contour_n_levels=5,
+                contour_smooth_sigma=0.0,
+            )
+        )
+
+        surface = calculator._interpolate_contour_surface(
+            receptor_local_coords=coords,
+            receptor_concentrations=concentrations,
+            interp_resolution_m=10.0,
+            smooth_sigma=0.0,
+            max_grid_points=50_000,
+        )
+
+        outside_values = surface["interpolated_grid"][~surface["inside_mask"]]
+        assert outside_values.size > 0
+        assert np.isnan(outside_values).all()
+
+    def test_contour_polygons_stay_within_buffered_coverage(self):
+        coords, concentrations = _gaussian_field(nx=9, ny=9, spacing=25.0)
+        calculator = dispersion.DispersionCalculator(
+            config=dispersion.DispersionConfig(
+                contour_enabled=True,
+                contour_interp_resolution_m=10.0,
+                contour_n_levels=6,
+                contour_smooth_sigma=0.0,
+            )
+        )
+
+        surface = calculator._interpolate_contour_surface(
+            receptor_local_coords=coords,
+            receptor_concentrations=concentrations,
+            interp_resolution_m=10.0,
+            smooth_sigma=0.0,
+            max_grid_points=50_000,
+        )
+        result = calculator._generate_contour_bands(
+            receptor_local_coords=coords,
+            receptor_concentrations=concentrations,
+            origin=_origin(),
+            interp_resolution_m=10.0,
+            n_levels=6,
+            smooth_sigma=0.0,
+        )
+
+        coverage_geometry = surface["coverage_geometry_local"]
+        coverage_wgs84 = shape(
+            {
+                "type": "Polygon",
+                "coordinates": dispersion._serialize_local_polygon_to_geojson(
+                    coverage_geometry,
+                    origin_x=_origin()[0],
+                    origin_y=_origin()[1],
+                    utm_zone=51,
+                    utm_hemisphere="north",
+                ),
+            }
+        )
+
+        for feature in result["geojson"]["features"]:
+            geometry = shape(feature["geometry"])
+            assert coverage_wgs84.buffer(1e-5).covers(geometry)
+
+    def test_contour_area_smaller_than_interpolation_bbox(self):
+        coords, concentrations = _gaussian_field(nx=7, ny=7, spacing=35.0)
+        calculator = dispersion.DispersionCalculator(
+            config=dispersion.DispersionConfig(
+                contour_enabled=True,
+                contour_interp_resolution_m=10.0,
+                contour_n_levels=5,
+                contour_smooth_sigma=0.0,
+            )
+        )
+
+        surface = calculator._interpolate_contour_surface(
+            receptor_local_coords=coords,
+            receptor_concentrations=concentrations,
+            interp_resolution_m=10.0,
+            smooth_sigma=0.0,
+            max_grid_points=50_000,
+        )
+        result = calculator._generate_contour_bands(
+            receptor_local_coords=coords,
+            receptor_concentrations=concentrations,
+            origin=_origin(),
+            interp_resolution_m=10.0,
+            n_levels=5,
+            smooth_sigma=0.0,
+        )
+
+        min_x, min_y, max_x, max_y = surface["grid_bbox_local"]
+        bbox_area = (max_x - min_x) * (max_y - min_y)
+        assert result["stats"]["total_area_m2"] < bbox_area * 0.9
 
     def test_raster_grid_structure_unchanged_and_hotspot_still_works(self):
         result = _build_assembled_result(contour_enabled=True)

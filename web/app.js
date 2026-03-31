@@ -2025,6 +2025,7 @@ function renderEmissionMap(mapData, msgContainer) {
     const minVal = colorScale.min || 0;
     const maxVal = colorScale.max || 100;
     const legendGradient = 'linear-gradient(to right, #3B82F6, #10B981, #F5D046, #F97316, #DC2626)';
+    const exportButton = renderMapExportButton('emission', mapData.scenario_label);
 
     // Build map HTML
     const mapHtml = `
@@ -2035,6 +2036,7 @@ function renderEmissionMap(mapData, msgContainer) {
                     <p class="text-slate-500 text-sm">显示 ${mapData.links.length} 个路段的 ${defaultPollutant} 排放</p>
                 </div>
                 <div class="flex items-center gap-3">
+                    ${exportButton}
                     <select id="${mapId}-pollutant" class="px-3 py-1.5 rounded-md text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 min-w-[80px] focus:outline-none focus:ring-2 focus:ring-primary">
                         ${pollutantOptions}
                     </select>
@@ -2105,6 +2107,21 @@ function formatMapValue(value) {
         return numeric.toFixed(3);
     }
     return numeric.toFixed(4);
+}
+
+function renderMapExportButton(resultType, scenarioLabel) {
+    const safeResultType = JSON.stringify(resultType || 'dispersion');
+    const safeScenarioLabel = JSON.stringify(scenarioLabel || 'baseline');
+    return `
+        <button
+            type="button"
+            class="export-map-btn inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+            onclick='exportMapImage(this, ${safeResultType}, ${safeScenarioLabel})'
+        >
+            <span class="material-symbols-outlined" style="font-size: 18px;">download</span>
+            导出地图
+        </button>
+    `;
 }
 
 function computeMapZoom(span) {
@@ -2194,6 +2211,7 @@ function normalizeContourMapData(mapData) {
         type: 'contour',
         title: mapData.title || `${pollutant} Concentration Field (contour)`,
         pollutant,
+        scenario_label: mapData.scenario_label || mapData.query_info?.scenario_label || 'baseline',
         center,
         zoom,
         layers: [{
@@ -2320,6 +2338,7 @@ function normalizeRasterMapData(mapData) {
         type: 'raster',
         title: mapData.title || `${pollutant} Concentration Field (${Math.round(resolution)}m grid)`,
         pollutant,
+        scenario_label: mapData.scenario_label || mapData.query_info?.scenario_label || 'baseline',
         center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
         zoom: computeMapZoom(span),
         layers: [{
@@ -2476,6 +2495,7 @@ function normalizeHotspotMapData(mapData) {
     return {
         type: 'hotspot',
         title: mapData.title || 'Pollution Hotspot Analysis',
+        scenario_label: mapData.scenario_label || 'baseline',
         center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
         zoom: computeMapZoom(span || 0.05),
         interpretation: mapData.interpretation || '',
@@ -2957,6 +2977,7 @@ function renderContourMap(mapData, msgContainer) {
     const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `contour-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const exportButton = renderMapExportButton('dispersion', normalizedMapData.scenario_label);
 
     const mapHtml = `
         <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
@@ -2965,11 +2986,12 @@ function renderContourMap(mapData, msgContainer) {
                     <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || `${pollutant} Concentration Field (contour)`)}</h3>
                     <p class="text-slate-500 text-sm">显示 ${features.length} 个连续等值填色带的 ${pollutant} 浓度场</p>
                 </div>
-                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                <div class="flex flex-col items-end gap-2 text-sm text-slate-500 dark:text-slate-400 text-right">
                     <div>平均浓度 ${formatMapValue(normalizedMapData.summary?.mean_concentration || 0)} ${unit}</div>
                     <div>最大浓度 ${formatMapValue(normalizedMapData.summary?.max_concentration || 0)} ${unit}</div>
                     <div>${Math.round(Number(normalizedMapData.summary?.interp_resolution_m || 10))}m interpolation</div>
                     <div>受体点 ${Number(normalizedMapData.summary?.n_receptors_used || 0)}</div>
+                    ${exportButton}
                 </div>
             </div>
             ${coverageHtml}
@@ -3166,6 +3188,7 @@ function renderRasterMap(mapData, msgContainer) {
     const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `raster-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const exportButton = renderMapExportButton('dispersion', normalizedMapData.scenario_label);
 
     const mapHtml = `
         <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
@@ -3174,10 +3197,11 @@ function renderRasterMap(mapData, msgContainer) {
                     <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || `${pollutant} Concentration Field`)}</h3>
                     <p class="text-slate-500 text-sm">显示 ${features.length} 个非零栅格单元的 ${pollutant} 浓度场</p>
                 </div>
-                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                <div class="flex flex-col items-end gap-2 text-sm text-slate-500 dark:text-slate-400 text-right">
                     <div>平均浓度 ${formatMapValue(normalizedMapData.summary?.mean_concentration || 0)} ${unit}</div>
                     <div>最大浓度 ${formatMapValue(normalizedMapData.summary?.max_concentration || 0)} ${unit}</div>
                     <div>分辨率 ${Math.round(Number(normalizedMapData.summary?.resolution_m || style.resolution_m || 50))} m</div>
+                    ${exportButton}
                 </div>
             </div>
             ${coverageHtml}
@@ -3220,6 +3244,7 @@ function renderHotspotMap(mapData, msgContainer) {
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `hotspot-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const summary = normalizedMapData.summary || {};
+    const exportButton = renderMapExportButton('hotspot', normalizedMapData.scenario_label);
 
     const mapHtml = `
         <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
@@ -3228,10 +3253,11 @@ function renderHotspotMap(mapData, msgContainer) {
                     <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || 'Pollution Hotspot Analysis')}</h3>
                     <p class="text-slate-500 text-sm">识别出 ${hotspotCount} 个热点区域，并展示热点源归因结果</p>
                 </div>
-                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                <div class="flex flex-col items-end gap-2 text-sm text-slate-500 dark:text-slate-400 text-right">
                     <div>热点面积 ${formatMapValue(summary.total_hotspot_area_m2 || 0)} m²</div>
                     <div>区域占比 ${formatMapValue(summary.area_fraction_pct || 0)}%</div>
                     <div>最高浓度 ${formatMapValue(summary.max_concentration || 0)} μg/m³</div>
+                    ${exportButton}
                 </div>
             </div>
             ${interpretationHtml}
@@ -3971,6 +3997,97 @@ function downloadFile(fileId) {
             console.error('下载失败:', err);
             alert('下载失败: ' + err.message);
         });
+}
+
+function extractFilenameFromResponse(response, fallbackName) {
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match) {
+        try {
+            return decodeURIComponent(utf8Match[1]);
+        } catch (e) {}
+    }
+    const basicMatch = disposition.match(/filename="?([^"]+)"?/i);
+    if (basicMatch) {
+        return basicMatch[1];
+    }
+    return fallbackName;
+}
+
+async function readErrorDetail(response) {
+    try {
+        const data = await response.json();
+        if (data && typeof data.detail === 'string') {
+            return data.detail;
+        }
+    } catch (e) {}
+    try {
+        const text = await response.text();
+        if (text) {
+            return text;
+        }
+    } catch (e) {}
+    return `HTTP ${response.status}`;
+}
+
+async function exportMapImage(buttonEl, resultType, scenarioLabel) {
+    if (!currentSessionId) {
+        alert('当前会话不存在，无法导出地图。');
+        return;
+    }
+
+    const button = buttonEl instanceof HTMLElement ? buttonEl : null;
+    const originalHtml = button ? button.innerHTML : '';
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = `
+            <span class="material-symbols-outlined" style="font-size: 18px;">hourglass_top</span>
+            生成中...
+        `;
+    }
+
+    try {
+        const response = await fetchWithUser(`${API_BASE}/export_map`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: currentSessionId,
+                result_type: resultType || 'dispersion',
+                scenario_label: scenarioLabel || 'baseline',
+                format: 'png',
+                dpi: 300,
+                add_basemap: true,
+                add_roads: true,
+                language: 'zh',
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(await readErrorDetail(response));
+        }
+
+        const blob = await response.blob();
+        const downloadName = extractFilenameFromResponse(
+            response,
+            `${resultType || 'dispersion'}_${scenarioLabel || 'baseline'}.png`
+        );
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = downloadName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('地图导出失败:', err);
+        alert('地图导出失败: ' + (err?.message || err));
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    }
 }
 
 // ==================== 页面加载完成 ====================

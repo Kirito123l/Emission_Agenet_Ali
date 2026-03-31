@@ -378,6 +378,7 @@ class SpatialRendererTool(BaseTool):
             "center": center,
             "zoom": 12,
             "pollutant": pollutant,
+            "scenario_label": str(data.get("scenario_label") or "baseline"),
             "unit": "kg/(h\u00b7km)",
             "color_scale": {
                 "min": round(min_val, 4),
@@ -542,6 +543,7 @@ class SpatialRendererTool(BaseTool):
             "type": "concentration",
             "title": title or f"{pollutant} Concentration Distribution",
             "pollutant": pollutant,
+            "scenario_label": str(data.get("scenario_label") or "baseline"),
             "center": center,
             "zoom": zoom,
             "layers": [
@@ -665,6 +667,7 @@ class SpatialRendererTool(BaseTool):
             "type": "raster",
             "title": title or f"{pollutant} Concentration Field ({int(round(resolution))}m grid)",
             "pollutant": pollutant,
+            "scenario_label": str(data.get("scenario_label") or "baseline"),
             "center": center,
             "zoom": zoom,
             "layers": [
@@ -739,6 +742,7 @@ class SpatialRendererTool(BaseTool):
             "type": "contour",
             "title": title or f"{pollutant} Concentration Field (contour)",
             "pollutant": pollutant,
+            "scenario_label": str(data.get("scenario_label") or "baseline"),
             "center": center,
             "zoom": zoom,
             "layers": [
@@ -886,6 +890,7 @@ class SpatialRendererTool(BaseTool):
         return {
             "type": "hotspot",
             "title": title or "Pollution Hotspot Analysis",
+            "scenario_label": str(data.get("scenario_label") or "baseline"),
             "center": center,
             "zoom": zoom,
             "interpretation": data.get("interpretation", ""),

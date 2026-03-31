@@ -14,10 +14,12 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
+from scipy.spatial import ConvexHull, QhullError
 import xgboost as xgb
 import yaml
 from pyproj import Transformer
-from shapely.geometry import LineString, MultiLineString, Polygon
+from shapely import intersects_xy
+from shapely.geometry import LineString, MultiLineString, MultiPoint, Point, Polygon
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
@@ -1634,81 +1636,32 @@ class DispersionCalculator:
             },
         }
 
-        coords = np.asarray(receptor_local_coords, dtype=float)
-        concentrations = np.asarray(receptor_concentrations, dtype=float)
-        if coords.ndim != 2 or coords.shape[1] != 2:
-            return {**base_result, "error": "receptor_local_coords must have shape (N, 2)"}
-        if concentrations.ndim != 1 or concentrations.shape[0] != coords.shape[0]:
-            return {**base_result, "error": "receptor_concentrations must have shape (N,)"}
-
-        valid_mask = (
-            np.all(np.isfinite(coords), axis=1)
-            & np.isfinite(concentrations)
-            & (concentrations > 0)
+        interpolation = self._interpolate_contour_surface(
+            receptor_local_coords=receptor_local_coords,
+            receptor_concentrations=receptor_concentrations,
+            interp_resolution_m=resolution,
+            smooth_sigma=sigma,
+            max_grid_points=max_grid_points,
         )
-        valid_coords = coords[valid_mask]
-        valid_concentrations = concentrations[valid_mask]
-        base_result["n_receptors_used"] = int(valid_coords.shape[0])
+        if interpolation.get("error"):
+            return {**base_result, "error": interpolation["error"]}
 
-        if valid_coords.size == 0:
+        valid_concentrations = np.asarray(
+            interpolation.get("valid_concentrations", np.array([], dtype=float)),
+            dtype=float,
+        )
+        base_result["n_receptors_used"] = int(interpolation.get("n_receptors_used", 0))
+        if valid_concentrations.size == 0:
             return base_result
 
-        unique_coords = np.unique(np.round(valid_coords, decimals=6), axis=0)
-        if unique_coords.shape[0] < 2:
-            return {
-                **base_result,
-                "error": "At least two non-zero receptors are required to generate contour bands",
-            }
+        grid_x_vals = np.asarray(interpolation["grid_x_values"], dtype=float)
+        grid_y_vals = np.asarray(interpolation["grid_y_values"], dtype=float)
+        interpolated = np.asarray(interpolation["interpolated_grid"], dtype=float)
+        grid_bbox_local = interpolation["grid_bbox_local"]
+        primary_method = str(interpolation["interp_method"])
 
-        x_values = valid_coords[:, 0]
-        y_values = valid_coords[:, 1]
-        padding = max(resolution, 1.0)
-        x_min = float(np.min(x_values) - padding)
-        x_max = float(np.max(x_values) + padding)
-        y_min = float(np.min(y_values) - padding)
-        y_max = float(np.max(y_values) + padding)
-
-        span_x = max(x_max - x_min, padding)
-        span_y = max(y_max - y_min, padding)
-        min_resolution_for_cap = np.sqrt((span_x * span_y) / max_grid_points)
-        if min_resolution_for_cap > resolution:
-            resolution = float(min_resolution_for_cap)
-
-        while True:
-            grid_x_vals = np.arange(x_min, x_max + resolution, resolution, dtype=float)
-            grid_y_vals = np.arange(y_min, y_max + resolution, resolution, dtype=float)
-            if (grid_x_vals.size * grid_y_vals.size) <= max_grid_points:
-                break
-            resolution *= 1.25
-
-        grid_x, grid_y = np.meshgrid(grid_x_vals, grid_y_vals)
-        base_result["interp_resolution_m"] = float(resolution)
-        base_result["interp_grid_shape"] = [int(grid_y.shape[0]), int(grid_x.shape[1])]
-
-        points = np.column_stack((x_values, y_values))
-        primary_method = "nearest" if valid_coords.shape[0] < 10 else "cubic"
-        try:
-            interpolated = griddata(points, valid_concentrations, (grid_x, grid_y), method=primary_method)
-        except Exception:
-            fallback_method = "linear" if primary_method == "cubic" and valid_coords.shape[0] >= 3 else "nearest"
-            interpolated = griddata(points, valid_concentrations, (grid_x, grid_y), method=fallback_method)
-            primary_method = fallback_method
-
-        if interpolated is None:
-            interpolated = np.full(grid_x.shape, np.nan, dtype=float)
-
-        if np.isnan(interpolated).any():
-            nearest_fill = griddata(points, valid_concentrations, (grid_x, grid_y), method="nearest")
-            if nearest_fill is None:
-                nearest_fill = np.zeros(grid_x.shape, dtype=float)
-            interpolated = np.where(np.isnan(interpolated), nearest_fill, interpolated)
-
-        interpolated = np.nan_to_num(interpolated, nan=0.0, posinf=0.0, neginf=0.0)
-        interpolated = np.clip(interpolated, 0.0, None)
-
-        if sigma > 0 and np.count_nonzero(interpolated > 0) > 0:
-            interpolated = gaussian_filter(interpolated, sigma=sigma, mode="nearest")
-            interpolated = np.clip(interpolated, 0.0, None)
+        base_result["interp_resolution_m"] = float(interpolation["interp_resolution_m"])
+        base_result["interp_grid_shape"] = [int(interpolated.shape[0]), int(interpolated.shape[1])]
 
         base_result["stats"] = {
             "min_concentration": float(np.min(valid_concentrations)),
@@ -1718,8 +1671,8 @@ class DispersionCalculator:
         }
 
         bbox_lon, bbox_lat = inverse_transform_coords(
-            np.array([x_min, x_max, x_min, x_max], dtype=float),
-            np.array([y_min, y_min, y_max, y_max], dtype=float),
+            np.array([grid_bbox_local[0], grid_bbox_local[2], grid_bbox_local[0], grid_bbox_local[2]], dtype=float),
+            np.array([grid_bbox_local[1], grid_bbox_local[1], grid_bbox_local[3], grid_bbox_local[3]], dtype=float),
             origin[0],
             origin[1],
             self.config.utm_zone,
@@ -1732,7 +1685,7 @@ class DispersionCalculator:
             float(np.max(bbox_lat)),
         ]
 
-        positive_grid = interpolated[interpolated > 0]
+        positive_grid = interpolated[np.isfinite(interpolated) & (interpolated > 0)]
         if positive_grid.size == 0:
             return base_result
 
@@ -1883,6 +1836,145 @@ class DispersionCalculator:
             "total_area_m2": float(total_area_m2),
         }
         return base_result
+
+    def _interpolate_contour_surface(
+        self,
+        receptor_local_coords: np.ndarray,
+        receptor_concentrations: np.ndarray,
+        interp_resolution_m: float,
+        smooth_sigma: float,
+        max_grid_points: int,
+    ) -> dict[str, Any]:
+        """Interpolate receptor concentrations on a masked regular grid."""
+        coords = np.asarray(receptor_local_coords, dtype=float)
+        concentrations = np.asarray(receptor_concentrations, dtype=float)
+        if coords.ndim != 2 or coords.shape[1] != 2:
+            return {"error": "receptor_local_coords must have shape (N, 2)"}
+        if concentrations.ndim != 1 or concentrations.shape[0] != coords.shape[0]:
+            return {"error": "receptor_concentrations must have shape (N,)"}
+
+        valid_mask = (
+            np.all(np.isfinite(coords), axis=1)
+            & np.isfinite(concentrations)
+            & (concentrations > 0)
+        )
+        valid_coords = coords[valid_mask]
+        valid_concentrations = concentrations[valid_mask]
+        if valid_coords.size == 0:
+            return {
+                "n_receptors_used": 0,
+                "valid_concentrations": valid_concentrations,
+            }
+
+        unique_coords = np.unique(np.round(valid_coords, decimals=6), axis=0)
+        if unique_coords.shape[0] < 2:
+            return {
+                "error": "At least two non-zero receptors are required to generate contour bands",
+            }
+
+        resolution = float(max(interp_resolution_m, 1.0))
+        buffer_distance = max(float(self.config.background_spacing_m) * 1.5, resolution)
+        try:
+            if unique_coords.shape[0] >= 3:
+                hull = ConvexHull(unique_coords)
+                coverage_geom = Polygon(unique_coords[hull.vertices])
+            else:
+                coverage_geom = MultiPoint(unique_coords).convex_hull
+        except QhullError:
+            coverage_geom = MultiPoint(unique_coords).convex_hull
+
+        if coverage_geom.is_empty:
+            return {"error": "Could not build a receptor coverage geometry for contour interpolation"}
+        if not coverage_geom.is_valid:
+            coverage_geom = make_valid(coverage_geom)
+
+        if isinstance(coverage_geom, Point):
+            coverage_geom = coverage_geom.buffer(buffer_distance)
+        elif isinstance(coverage_geom, LineString):
+            coverage_geom = coverage_geom.buffer(buffer_distance, cap_style=2, join_style=2)
+        else:
+            coverage_geom = coverage_geom.buffer(buffer_distance)
+
+        if coverage_geom.is_empty:
+            return {"error": "Buffered receptor coverage geometry is empty"}
+        if not coverage_geom.is_valid:
+            coverage_geom = make_valid(coverage_geom)
+
+        polygonal_coverage = unary_union(_iter_polygonal_geometries(coverage_geom))
+        if getattr(polygonal_coverage, "is_empty", True):
+            return {"error": "Buffered receptor coverage geometry is not polygonal"}
+
+        min_x, min_y, max_x, max_y = polygonal_coverage.bounds
+        x_min = float(min_x - resolution)
+        x_max = float(max_x + resolution)
+        y_min = float(min_y - resolution)
+        y_max = float(max_y + resolution)
+
+        span_x = max(x_max - x_min, resolution)
+        span_y = max(y_max - y_min, resolution)
+        min_resolution_for_cap = np.sqrt((span_x * span_y) / max(max_grid_points, 1))
+        if min_resolution_for_cap > resolution:
+            resolution = float(min_resolution_for_cap)
+
+        while True:
+            grid_x_vals = np.arange(x_min, x_max + resolution, resolution, dtype=float)
+            grid_y_vals = np.arange(y_min, y_max + resolution, resolution, dtype=float)
+            if (grid_x_vals.size * grid_y_vals.size) <= max_grid_points:
+                break
+            resolution *= 1.25
+
+        grid_x, grid_y = np.meshgrid(grid_x_vals, grid_y_vals)
+        inside_mask = np.asarray(intersects_xy(polygonal_coverage, grid_x, grid_y), dtype=bool)
+
+        points = valid_coords
+        primary_method = "nearest" if valid_coords.shape[0] < 10 else "cubic"
+        try:
+            interpolated = griddata(points, valid_concentrations, (grid_x, grid_y), method=primary_method)
+        except Exception:
+            fallback_method = "linear" if primary_method == "cubic" and valid_coords.shape[0] >= 3 else "nearest"
+            interpolated = griddata(points, valid_concentrations, (grid_x, grid_y), method=fallback_method)
+            primary_method = fallback_method
+
+        if interpolated is None:
+            interpolated = np.full(grid_x.shape, np.nan, dtype=float)
+
+        if primary_method != "nearest" and np.isnan(interpolated).any():
+            interior_nan_mask = inside_mask & np.isnan(interpolated)
+            if np.any(interior_nan_mask):
+                nearest_fill = griddata(points, valid_concentrations, (grid_x, grid_y), method="nearest")
+                if nearest_fill is not None:
+                    interpolated[interior_nan_mask] = nearest_fill[interior_nan_mask]
+
+        interpolated = np.where(inside_mask, interpolated, np.nan)
+        interpolated = np.where(np.isnan(interpolated), np.nan, np.clip(interpolated, 0.0, None))
+
+        if smooth_sigma > 0 and np.count_nonzero(np.isfinite(interpolated) & (interpolated > 0)) > 0:
+            valid_weights = np.where(np.isfinite(interpolated), 1.0, 0.0)
+            filled_values = np.nan_to_num(interpolated, nan=0.0, posinf=0.0, neginf=0.0)
+            smoothed_values = gaussian_filter(filled_values, sigma=smooth_sigma, mode="nearest")
+            smoothed_weights = gaussian_filter(valid_weights, sigma=smooth_sigma, mode="nearest")
+            with np.errstate(divide="ignore", invalid="ignore"):
+                interpolated = np.divide(
+                    smoothed_values,
+                    smoothed_weights,
+                    out=np.full_like(smoothed_values, np.nan, dtype=float),
+                    where=smoothed_weights > 1e-6,
+                )
+            interpolated = np.where(inside_mask, interpolated, np.nan)
+            interpolated = np.where(np.isnan(interpolated), np.nan, np.clip(interpolated, 0.0, None))
+
+        return {
+            "interp_resolution_m": float(resolution),
+            "interp_method": primary_method,
+            "grid_x_values": grid_x_vals,
+            "grid_y_values": grid_y_vals,
+            "interpolated_grid": interpolated,
+            "inside_mask": inside_mask,
+            "grid_bbox_local": [float(x_min), float(y_min), float(x_max), float(y_max)],
+            "coverage_geometry_local": polygonal_coverage,
+            "n_receptors_used": int(valid_coords.shape[0]),
+            "valid_concentrations": valid_concentrations,
+        }
 
     def _assemble_result(
         self,

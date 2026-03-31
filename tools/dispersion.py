@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
+from shapely.geometry import mapping
 
 from config import get_config
 from core.coverage_assessment import assess_coverage
@@ -179,6 +180,7 @@ class DispersionTool(BaseTool):
             data.setdefault("coverage_assessment", coverage.to_dict())
             data["meteorology_used"] = self._build_meteorology_used(meteorology, met_input)
             data["scenario_label"] = scenario_label
+            data["roads_wgs84"] = self._serialize_roads_wgs84(roads_gdf)
             if defaults_used:
                 data["defaults_used"] = defaults_used
             summary = self._build_summary(data, meteorology, roughness, pollutant)
@@ -605,6 +607,7 @@ class DispersionTool(BaseTool):
             "pollutant": pollutant,
             "summary": data.get("summary", {}),
             "query_info": data.get("query_info", {}),
+            "scenario_label": str(data.get("scenario_label") or "baseline"),
         }
         if "raster_grid" in data:
             map_data["raster_grid"] = data["raster_grid"]
@@ -613,6 +616,33 @@ class DispersionTool(BaseTool):
         if "coverage_assessment" in data:
             map_data["coverage_assessment"] = data["coverage_assessment"]
         return map_data
+
+    def _serialize_roads_wgs84(self, roads_gdf) -> Dict[str, Any]:
+        """Serialize adapted road geometries to GeoJSON for downstream export."""
+        if roads_gdf is None or getattr(roads_gdf, "empty", True):
+            return {"type": "FeatureCollection", "features": []}
+
+        export_gdf = roads_gdf
+        try:
+            if getattr(export_gdf, "crs", None) is not None and str(export_gdf.crs) != "EPSG:4326":
+                export_gdf = export_gdf.to_crs("EPSG:4326")
+        except Exception:
+            logger.warning("Failed to normalize roads GeoDataFrame CRS for export", exc_info=True)
+
+        features = []
+        for _, row in export_gdf.iterrows():
+            geometry = row.get("geometry")
+            if geometry is None or getattr(geometry, "is_empty", True):
+                continue
+            road_id = str(row.get("NAME_1") or row.get("road_id") or "").strip()
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": mapping(geometry),
+                    "properties": {"road_id": road_id},
+                }
+            )
+        return {"type": "FeatureCollection", "features": features}
 
 
 __all__ = ["DispersionTool"]

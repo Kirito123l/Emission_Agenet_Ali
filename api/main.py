@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from .routes import router
+from .map_export import router as map_export_router
 from .logging_config import (
     CachedBodyMiddleware,
     AccessLogMiddleware,
@@ -48,6 +49,7 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(map_export_router, prefix="/api")
 
 
 @app.get("/test")

@@ -22,6 +22,8 @@ env/
 data/sessions/
 # Persisted trace audit artifacts
 data/traces/
+# Generated static map export files
+data/exports/
 # Evaluation result artifacts
 evaluation/results/*
 !evaluation/results/.gitignore

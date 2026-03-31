@@ -33,6 +33,10 @@ class TestConfigLoading:
         assert config.contour_interp_resolution_m == 10.0
         assert config.contour_n_levels == 12
         assert config.contour_smooth_sigma == 1.0
+        assert config.map_export_dpi == 300
+        assert config.map_export_default_format == "png"
+        assert config.map_export_ttl_hours == 1
+        assert config.map_export_dir.name == "exports"
         assert config.standardization_fuzzy_enabled is True
         assert config.continuation_prompt_variant == "balanced_repair_aware"
         assert config.enable_cross_constraint_validation is True
@@ -94,6 +98,9 @@ class TestConfigLoading:
         monkeypatch.setenv("CONTOUR_INTERP_RESOLUTION_M", "20.0")
         monkeypatch.setenv("CONTOUR_N_LEVELS", "8")
         monkeypatch.setenv("CONTOUR_SMOOTH_SIGMA", "0.5")
+        monkeypatch.setenv("MAP_EXPORT_DPI", "200")
+        monkeypatch.setenv("MAP_EXPORT_DEFAULT_FORMAT", "svg")
+        monkeypatch.setenv("MAP_EXPORT_TTL_HOURS", "6")
         monkeypatch.setenv("STANDARDIZATION_FUZZY_ENABLED", "false")
         reset_config()
         config = get_config()
@@ -103,12 +110,16 @@ class TestConfigLoading:
         assert config.contour_interp_resolution_m == 20.0
         assert config.contour_n_levels == 8
         assert config.contour_smooth_sigma == 0.5
+        assert config.map_export_dpi == 200
+        assert config.map_export_default_format == "svg"
+        assert config.map_export_ttl_hours == 6
         assert config.standardization_fuzzy_enabled is False
 
     def test_directories_created(self):
         config = get_config()
         assert config.data_collection_dir.exists()
         assert config.outputs_dir.exists()
+        assert config.map_export_dir.exists()
 
 
 class TestJWTSecretLoading:
