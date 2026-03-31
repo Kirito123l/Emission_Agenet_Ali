@@ -187,6 +187,48 @@ def _build_dispersion_tool_result() -> dict:
     }
 
 
+def _build_contour_bands() -> dict:
+    return {
+        "type": "contour_bands",
+        "interp_resolution_m": 10.0,
+        "n_levels": 2,
+        "levels": [0.1, 0.5],
+        "bbox_wgs84": [121.4, 31.2, 121.408, 31.204],
+        "n_receptors_used": 15,
+        "geojson": {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": [
+                            [[
+                                [121.401, 31.201],
+                                [121.406, 31.201],
+                                [121.406, 31.203],
+                                [121.401, 31.203],
+                                [121.401, 31.201],
+                            ]]
+                        ],
+                    },
+                    "properties": {
+                        "level_min": 0.1,
+                        "level_max": 0.5,
+                        "level_index": 0,
+                        "label": "0.10 - 0.50 μg/m³",
+                    },
+                }
+            ],
+        },
+        "stats": {
+            "min_concentration": 0.1,
+            "max_concentration": 1.9,
+            "mean_concentration": 0.8,
+        },
+    }
+
+
 def _simulate_router_save_spatial_data(fact_memory: FactMemory, tool_results: list[dict]) -> bool:
     spatial_data_saved = False
     for tool_result_entry in tool_results:
@@ -831,6 +873,27 @@ class TestDispersionToSpatialRenderer:
             assert {"receptor_id", "mean_conc", "max_conc", "value"} <= set(props)
             assert props["value"] == props["mean_conc"]
 
+    def test_dispersion_result_prefers_contour_when_available(self):
+        renderer = SpatialRendererTool()
+        dispersion_tool_result = _build_dispersion_tool_result()
+        dispersion_tool_result["data"]["contour_bands"] = _build_contour_bands()
+        dispersion_tool_result["data"]["raster_grid"] = {
+            "cell_centers_wgs84": [{"lon": 121.4, "lat": 31.2, "mean_conc": 1.0, "max_conc": 1.1}],
+            "resolution_m": 50,
+        }
+
+        result = asyncio.run(
+            renderer.execute(
+                data_source="last_result",
+                _last_result=dispersion_tool_result,
+                pollutant="NOx",
+            )
+        )
+
+        assert result.success is True
+        assert result.map_data["type"] == "contour"
+        assert result.map_data["layers"][0]["type"] == "filled_contour"
+
 
 class TestFullToolChain:
     def test_macro_emission_to_dispersion_data_flow(self):
@@ -876,6 +939,21 @@ class TestFullToolChain:
         assert render_result.success is True
         assert render_result.map_data["type"] == "concentration"
         assert render_result.map_data["layers"][0]["data"]["features"]
+
+    def test_dispersion_tool_map_data_type_prefers_contour(self):
+        tool = DispersionTool()
+        data = {
+            "concentration_grid": {"receptors": []},
+            "raster_grid": {"rows": 1, "cols": 1},
+            "contour_bands": _build_contour_bands(),
+            "summary": {"mean_concentration": 1.0},
+            "query_info": {"pollutant": "NOx"},
+        }
+
+        map_data = tool._build_map_data(data, "NOx")
+
+        assert map_data["type"] == "contour"
+        assert "contour_bands" in map_data
 
     def test_tool_dependency_chain_completeness(self):
         assert "emission" in TOOL_GRAPH["calculate_macro_emission"]["provides"]

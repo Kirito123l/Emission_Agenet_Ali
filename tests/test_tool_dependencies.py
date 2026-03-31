@@ -60,6 +60,7 @@ def test_all_met_with_legacy_available_token():
 def test_render_spatial_map_layer_type_dependency_mapping():
     assert get_required_result_tokens("render_spatial_map", {"layer_type": "emission"}) == ["emission"]
     assert get_required_result_tokens("render_spatial_map", {"layer_type": "dispersion"}) == ["dispersion"]
+    assert get_required_result_tokens("render_spatial_map", {"layer_type": "contour"}) == ["dispersion"]
     assert get_required_result_tokens("render_spatial_map", {"layer_type": "raster"}) == ["dispersion"]
     assert get_required_result_tokens("render_spatial_map", {"layer_type": "concentration"}) == ["dispersion"]
     assert get_required_result_tokens("render_spatial_map", {"layer_type": "hotspot"}) == ["hotspot"]

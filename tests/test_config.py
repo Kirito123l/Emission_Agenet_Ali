@@ -29,6 +29,10 @@ class TestConfigLoading:
         assert config.enable_llm_standardization is True
         assert config.enable_standardization_cache is True
         assert config.persist_trace is False
+        assert config.enable_contour_output is True
+        assert config.contour_interp_resolution_m == 10.0
+        assert config.contour_n_levels == 12
+        assert config.contour_smooth_sigma == 1.0
         assert config.standardization_fuzzy_enabled is True
         assert config.continuation_prompt_variant == "balanced_repair_aware"
         assert config.enable_cross_constraint_validation is True
@@ -86,11 +90,19 @@ class TestConfigLoading:
     def test_feature_flag_override(self, monkeypatch):
         monkeypatch.setenv("ENABLE_LLM_STANDARDIZATION", "false")
         monkeypatch.setenv("PERSIST_TRACE", "true")
+        monkeypatch.setenv("ENABLE_CONTOUR_OUTPUT", "false")
+        monkeypatch.setenv("CONTOUR_INTERP_RESOLUTION_M", "20.0")
+        monkeypatch.setenv("CONTOUR_N_LEVELS", "8")
+        monkeypatch.setenv("CONTOUR_SMOOTH_SIGMA", "0.5")
         monkeypatch.setenv("STANDARDIZATION_FUZZY_ENABLED", "false")
         reset_config()
         config = get_config()
         assert config.enable_llm_standardization is False
         assert config.persist_trace is True
+        assert config.enable_contour_output is False
+        assert config.contour_interp_resolution_m == 20.0
+        assert config.contour_n_levels == 8
+        assert config.contour_smooth_sigma == 0.5
         assert config.standardization_fuzzy_enabled is False
 
     def test_directories_created(self):

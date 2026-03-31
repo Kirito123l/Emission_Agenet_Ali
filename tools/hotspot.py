@@ -92,6 +92,8 @@ class HotspotTool(BaseTool):
                 analysis_data["road_contributions"] = road_contributions
             if coverage_assessment is not None:
                 analysis_data["coverage_assessment"] = coverage_assessment
+            if "contour_bands" in dispersion_data:
+                analysis_data["contour_bands"] = dispersion_data["contour_bands"]
             if "query_info" in dispersion_data:
                 analysis_data["query_info"] = dispersion_data["query_info"]
             if "meteorology_used" in dispersion_data:
@@ -176,6 +178,8 @@ class HotspotTool(BaseTool):
         }
         if "raster_grid" in dispersion_data:
             map_data["raster_grid"] = dispersion_data["raster_grid"]
+        if "contour_bands" in dispersion_data:
+            map_data["contour_bands"] = dispersion_data["contour_bands"]
         if "coverage_assessment" in dispersion_data:
             map_data["coverage_assessment"] = dispersion_data["coverage_assessment"]
         return map_data

@@ -275,6 +275,22 @@ def _render_spatial_map_result(result: Dict[str, Any]) -> str:
         if max_concentration is not None:
             lines.append(f"最大浓度 {_format_scalar(max_concentration)} {unit}")
 
+    elif map_type == "contour":
+        title = map_data.get("title") or "等值填色浓度场地图"
+        n_levels = int(summary.get("n_levels", 0) or 0)
+        resolution = summary.get("interp_resolution_m", 10)
+        max_concentration = summary.get("max_concentration")
+        unit = summary.get("unit", "μg/m³")
+
+        lines.extend(
+            [
+                f"**{title}**",
+                f"已渲染 {n_levels} 档连续等值填色区域，插值分辨率 {_format_scalar(resolution)} m。",
+            ]
+        )
+        if max_concentration is not None:
+            lines.append(f"最大浓度 {_format_scalar(max_concentration)} {unit}")
+
     elif map_type == "hotspot":
         title = map_data.get("title") or "热点分析地图"
         interpretation = str(map_data.get("interpretation") or "").strip()

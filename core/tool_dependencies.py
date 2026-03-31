@@ -23,6 +23,7 @@ CANONICAL_RESULT_ALIASES: Dict[str, str] = {
     "hotspot_analysis": "hotspot",
     "concentration": "dispersion",
     "raster": "dispersion",
+    "contour": "dispersion",
 }
 
 

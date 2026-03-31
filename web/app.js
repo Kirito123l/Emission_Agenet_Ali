@@ -1825,6 +1825,11 @@ function hasRenderableSingleMapData(mapData) {
         return !!(normalizedHotspot && normalizedHotspot.layers?.length);
     }
 
+    if (mapData.type === 'contour' || mapData.contour_bands) {
+        const normalizedContour = normalizeContourMapData(mapData);
+        return !!(normalizedContour && normalizedContour.layers?.[0]?.data?.features?.length);
+    }
+
     if (mapData.type === 'raster' || mapData.raster_grid) {
         const normalizedRaster = normalizeRasterMapData(mapData);
         return !!(normalizedRaster && normalizedRaster.layers?.[0]?.data?.features?.length);
@@ -1848,12 +1853,21 @@ function renderSingleMapData(mapData, msgContainer) {
         return;
     }
 
+    if (mapData.type === 'contour' || mapData.contour_bands) {
+        renderContourMap(mapData, msgContainer);
+        return;
+    }
+
     if (mapData.type === 'raster' || mapData.raster_grid) {
         renderRasterMap(mapData, msgContainer);
         return;
     }
 
     if (mapData.type === 'concentration' || mapData.concentration_grid || Array.isArray(mapData.layers)) {
+        if (mapData.contour_bands) {
+            renderContourMap({ ...mapData, type: 'contour' }, msgContainer);
+            return;
+        }
         if (mapData.raster_grid) {
             renderRasterMap({ ...mapData, type: 'raster' }, msgContainer);
             return;
@@ -2105,6 +2119,119 @@ function computeMapZoom(span) {
     return 14;
 }
 
+function hasUsableGeoJSONGeometry(geometry) {
+    if (!geometry || typeof geometry !== 'object') {
+        return false;
+    }
+    const coordinates = geometry.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length === 0) {
+        return false;
+    }
+    if (geometry.type === 'Polygon') {
+        return Array.isArray(coordinates[0]) && coordinates[0].length > 0;
+    }
+    if (geometry.type === 'MultiPolygon') {
+        return Array.isArray(coordinates[0]) && Array.isArray(coordinates[0][0]) && coordinates[0][0].length > 0;
+    }
+    return false;
+}
+
+function normalizeContourMapData(mapData) {
+    if (!mapData || typeof mapData !== 'object') {
+        return null;
+    }
+
+    if (
+        mapData.type === 'contour' &&
+        Array.isArray(mapData.layers) &&
+        mapData.layers[0]?.data?.features?.length
+    ) {
+        const features = mapData.layers[0].data.features.filter((feature) => hasUsableGeoJSONGeometry(feature?.geometry));
+        if (features.length === 0) {
+            return null;
+        }
+        return {
+            ...mapData,
+            layers: [{
+                ...mapData.layers[0],
+                data: {
+                    ...mapData.layers[0].data,
+                    features,
+                }
+            }],
+        };
+    }
+
+    const contourBands = mapData.contour_bands;
+    if (!contourBands || typeof contourBands !== 'object' || contourBands.error) {
+        return null;
+    }
+
+    const geojson = contourBands.geojson;
+    const features = Array.isArray(geojson?.features)
+        ? geojson.features.filter((feature) => hasUsableGeoJSONGeometry(feature?.geometry))
+        : [];
+    if (features.length === 0) {
+        return null;
+    }
+
+    const pollutant = mapData.pollutant || mapData.query_info?.pollutant || 'NOx';
+    const bbox = Array.isArray(contourBands.bbox_wgs84) ? contourBands.bbox_wgs84 : null;
+    const stats = contourBands.stats || {};
+    const interpResolution = Number(contourBands.interp_resolution_m || 10);
+    let center = [31.23, 121.47];
+    let zoom = 12;
+
+    if (bbox && bbox.length >= 4) {
+        const [minLon, minLat, maxLon, maxLat] = bbox.map((value) => Number(value));
+        if ([minLon, minLat, maxLon, maxLat].every(Number.isFinite)) {
+            center = [(minLat + maxLat) / 2, (minLon + maxLon) / 2];
+            zoom = computeMapZoom(Math.max(maxLon - minLon, maxLat - minLat));
+        }
+    }
+
+    return {
+        type: 'contour',
+        title: mapData.title || `${pollutant} Concentration Field (contour)`,
+        pollutant,
+        center,
+        zoom,
+        layers: [{
+            id: 'concentration_contour',
+            type: 'filled_contour',
+            data: {
+                type: 'FeatureCollection',
+                features,
+            },
+            style: {
+                color_field: 'level_index',
+                color_scale: 'YlOrRd',
+                n_levels: Number(contourBands.n_levels || features.length),
+                levels: Array.isArray(contourBands.levels) ? contourBands.levels : [],
+                opacity: 0.75,
+                stroke: true,
+                stroke_color: 'rgba(255,255,255,0.15)',
+                stroke_width: 0.5,
+                legend_title: `${pollutant} Concentration`,
+                legend_unit: 'μg/m³',
+                resolution_info: `${Math.round(interpResolution)}m interpolation`,
+            }
+        }],
+        contour_bands: contourBands,
+        coverage_assessment: mapData.coverage_assessment || {},
+        summary: {
+            n_levels: Number(contourBands.n_levels || features.length),
+            interp_resolution_m: interpResolution,
+            min_concentration: Number(stats.min_concentration || 0),
+            max_concentration: Number(stats.max_concentration || 0),
+            mean_concentration: Number(stats.mean_concentration || 0),
+            unit: 'μg/m³',
+            n_receptors_used: Number(contourBands.n_receptors_used || 0),
+            feature_count: features.length,
+        }
+    };
+}
+
 function normalizeRasterMapData(mapData) {
     if (!mapData || typeof mapData !== 'object') {
         return null;
@@ -2302,7 +2429,14 @@ function normalizeHotspotMapData(mapData) {
         return null;
     }
 
-    const rasterMap = normalizeRasterMapData({
+    const contourMap = normalizeContourMapData({
+        type: 'contour',
+        title: mapData.title,
+        pollutant: mapData.pollutant || mapData.query_info?.pollutant || 'NOx',
+        contour_bands: mapData.contour_bands,
+        coverage_assessment: mapData.coverage_assessment,
+    });
+    const rasterMap = contourMap ? null : normalizeRasterMapData({
         type: 'raster',
         title: mapData.title,
         pollutant: mapData.pollutant || mapData.query_info?.pollutant || 'NOx',
@@ -2311,7 +2445,9 @@ function normalizeHotspotMapData(mapData) {
     });
 
     const layers = [];
-    if (rasterMap?.layers?.[0]) {
+    if (contourMap?.layers?.[0]) {
+        layers.push(contourMap.layers[0]);
+    } else if (rasterMap?.layers?.[0]) {
         layers.push(rasterMap.layers[0]);
     }
     layers.push({
@@ -2391,6 +2527,32 @@ function getRasterColor(value, minVal, maxVal) {
     return interpolateYlOrRd(logRatio);
 }
 
+function getContourPalette() {
+    return [
+        '#ffffcc',
+        '#fff1a9',
+        '#fee391',
+        '#fed976',
+        '#feb24c',
+        '#fd9d43',
+        '#fd8d3c',
+        '#fc6b33',
+        '#f03b20',
+        '#e31a1c',
+        '#bd0026',
+        '#800026',
+    ];
+}
+
+function getContourColor(levelIndex, nLevels) {
+    const palette = getContourPalette();
+    const index = Number(levelIndex || 0);
+    const safeLevels = Math.max(1, Number(nLevels || palette.length));
+    const ratio = safeLevels <= 1 ? 0 : Math.max(0, Math.min(1, index / (safeLevels - 1)));
+    const paletteIndex = Math.max(0, Math.min(palette.length - 1, Math.round(ratio * (palette.length - 1))));
+    return palette[paletteIndex];
+}
+
 function renderCoverageWarning(coverage) {
     if (!coverage || typeof coverage !== 'object') {
         return '';
@@ -2462,16 +2624,54 @@ function renderRasterLegend(style, minVal, maxVal) {
     `;
 }
 
-function renderHotspotLegend(rasterStyle, minVal, maxVal, roadCount) {
-    const rasterLegend = rasterStyle
-        ? renderRasterLegend(rasterStyle, minVal, maxVal)
-        : '';
+function renderContourLegend(style, features) {
+    const legendTitle = escapeHtml(style?.legend_title || 'Concentration');
+    const legendUnit = escapeHtml(style?.legend_unit || 'μg/m³');
+    const resolutionInfo = escapeHtml(style?.resolution_info || '');
+    const contourFeatures = Array.isArray(features) ? features : [];
+
+    const rows = contourFeatures.map((feature, idx) => {
+        const props = feature.properties || {};
+        const color = getContourColor(Number(props.level_index ?? idx), Number(style?.n_levels || contourFeatures.length));
+        const label = escapeHtml(props.label || `${formatMapValue(props.level_min)} - ${formatMapValue(props.level_max)} ${legendUnit}`);
+        return `
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                <span class="inline-block w-4 h-4 rounded-sm border border-white/40" style="background:${color};"></span>
+                <span>${label}</span>
+            </div>
+        `;
+    }).reverse().join('');
+
+    return `
+        <div class="mt-4 flex flex-wrap items-start gap-6 text-sm">
+            <div class="flex flex-col gap-2">
+                <div class="font-semibold text-slate-700 dark:text-slate-200">${legendTitle}</div>
+                <div class="grid gap-1">
+                    ${rows}
+                </div>
+            </div>
+            <div class="ml-auto text-slate-500 dark:text-slate-400">
+                ${resolutionInfo}
+            </div>
+        </div>
+    `;
+}
+
+function renderHotspotLegend(backgroundLayer, roadCount) {
+    let backgroundLegend = '';
+    if (backgroundLayer?.id === 'concentration_contour') {
+        backgroundLegend = renderContourLegend(backgroundLayer.style || {}, backgroundLayer.data?.features || []);
+    } else if (backgroundLayer?.id === 'concentration_raster') {
+        const rasterStyle = backgroundLayer.style || {};
+        const [minVal, maxVal] = rasterStyle.value_range || [0, 1];
+        backgroundLegend = renderRasterLegend(rasterStyle, minVal, maxVal);
+    }
     const roadLabel = Number(roadCount || 0) > 0
         ? `<div class="text-slate-500 dark:text-slate-400">候选贡献路段: ${Number(roadCount)}</div>`
         : '';
 
     return `
-        ${rasterLegend}
+        ${backgroundLegend}
         <div class="mt-3 flex flex-wrap items-center gap-4 text-sm">
             <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                 <span class="inline-block w-6 h-3 rounded-sm" style="border: 3px dashed #FF0000; background: rgba(255,0,0,0.1);"></span>
@@ -2620,6 +2820,68 @@ function tryAddHighlightedRoadLayer(map, layerControl, contributingRoadIds) {
     });
 }
 
+function initContourLeafletMap(mapData, mapId) {
+    const initialized = initAnalysisLeafletMap(mapId);
+    if (!initialized) {
+        return;
+    }
+
+    const { map, mapContainer, layerControl } = initialized;
+    const layer = mapData.layers?.[0];
+    const features = layer?.data?.features || [];
+    if (features.length === 0) {
+        console.warn('[Map] No contour features to render');
+        return;
+    }
+
+    const style = layer.style || {};
+    const nLevels = Number(style.n_levels || features.length || 1);
+    const unit = style.legend_unit || mapData.summary?.unit || 'μg/m³';
+
+    const contourLayer = L.geoJSON(layer.data, {
+        style: (feature) => {
+            const props = feature.properties || {};
+            return {
+                fillColor: getContourColor(Number(props.level_index || 0), nLevels),
+                fillOpacity: Number(style.opacity || 0.75),
+                stroke: style.stroke !== false,
+                color: style.stroke_color || 'rgba(255,255,255,0.15)',
+                weight: Number(style.stroke_width || 0.5),
+                opacity: 1.0,
+            };
+        },
+        onEachFeature: (feature, contourFeature) => {
+            const props = feature.properties || {};
+            contourFeature.bindPopup(`
+                <div style="min-width: 200px;">
+                    <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(String(props.label || 'Contour Band'))}</h3>
+                    <div style="font-size: 13px; line-height: 1.6;">
+                        <div><strong>浓度范围:</strong> ${Number(props.level_min || 0).toFixed(4)} - ${Number(props.level_max || 0).toFixed(4)} ${unit}</div>
+                    </div>
+                </div>
+            `);
+        }
+    });
+
+    contourLayer.addTo(map);
+    layerControl.addOverlay(contourLayer, '等值填色 / Filled Contour');
+    mapContainer._contour_layer = contourLayer;
+    mapContainer._map_data = mapData;
+
+    const bounds = contourLayer.getBounds();
+    if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20], maxZoom: 16 });
+    } else if (Array.isArray(mapData.center) && mapData.center.length === 2) {
+        map.setView(mapData.center, mapData.zoom || 12);
+    } else {
+        map.setView([31.23, 121.47], 12);
+    }
+
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+}
+
 function initRasterLeafletMap(mapData, mapId) {
     const initialized = initAnalysisLeafletMap(mapId);
     if (!initialized) {
@@ -2681,6 +2943,60 @@ function initRasterLeafletMap(mapData, mapId) {
     }, 100);
 }
 
+function renderContourMap(mapData, msgContainer) {
+    const normalizedMapData = normalizeContourMapData(mapData);
+    const layer = normalizedMapData?.layers?.[0];
+    const features = layer?.data?.features || [];
+    if (!normalizedMapData || features.length === 0) {
+        console.warn('[Map] No valid contour map data provided');
+        return;
+    }
+
+    const style = layer.style || {};
+    const pollutant = normalizedMapData.pollutant || 'NOx';
+    const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
+    const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
+    const mapId = `contour-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const mapHtml = `
+        <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-slate-900 dark:text-white font-bold text-lg">${escapeHtml(normalizedMapData.title || `${pollutant} Concentration Field (contour)`)}</h3>
+                    <p class="text-slate-500 text-sm">显示 ${features.length} 个连续等值填色带的 ${pollutant} 浓度场</p>
+                </div>
+                <div class="text-sm text-slate-500 dark:text-slate-400 text-right">
+                    <div>平均浓度 ${formatMapValue(normalizedMapData.summary?.mean_concentration || 0)} ${unit}</div>
+                    <div>最大浓度 ${formatMapValue(normalizedMapData.summary?.max_concentration || 0)} ${unit}</div>
+                    <div>${Math.round(Number(normalizedMapData.summary?.interp_resolution_m || 10))}m interpolation</div>
+                    <div>受体点 ${Number(normalizedMapData.summary?.n_receptors_used || 0)}</div>
+                </div>
+            </div>
+            ${coverageHtml}
+            <div id="${mapId}" style="height: 520px;" class="message-map-container rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
+            ${renderContourLegend(style, features)}
+        </div>
+    `;
+
+    const contentDiv = msgContainer.querySelector('.message-content');
+    if (!contentDiv) {
+        console.error('[Map] Message content div not found for contour map');
+        return;
+    }
+
+    contentDiv.insertAdjacentHTML('beforeend', mapHtml);
+    scrollToBottom();
+
+    setTimeout(() => {
+        const mapContainer = document.getElementById(mapId);
+        if (!mapContainer) {
+            console.error(`[Map] Contour map container ${mapId} not found in DOM`);
+            return;
+        }
+        initContourLeafletMap(normalizedMapData, mapId);
+    }, 150);
+}
+
 function initHotspotLeafletMap(mapData, mapId) {
     const initialized = initAnalysisLeafletMap(mapId);
     if (!initialized) {
@@ -2689,13 +3005,45 @@ function initHotspotLeafletMap(mapData, mapId) {
 
     const { map, mapContainer, layerControl } = initialized;
     const layers = Array.isArray(mapData.layers) ? mapData.layers : [];
+    const contourLayerData = layers.find((layer) => layer.id === 'concentration_contour');
     const rasterLayerData = layers.find((layer) => layer.id === 'concentration_raster');
     const hotspotLayerData = layers.find((layer) => layer.id === 'hotspot_areas');
 
-    let rasterLayer = null;
-    if (rasterLayerData?.data?.features?.length) {
+    let backgroundLayer = null;
+    if (contourLayerData?.data?.features?.length) {
+        const contourStyle = contourLayerData.style || {};
+        backgroundLayer = L.geoJSON(contourLayerData.data, {
+            style: (feature) => {
+                const props = feature.properties || {};
+                return {
+                    fillColor: getContourColor(
+                        Number(props.level_index || 0),
+                        Number(contourStyle.n_levels || contourLayerData.data.features.length)
+                    ),
+                    fillOpacity: Number(contourStyle.opacity || 0.75),
+                    stroke: contourStyle.stroke !== false,
+                    color: contourStyle.stroke_color || 'rgba(255,255,255,0.15)',
+                    weight: Number(contourStyle.stroke_width || 0.5),
+                    opacity: 1.0,
+                };
+            },
+            onEachFeature: (feature, layer) => {
+                const props = feature.properties || {};
+                layer.bindPopup(`
+                    <div style="min-width: 180px;">
+                        <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(String(props.label || 'Contour Band'))}</h3>
+                        <div style="font-size: 13px; line-height: 1.6;">
+                            <div><strong>Range:</strong> ${Number(props.level_min || 0).toFixed(4)} - ${Number(props.level_max || 0).toFixed(4)} μg/m³</div>
+                        </div>
+                    </div>
+                `);
+            }
+        });
+        backgroundLayer.addTo(map);
+        layerControl.addOverlay(backgroundLayer, '等值填色背景 / Contour Background');
+    } else if (rasterLayerData?.data?.features?.length) {
         const [minVal, maxVal] = rasterLayerData.style?.value_range || [0, 1];
-        rasterLayer = L.geoJSON(rasterLayerData.data, {
+        backgroundLayer = L.geoJSON(rasterLayerData.data, {
             style: (feature) => ({
                 fillColor: getRasterColor(Number(feature.properties?.value || 0), minVal, maxVal),
                 fillOpacity: 0.5,
@@ -2703,8 +3051,8 @@ function initHotspotLeafletMap(mapData, mapId) {
                 fill: true,
             })
         });
-        rasterLayer.addTo(map);
-        layerControl.addOverlay(rasterLayer, '浓度背景 / Concentration Background');
+        backgroundLayer.addTo(map);
+        layerControl.addOverlay(backgroundLayer, '浓度背景 / Concentration Background');
     }
 
     let hotspotLayer = null;
@@ -2790,8 +3138,8 @@ function initHotspotLeafletMap(mapData, mapId) {
 
     if (hotspotLayer && hotspotLayer.getBounds().isValid()) {
         map.fitBounds(hotspotLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
-    } else if (rasterLayer && rasterLayer.getBounds().isValid()) {
-        map.fitBounds(rasterLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
+    } else if (backgroundLayer && backgroundLayer.getBounds().isValid()) {
+        map.fitBounds(backgroundLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
     } else if (Array.isArray(mapData.center) && mapData.center.length === 2) {
         map.setView(mapData.center, mapData.zoom || 12);
     } else {
@@ -2865,9 +3213,9 @@ function renderHotspotMap(mapData, msgContainer) {
         return;
     }
 
-    const rasterLayer = normalizedMapData.layers.find((layer) => layer.id === 'concentration_raster');
-    const rasterStyle = rasterLayer?.style || null;
-    const [minVal, maxVal] = rasterStyle?.value_range || [0, 1];
+    const backgroundLayer = normalizedMapData.layers.find(
+        (layer) => layer.id === 'concentration_contour' || layer.id === 'concentration_raster'
+    ) || null;
     const interpretationHtml = renderInterpretationBanner(normalizedMapData.interpretation);
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `hotspot-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -2889,7 +3237,7 @@ function renderHotspotMap(mapData, msgContainer) {
             ${interpretationHtml}
             ${coverageHtml}
             <div id="${mapId}" style="height: 540px;" class="message-map-container rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600"></div>
-            ${renderHotspotLegend(rasterStyle, minVal, maxVal, normalizedMapData.contributing_road_ids?.length || 0)}
+            ${renderHotspotLegend(backgroundLayer, normalizedMapData.contributing_road_ids?.length || 0)}
         </div>
     `;
 

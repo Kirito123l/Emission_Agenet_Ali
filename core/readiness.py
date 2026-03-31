@@ -782,7 +782,7 @@ def map_tool_call_to_action_id(
         return "compare_scenario"
     if normalized_tool == "render_spatial_map":
         layer_type = _safe_lower_text(args.get("layer_type"))
-        if layer_type in {"dispersion", "raster", "concentration"}:
+        if layer_type in {"dispersion", "raster", "concentration", "contour"}:
             return "render_dispersion_map"
         if layer_type == "hotspot":
             return "render_hotspot_map"

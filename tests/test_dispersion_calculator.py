@@ -126,6 +126,10 @@ class TestDispersionConfig:
         assert config.background_spacing_m == 50.0
         assert config.buffer_extra_m == 3.0
         assert config.display_grid_resolution_m == 50.0
+        assert config.contour_enabled is True
+        assert config.contour_interp_resolution_m == 10.0
+        assert config.contour_n_levels == 12
+        assert config.contour_smooth_sigma == 1.0
         assert config.downwind_range == (0.0, 1000.0)
         assert config.upwind_range == (-100.0, 0.0)
         assert config.crosswind_range == (-100.0, 100.0)
@@ -141,6 +145,10 @@ class TestDispersionConfig:
             utm_hemisphere="south",
             segment_interval_m=20.0,
             display_grid_resolution_m=100.0,
+            contour_enabled=False,
+            contour_interp_resolution_m=25.0,
+            contour_n_levels=6,
+            contour_smooth_sigma=0.5,
             roughness_height=1.0,
             model_base_dir="/tmp/models",
         )
@@ -150,6 +158,10 @@ class TestDispersionConfig:
         assert config.utm_hemisphere == "south"
         assert config.segment_interval_m == 20.0
         assert config.display_grid_resolution_m == 100.0
+        assert config.contour_enabled is False
+        assert config.contour_interp_resolution_m == 25.0
+        assert config.contour_n_levels == 6
+        assert config.contour_smooth_sigma == 0.5
         assert config.roughness_height == 1.0
         assert config.model_base_dir == "/tmp/models"
 

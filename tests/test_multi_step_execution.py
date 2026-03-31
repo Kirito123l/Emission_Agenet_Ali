@@ -373,6 +373,28 @@ class TestRenderSpatialMapFriendly:
         assert "展示 1 个热点区域" in rendered
         assert "主要贡献路段 road_A（60.0%）" in rendered
 
+    def test_contour_map_render(self):
+        rendered = render_single_tool_success(
+            "render_spatial_map",
+            make_render_result(
+                {
+                    "type": "contour",
+                    "title": "NOx 连续等值填色图",
+                    "summary": {
+                        "n_levels": 12,
+                        "interp_resolution_m": 10,
+                        "max_concentration": 2.3456,
+                        "unit": "μg/m³",
+                    },
+                }
+            ),
+        )
+
+        assert "NOx 连续等值填色图" in rendered
+        assert "已渲染 12 档连续等值填色区域" in rendered
+        assert "插值分辨率 10 m" in rendered
+        assert "最大浓度 2.3456 μg/m³" in rendered
+
     def test_short_circuit_uses_structured_render(self):
         text = maybe_short_circuit_synthesis(
             [

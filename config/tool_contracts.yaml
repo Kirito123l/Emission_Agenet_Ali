@@ -414,6 +414,13 @@ tools:
             - 100
             - 200
           default: 50
+      contour_resolution:
+        required: false
+        standardization: null
+        schema:
+          type: number
+          description: "Interpolation resolution in meters for contour-band generation. Default: 10."
+          default: 10
       pollutant:
         required: false
         standardization: pollutant
@@ -577,11 +584,12 @@ tools:
           type: string
           enum:
             - emission
+            - contour
             - raster
             - hotspot
             - concentration
             - points
-          description: Type of spatial layer. Auto-detected if not specified.
+          description: Type of spatial layer. Auto-detected if not specified; contour prefers continuous filled isobands when available.
       scenario_label:
         required: false
         standardization: null

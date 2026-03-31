@@ -122,6 +122,75 @@ def _make_raster_result():
     }
 
 
+def _make_contour_bands():
+    return {
+        "type": "contour_bands",
+        "interp_resolution_m": 10.0,
+        "n_levels": 2,
+        "levels": [0.1, 0.5],
+        "bbox_wgs84": [121.4, 31.2, 121.408, 31.206],
+        "n_receptors_used": 24,
+        "geojson": {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": [
+                            [[
+                                [121.401, 31.201],
+                                [121.405, 31.201],
+                                [121.405, 31.204],
+                                [121.401, 31.204],
+                                [121.401, 31.201],
+                            ]]
+                        ],
+                    },
+                    "properties": {
+                        "level_min": 0.1,
+                        "level_max": 0.5,
+                        "level_index": 0,
+                        "label": "0.10 - 0.50 μg/m³",
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": [
+                            [[
+                                [121.403, 31.202],
+                                [121.407, 31.202],
+                                [121.407, 31.205],
+                                [121.403, 31.205],
+                                [121.403, 31.202],
+                            ]]
+                        ],
+                    },
+                    "properties": {
+                        "level_min": 0.5,
+                        "level_max": 1.0,
+                        "level_index": 1,
+                        "label": "0.50 - 1.00 μg/m³",
+                    },
+                },
+            ],
+        },
+        "stats": {
+            "min_concentration": 0.1,
+            "max_concentration": 1.0,
+            "mean_concentration": 0.45,
+        },
+    }
+
+
+def _make_contour_result():
+    result = _make_raster_result()
+    result["data"]["contour_bands"] = _make_contour_bands()
+    return result
+
+
 def _make_hotspot_result():
     raster_result = _make_raster_result()
     return {
@@ -168,6 +237,7 @@ def _make_hotspot_result():
                 },
             ],
             "raster_grid": raster_result["data"]["raster_grid"],
+            "contour_bands": _make_contour_bands(),
             "coverage_assessment": raster_result["data"]["coverage_assessment"],
             "query_info": {"pollutant": "NOx"},
         },
@@ -182,6 +252,11 @@ def test_detect_layer_type_emission(renderer):
 def test_detect_layer_type_concentration(renderer):
     data = {"data": {"concentration_grid": []}}
     assert renderer._detect_layer_type(data) == "concentration"
+
+
+def test_detect_layer_type_contour(renderer):
+    data = {"data": {"contour_bands": _make_contour_bands(), "raster_grid": {"cell_centers_wgs84": []}}}
+    assert renderer._detect_layer_type(data) == "contour"
 
 
 def test_detect_layer_type_points(renderer):
@@ -507,7 +582,7 @@ class TestBuildHotspotMap:
         result_data = _make_hotspot_result()
         map_data = renderer._build_hotspot_map(result_data, "")
         layer_ids = [layer["id"] for layer in map_data["layers"]]
-        assert "concentration_raster" in layer_ids
+        assert "concentration_contour" in layer_ids
         assert "hotspot_areas" in layer_ids
 
     def test_hotspot_popup_data(self, renderer):
@@ -554,10 +629,59 @@ class TestDetectLayerType:
         }
         assert renderer._detect_layer_type(data) == "raster"
 
+    def test_contour_priority_over_raster(self, renderer):
+        data = {
+            "data": {
+                "contour_bands": _make_contour_bands(),
+                "raster_grid": {"cell_centers_wgs84": [{"lon": 121.4, "lat": 31.2, "mean_conc": 1.0}]},
+                "concentration_grid": {"receptors": [{"lon": 121.4, "lat": 31.2}]},
+            }
+        }
+        assert renderer._detect_layer_type(data) == "contour"
+
 
 class TestExecuteRasterAndHotspot:
+    def test_build_contour_map_basic(self, renderer):
+        result_data = _make_contour_result()
+        map_data = renderer._build_contour_map(result_data, "NOx", "Contours")
+
+        assert map_data is not None
+        assert map_data["type"] == "contour"
+        assert map_data["layers"][0]["type"] == "filled_contour"
+        assert map_data["layers"][0]["style"]["color_scale"] == "YlOrRd"
+        assert map_data["summary"]["n_levels"] == 2
+
+    def test_execute_contour_auto_priority(self, renderer):
+        result_data = _make_contour_result()
+        result = asyncio.run(
+            renderer.execute(
+                data_source="last_result",
+                _last_result=result_data,
+                pollutant="NOx",
+            )
+        )
+
+        assert result.success is True
+        assert result.map_data is not None
+        assert result.map_data["type"] == "contour"
+
     def test_execute_raster_type(self, renderer):
         result_data = _make_raster_result()
+        result = asyncio.run(
+            renderer.execute(
+                data_source="last_result",
+                _last_result=result_data,
+                pollutant="NOx",
+            )
+        )
+
+        assert result.success is True
+        assert result.map_data is not None
+        assert result.map_data["type"] == "raster"
+
+    def test_execute_raster_fallback_when_contour_has_error(self, renderer):
+        result_data = _make_raster_result()
+        result_data["data"]["contour_bands"] = {"error": "generation failed"}
         result = asyncio.run(
             renderer.execute(
                 data_source="last_result",
@@ -582,3 +706,17 @@ class TestExecuteRasterAndHotspot:
         assert result.success is True
         assert result.map_data is not None
         assert result.map_data["type"] == "hotspot"
+
+    def test_execute_dispersion_alias_prefers_contour(self, renderer):
+        result_data = _make_contour_result()
+        result = asyncio.run(
+            renderer.execute(
+                data_source="last_result",
+                _last_result=result_data,
+                layer_type="dispersion",
+                pollutant="NOx",
+            )
+        )
+
+        assert result.success is True
+        assert result.map_data["type"] == "contour"

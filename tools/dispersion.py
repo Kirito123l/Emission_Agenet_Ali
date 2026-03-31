@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
+from config import get_config
 from core.coverage_assessment import assess_coverage
 from tools.base import BaseTool, PreflightCheckResult, ToolResult
 
@@ -67,6 +68,7 @@ class DispersionTool(BaseTool):
         from calculators.dispersion import DispersionCalculator, DispersionConfig
         from calculators.dispersion_adapter import EmissionToDispersionAdapter
 
+        self.runtime_config = get_config()
         self.name = "calculate_dispersion"
         self.description = "Calculate pollutant dispersion using PS-XGB-RLINE surrogate model"
         self._calculator_class = DispersionCalculator
@@ -92,6 +94,12 @@ class DispersionTool(BaseTool):
             roughness = float(kwargs.get("roughness_height", 0.5))
             pollutant = kwargs.get("pollutant", "NOx")
             grid_resolution = float(kwargs.get("grid_resolution", 50))
+            contour_resolution = float(
+                kwargs.get(
+                    "contour_resolution",
+                    getattr(self.runtime_config, "contour_interp_resolution_m", 10.0),
+                )
+            )
 
             # Track which parameters used defaults
             defaults_used = {}
@@ -103,6 +111,12 @@ class DispersionTool(BaseTool):
                 defaults_used["pollutant"] = "NOx"
             if "grid_resolution" not in kwargs:
                 defaults_used["grid_resolution"] = 50
+            if "contour_resolution" not in kwargs and getattr(
+                self.runtime_config,
+                "enable_contour_output",
+                True,
+            ):
+                defaults_used["contour_resolution"] = contour_resolution
 
             emission_data = self._resolve_emission_source(emission_source, kwargs)
             if emission_data is None:
@@ -134,6 +148,16 @@ class DispersionTool(BaseTool):
             calculator = self._get_calculator(roughness)
             if hasattr(calculator, "config"):
                 calculator.config.display_grid_resolution_m = grid_resolution
+                calculator.config.contour_enabled = bool(
+                    getattr(self.runtime_config, "enable_contour_output", True)
+                )
+                calculator.config.contour_interp_resolution_m = contour_resolution
+                calculator.config.contour_n_levels = int(
+                    getattr(self.runtime_config, "contour_n_levels", 12)
+                )
+                calculator.config.contour_smooth_sigma = float(
+                    getattr(self.runtime_config, "contour_smooth_sigma", 1.0)
+                )
             result = calculator.calculate(
                 roads_gdf=roads_gdf,
                 emissions_df=emissions_df,
@@ -367,17 +391,34 @@ class DispersionTool(BaseTool):
             return f"{float(value):g}"
         return str(value)
 
-    def _get_calculator(self, roughness: float, grid_resolution: Optional[float] = None) -> Any:
+    def _get_calculator(
+        self,
+        roughness: float,
+        grid_resolution: Optional[float] = None,
+        contour_resolution: Optional[float] = None,
+    ) -> Any:
         """Get or lazily construct a calculator instance for the requested roughness height."""
         if roughness not in (0.05, 0.5, 1.0):
             raise ValueError("roughness_height must be one of: 0.05, 0.5, 1.0")
 
         if roughness not in self._calculator_cache:
-            config = self._config_class(roughness_height=roughness)
+            config = self._config_class(
+                roughness_height=roughness,
+                contour_enabled=bool(getattr(self.runtime_config, "enable_contour_output", True)),
+                contour_interp_resolution_m=float(
+                    getattr(self.runtime_config, "contour_interp_resolution_m", 10.0)
+                ),
+                contour_n_levels=int(getattr(self.runtime_config, "contour_n_levels", 12)),
+                contour_smooth_sigma=float(
+                    getattr(self.runtime_config, "contour_smooth_sigma", 1.0)
+                ),
+            )
             self._calculator_cache[roughness] = self._calculator_class(config=config)
         calculator = self._calculator_cache[roughness]
         if grid_resolution is not None:
             calculator.config.display_grid_resolution_m = float(grid_resolution)
+        if contour_resolution is not None:
+            calculator.config.contour_interp_resolution_m = float(contour_resolution)
         return calculator
 
     def preflight_check(self, parameters: Dict[str, Any]) -> PreflightCheckResult:
@@ -544,21 +585,31 @@ class DispersionTool(BaseTool):
                 default_items.append(f"污染物={defaults_used['pollutant']}")
             if "grid_resolution" in defaults_used:
                 default_items.append(f"网格分辨率={defaults_used['grid_resolution']}m")
+            if "contour_resolution" in defaults_used:
+                default_items.append(f"等值带分辨率={defaults_used['contour_resolution']}m")
             summary_parts.append(f"Defaults used: {', '.join(default_items)}")
 
         return "\n".join(summary_parts)
 
     def _build_map_data(self, data: Dict[str, Any], pollutant: str) -> Dict[str, Any]:
         """Build map payload with concentration_grid so spatial_renderer can detect it later."""
+        contour_bands = data.get("contour_bands")
+        has_valid_contour = (
+            isinstance(contour_bands, dict)
+            and not contour_bands.get("error")
+            and isinstance(contour_bands.get("geojson"), dict)
+        )
         map_data = {
             "concentration_grid": data.get("concentration_grid", {}),
-            "type": "concentration",
+            "type": "contour" if has_valid_contour else ("raster" if "raster_grid" in data else "concentration"),
             "pollutant": pollutant,
             "summary": data.get("summary", {}),
             "query_info": data.get("query_info", {}),
         }
         if "raster_grid" in data:
             map_data["raster_grid"] = data["raster_grid"]
+        if "contour_bands" in data:
+            map_data["contour_bands"] = data["contour_bands"]
         if "coverage_assessment" in data:
             map_data["coverage_assessment"] = data["coverage_assessment"]
         return map_data

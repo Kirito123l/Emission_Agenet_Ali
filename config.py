@@ -50,6 +50,12 @@ class Config:
         self.enable_state_orchestration = os.getenv("ENABLE_STATE_ORCHESTRATION", "true").lower() == "true"
         self.enable_trace = os.getenv("ENABLE_TRACE", "true").lower() == "true"
         self.persist_trace = os.getenv("PERSIST_TRACE", "false").lower() == "true"
+        self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
+        self.contour_interp_resolution_m = float(
+            os.getenv("CONTOUR_INTERP_RESOLUTION_M", "10.0")
+        )
+        self.contour_n_levels = int(os.getenv("CONTOUR_N_LEVELS", "12"))
+        self.contour_smooth_sigma = float(os.getenv("CONTOUR_SMOOTH_SIGMA", "1.0"))
         self.standardization_fuzzy_enabled = (
             os.getenv("STANDARDIZATION_FUZZY_ENABLED", "true").lower() == "true"
         )

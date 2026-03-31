@@ -77,6 +77,19 @@ def _zoom_from_span(span: float) -> int:
     return 14
 
 
+def _has_valid_contour_bands(payload: Any) -> bool:
+    """Return whether a contour_bands payload is usable for rendering."""
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("error"):
+        return False
+    geojson = payload.get("geojson")
+    if not isinstance(geojson, dict):
+        return False
+    features = geojson.get("features")
+    return isinstance(features, list)
+
+
 class SpatialRendererTool(BaseTool):
     name = "render_spatial_map"
     description = "Render spatial data as an interactive map"
@@ -120,10 +133,14 @@ class SpatialRendererTool(BaseTool):
             # 2. Auto-detect layer type if not specified
             if not layer_type:
                 layer_type = self._detect_layer_type(result_data)
+            elif layer_type == "dispersion":
+                layer_type = self._detect_dispersion_layer_type(result_data)
 
             # 3. Build map_data based on layer type
             if layer_type == "hotspot":
                 map_data = self._build_hotspot_map(result_data, title)
+            elif layer_type == "contour":
+                map_data = self._build_contour_map(result_data, pollutant, title)
             elif layer_type == "raster":
                 map_data = self._build_raster_map(result_data, pollutant, title)
             elif layer_type == "emission":
@@ -138,6 +155,7 @@ class SpatialRendererTool(BaseTool):
             if not map_data:
                 error_messages = {
                     "hotspot": "Could not build hotspot map from provided data",
+                    "contour": "Could not build contour concentration map from provided data",
                     "raster": "Could not build raster concentration map from provided data",
                     "concentration": "Could not build concentration map from provided data",
                     "points": "Could not build points map from provided data",
@@ -145,6 +163,7 @@ class SpatialRendererTool(BaseTool):
                 }
                 summary_messages = {
                     "hotspot": "Map rendering failed - no hotspot data found",
+                    "contour": "Map rendering failed - no contour concentration data found",
                     "raster": "Map rendering failed - no raster concentration data found",
                     "concentration": "Map rendering failed - no concentration data found",
                     "points": "Map rendering failed - no point data found",
@@ -186,6 +205,8 @@ class SpatialRendererTool(BaseTool):
             data = result_data.get("data", result_data)
             if data.get("type") == "hotspot" or "hotspots" in data:
                 return "hotspot"
+            if data.get("type") == "contour" or _has_valid_contour_bands(data.get("contour_bands")):
+                return "contour"
             if data.get("type") == "raster" or "raster_grid" in data:
                 return "raster"
             if "concentration_grid" in data or "concentration_geojson" in data:
@@ -195,6 +216,17 @@ class SpatialRendererTool(BaseTool):
             if "receptors" in data:
                 return "points"
         return "emission"
+
+    def _detect_dispersion_layer_type(self, result_data: Dict) -> str:
+        """Choose the best dispersion visualization mode for current data."""
+        data = result_data.get("data", result_data) if isinstance(result_data, dict) else {}
+        if data.get("type") == "contour":
+            return "contour"
+        if _has_valid_contour_bands(data.get("contour_bands")):
+            return "contour"
+        if isinstance(data.get("raster_grid"), dict):
+            return "raster"
+        return "concentration"
 
     def _build_emission_map(
         self,
@@ -663,6 +695,86 @@ class SpatialRendererTool(BaseTool):
             },
         }
 
+    def _build_contour_map(
+        self,
+        result_data: Dict[str, Any],
+        pollutant: Optional[str] = None,
+        title: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Build contour-band map data from dispersion contour output."""
+        data = result_data.get("data", result_data)
+        contour_bands = data.get("contour_bands")
+        if not _has_valid_contour_bands(contour_bands):
+            return None
+
+        geojson = contour_bands.get("geojson", {})
+        features = geojson.get("features", [])
+        if not isinstance(features, list):
+            return None
+
+        pollutant = (
+            pollutant
+            or data.get("query_info", {}).get("pollutant")
+            or data.get("pollutant")
+            or "NOx"
+        )
+
+        bbox = contour_bands.get("bbox_wgs84")
+        center = [31.23, 121.47]
+        zoom = 12
+        if isinstance(bbox, list) and len(bbox) >= 4:
+            try:
+                min_lon, min_lat, max_lon, max_lat = [float(value) for value in bbox[:4]]
+                center = [(min_lat + max_lat) / 2.0, (min_lon + max_lon) / 2.0]
+                zoom = _zoom_from_span(max(max_lon - min_lon, max_lat - min_lat))
+            except (TypeError, ValueError):
+                pass
+
+        stats = contour_bands.get("stats", {}) if isinstance(contour_bands.get("stats"), dict) else {}
+        interp_resolution = float(contour_bands.get("interp_resolution_m", 10.0))
+        n_levels = int(contour_bands.get("n_levels", len(contour_bands.get("levels", [])) or 0))
+        unit = "μg/m³"
+
+        return {
+            "type": "contour",
+            "title": title or f"{pollutant} Concentration Field (contour)",
+            "pollutant": pollutant,
+            "center": center,
+            "zoom": zoom,
+            "layers": [
+                {
+                    "id": "concentration_contour",
+                    "type": "filled_contour",
+                    "data": geojson,
+                    "style": {
+                        "color_field": "level_index",
+                        "color_scale": "YlOrRd",
+                        "n_levels": n_levels,
+                        "levels": contour_bands.get("levels", []),
+                        "opacity": 0.75,
+                        "stroke": True,
+                        "stroke_color": "rgba(255,255,255,0.15)",
+                        "stroke_width": 0.5,
+                        "legend_title": f"{pollutant} Concentration",
+                        "legend_unit": unit,
+                        "resolution_info": f"{int(round(interp_resolution))}m interpolation",
+                    },
+                }
+            ],
+            "contour_bands": contour_bands,
+            "coverage_assessment": data.get("coverage_assessment", {}),
+            "summary": {
+                "n_levels": n_levels,
+                "interp_resolution_m": interp_resolution,
+                "min_concentration": float(stats.get("min_concentration", 0.0)),
+                "max_concentration": float(stats.get("max_concentration", 0.0)),
+                "mean_concentration": float(stats.get("mean_concentration", 0.0)),
+                "unit": unit,
+                "n_receptors_used": int(contour_bands.get("n_receptors_used", 0)),
+                "feature_count": len(features),
+            },
+        }
+
     def _build_hotspot_map(
         self,
         result_data: Dict[str, Any],
@@ -747,7 +859,10 @@ class SpatialRendererTool(BaseTool):
             zoom = 12
 
         layers: List[Dict[str, Any]] = []
-        if "raster_grid" in data:
+        contour_map = self._build_contour_map(data, pollutant=data.get("query_info", {}).get("pollutant"))
+        if contour_map and contour_map.get("layers"):
+            layers.append(contour_map["layers"][0])
+        elif "raster_grid" in data:
             raster_map = self._build_raster_map(data, pollutant=data.get("query_info", {}).get("pollutant"))
             if raster_map and raster_map.get("layers"):
                 layers.append(raster_map["layers"][0])

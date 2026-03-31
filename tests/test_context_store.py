@@ -150,6 +150,14 @@ class TestToolDependencyResolution:
         data = store.get_result_for_tool("render_spatial_map", layer_type="raster")
         assert data == dispersion
 
+    def test_render_contour_gets_dispersion(self):
+        store = SessionContextStore()
+        dispersion = make_dispersion_result()
+        store.store_result("calculate_dispersion", dispersion)
+
+        data = store.get_result_for_tool("render_spatial_map", layer_type="contour")
+        assert data == dispersion
+
     def test_render_hotspot_gets_hotspot(self):
         store = SessionContextStore()
         hotspot = make_hotspot_result()

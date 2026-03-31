@@ -69,6 +69,7 @@ class SessionContextStore:
             "dispersion": ["dispersion"],
             "raster": ["dispersion"],
             "concentration": ["dispersion"],
+            "contour": ["dispersion"],
             "hotspot": ["hotspot"],
             "_default": ["hotspot", "dispersion", "emission"],
         },

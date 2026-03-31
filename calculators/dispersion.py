@@ -8,9 +8,12 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
+from contourpy import FillType, contour_generator
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
 import xgboost as xgb
 import yaml
 from pyproj import Transformer
@@ -23,6 +26,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MET_DATE = 2024010100
 MAX_TRACKED_ROADS_PER_RECEPTOR = 10
 DENSE_ROAD_CONTRIBUTION_LIMIT = 10_000_000
+CONTOUR_MAX_GRID_POINTS = 50_000
 
 
 @dataclass
@@ -43,6 +47,11 @@ class DispersionConfig:
     background_spacing_m: float = 50.0
     buffer_extra_m: float = 3.0
     display_grid_resolution_m: float = 50.0
+    contour_enabled: bool = True
+    contour_interp_resolution_m: float = 10.0
+    contour_n_levels: int = 12
+    contour_smooth_sigma: float = 1.0
+    contour_max_grid_points: int = CONTOUR_MAX_GRID_POINTS
 
     # Prediction ranges
     downwind_range: Tuple[float, float] = (0.0, 1000.0)
@@ -963,6 +972,76 @@ def emission_to_line_source_strength(
     return nox_kg_h * 1000 / 3600 / (length_km * 1000 * road_width_m)
 
 
+def _iter_polygonal_geometries(geometry: Any) -> list[Polygon]:
+    """Extract polygonal pieces from make_valid outputs."""
+    if geometry is None or getattr(geometry, "is_empty", True):
+        return []
+
+    geom_type = getattr(geometry, "geom_type", "")
+    if geom_type == "Polygon":
+        return [geometry]
+    if geom_type == "MultiPolygon":
+        return [geom for geom in geometry.geoms if not geom.is_empty]
+
+    geoms = getattr(geometry, "geoms", None)
+    if geoms is None:
+        return []
+
+    polygons: list[Polygon] = []
+    for geom in geoms:
+        polygons.extend(_iter_polygonal_geometries(geom))
+    return polygons
+
+
+def _serialize_local_polygon_to_geojson(
+    polygon: Polygon,
+    *,
+    origin_x: float,
+    origin_y: float,
+    utm_zone: int,
+    utm_hemisphere: str,
+) -> list[list[list[float]]]:
+    """Convert a local-meter polygon into GeoJSON rings."""
+
+    def _serialize_ring(ring: Any) -> list[list[float]]:
+        coords = np.asarray(ring.coords, dtype=float)
+        if coords.ndim != 2 or coords.shape[0] < 4:
+            return []
+        lon, lat = inverse_transform_coords(
+            coords[:, 0],
+            coords[:, 1],
+            origin_x,
+            origin_y,
+            utm_zone,
+            utm_hemisphere,
+        )
+        serialized = [[float(x), float(y)] for x, y in zip(lon.tolist(), lat.tolist())]
+        if serialized and serialized[0] != serialized[-1]:
+            serialized.append(list(serialized[0]))
+        return serialized
+
+    rings: list[list[list[float]]] = []
+    exterior = _serialize_ring(polygon.exterior)
+    if len(exterior) < 4:
+        return []
+    rings.append(exterior)
+
+    for interior in polygon.interiors:
+        hole = _serialize_ring(interior)
+        if len(hole) >= 4:
+            rings.append(hole)
+    return rings
+
+
+def _format_contour_label_value(value: float) -> str:
+    """Format contour legend values with stable precision."""
+    if value >= 1:
+        return f"{value:.2f}"
+    if value >= 0.1:
+        return f"{value:.3f}"
+    return f"{value:.4f}"
+
+
 def get_model_paths(
     stability_abbrev: str, roughness_height: float, model_base_dir: str = ""
 ) -> Tuple[Path, Path]:
@@ -1030,7 +1109,25 @@ class DispersionCalculator:
 
     def __init__(self, config: Optional[DispersionConfig] = None):
         """Initialize the calculator and defer model loading until first use."""
-        self.config = config or DispersionConfig()
+        if config is None:
+            runtime_config = None
+            try:
+                from config import get_config
+
+                runtime_config = get_config()
+            except Exception:
+                runtime_config = None
+
+            config = DispersionConfig(
+                contour_enabled=bool(getattr(runtime_config, "enable_contour_output", True)),
+                contour_interp_resolution_m=float(
+                    getattr(runtime_config, "contour_interp_resolution_m", 10.0)
+                ),
+                contour_n_levels=int(getattr(runtime_config, "contour_n_levels", 12)),
+                contour_smooth_sigma=float(getattr(runtime_config, "contour_smooth_sigma", 1.0)),
+            )
+
+        self.config = config
         self._models: Optional[Dict[str, Dict[str, Any]]] = None
         self._model_base_dir: str = ""
         self._source_times: pd.Index = pd.Index([])
@@ -1499,6 +1596,294 @@ class DispersionCalculator:
                 ) from exc
         return self._models[stability_abbrev]
 
+    def _generate_contour_bands(
+        self,
+        receptor_local_coords: np.ndarray,
+        receptor_concentrations: np.ndarray,
+        origin: Tuple[float, float],
+        interp_resolution_m: Optional[float] = None,
+        n_levels: Optional[int] = None,
+        smooth_sigma: Optional[float] = None,
+    ) -> dict[str, Any]:
+        """Interpolate receptor concentrations and generate filled contour bands."""
+        resolution = float(
+            interp_resolution_m
+            if interp_resolution_m is not None
+            else self.config.contour_interp_resolution_m
+        )
+        band_count = int(n_levels if n_levels is not None else self.config.contour_n_levels)
+        sigma = float(smooth_sigma if smooth_sigma is not None else self.config.contour_smooth_sigma)
+        max_grid_points = max(int(self.config.contour_max_grid_points), 1)
+
+        empty_feature_collection = {"type": "FeatureCollection", "features": []}
+        base_result: dict[str, Any] = {
+            "type": "contour_bands",
+            "interp_resolution_m": float(resolution),
+            "smooth_sigma": float(sigma),
+            "n_levels": max(band_count, 1),
+            "levels": [],
+            "n_receptors_used": 0,
+            "interp_grid_shape": [0, 0],
+            "bbox_wgs84": [0.0, 0.0, 0.0, 0.0],
+            "geojson": empty_feature_collection,
+            "stats": {
+                "min_concentration": 0.0,
+                "max_concentration": 0.0,
+                "mean_concentration": 0.0,
+                "total_area_m2": 0.0,
+            },
+        }
+
+        coords = np.asarray(receptor_local_coords, dtype=float)
+        concentrations = np.asarray(receptor_concentrations, dtype=float)
+        if coords.ndim != 2 or coords.shape[1] != 2:
+            return {**base_result, "error": "receptor_local_coords must have shape (N, 2)"}
+        if concentrations.ndim != 1 or concentrations.shape[0] != coords.shape[0]:
+            return {**base_result, "error": "receptor_concentrations must have shape (N,)"}
+
+        valid_mask = (
+            np.all(np.isfinite(coords), axis=1)
+            & np.isfinite(concentrations)
+            & (concentrations > 0)
+        )
+        valid_coords = coords[valid_mask]
+        valid_concentrations = concentrations[valid_mask]
+        base_result["n_receptors_used"] = int(valid_coords.shape[0])
+
+        if valid_coords.size == 0:
+            return base_result
+
+        unique_coords = np.unique(np.round(valid_coords, decimals=6), axis=0)
+        if unique_coords.shape[0] < 2:
+            return {
+                **base_result,
+                "error": "At least two non-zero receptors are required to generate contour bands",
+            }
+
+        x_values = valid_coords[:, 0]
+        y_values = valid_coords[:, 1]
+        padding = max(resolution, 1.0)
+        x_min = float(np.min(x_values) - padding)
+        x_max = float(np.max(x_values) + padding)
+        y_min = float(np.min(y_values) - padding)
+        y_max = float(np.max(y_values) + padding)
+
+        span_x = max(x_max - x_min, padding)
+        span_y = max(y_max - y_min, padding)
+        min_resolution_for_cap = np.sqrt((span_x * span_y) / max_grid_points)
+        if min_resolution_for_cap > resolution:
+            resolution = float(min_resolution_for_cap)
+
+        while True:
+            grid_x_vals = np.arange(x_min, x_max + resolution, resolution, dtype=float)
+            grid_y_vals = np.arange(y_min, y_max + resolution, resolution, dtype=float)
+            if (grid_x_vals.size * grid_y_vals.size) <= max_grid_points:
+                break
+            resolution *= 1.25
+
+        grid_x, grid_y = np.meshgrid(grid_x_vals, grid_y_vals)
+        base_result["interp_resolution_m"] = float(resolution)
+        base_result["interp_grid_shape"] = [int(grid_y.shape[0]), int(grid_x.shape[1])]
+
+        points = np.column_stack((x_values, y_values))
+        primary_method = "nearest" if valid_coords.shape[0] < 10 else "cubic"
+        try:
+            interpolated = griddata(points, valid_concentrations, (grid_x, grid_y), method=primary_method)
+        except Exception:
+            fallback_method = "linear" if primary_method == "cubic" and valid_coords.shape[0] >= 3 else "nearest"
+            interpolated = griddata(points, valid_concentrations, (grid_x, grid_y), method=fallback_method)
+            primary_method = fallback_method
+
+        if interpolated is None:
+            interpolated = np.full(grid_x.shape, np.nan, dtype=float)
+
+        if np.isnan(interpolated).any():
+            nearest_fill = griddata(points, valid_concentrations, (grid_x, grid_y), method="nearest")
+            if nearest_fill is None:
+                nearest_fill = np.zeros(grid_x.shape, dtype=float)
+            interpolated = np.where(np.isnan(interpolated), nearest_fill, interpolated)
+
+        interpolated = np.nan_to_num(interpolated, nan=0.0, posinf=0.0, neginf=0.0)
+        interpolated = np.clip(interpolated, 0.0, None)
+
+        if sigma > 0 and np.count_nonzero(interpolated > 0) > 0:
+            interpolated = gaussian_filter(interpolated, sigma=sigma, mode="nearest")
+            interpolated = np.clip(interpolated, 0.0, None)
+
+        base_result["stats"] = {
+            "min_concentration": float(np.min(valid_concentrations)),
+            "max_concentration": float(np.max(valid_concentrations)),
+            "mean_concentration": float(np.mean(valid_concentrations)),
+            "total_area_m2": 0.0,
+        }
+
+        bbox_lon, bbox_lat = inverse_transform_coords(
+            np.array([x_min, x_max, x_min, x_max], dtype=float),
+            np.array([y_min, y_min, y_max, y_max], dtype=float),
+            origin[0],
+            origin[1],
+            self.config.utm_zone,
+            self.config.utm_hemisphere,
+        )
+        base_result["bbox_wgs84"] = [
+            float(np.min(bbox_lon)),
+            float(np.min(bbox_lat)),
+            float(np.max(bbox_lon)),
+            float(np.max(bbox_lat)),
+        ]
+
+        positive_grid = interpolated[interpolated > 0]
+        if positive_grid.size == 0:
+            return base_result
+
+        band_count = max(band_count, 1)
+        positive_min = float(np.min(positive_grid))
+        positive_max = float(np.max(positive_grid))
+        lower_bound = max(positive_min * 0.95, np.nextafter(0.0, 1.0))
+        if positive_max <= lower_bound:
+            upper_bound = max(positive_max * 1.05, lower_bound * 1.05)
+            band_edges = np.linspace(lower_bound, upper_bound, band_count + 1, dtype=float)
+        else:
+            band_edges = np.geomspace(lower_bound, positive_max, band_count + 1, dtype=float)
+        band_edges[-1] = max(float(band_edges[-1]), positive_max)
+        band_edges = np.maximum.accumulate(band_edges)
+        for idx in range(1, len(band_edges)):
+            if band_edges[idx] <= band_edges[idx - 1]:
+                band_edges[idx] = np.nextafter(float(band_edges[idx - 1]), np.inf)
+
+        levels = [float(value) for value in band_edges[1:].tolist()]
+        base_result["levels"] = levels
+
+        generator = contour_generator(
+            x=grid_x_vals,
+            y=grid_y_vals,
+            z=interpolated,
+            fill_type=FillType.ChunkCombinedOffsetOffset,
+        )
+
+        features: list[dict[str, Any]] = []
+        all_lon_values: list[float] = []
+        all_lat_values: list[float] = []
+        total_area_m2 = 0.0
+
+        for level_index in range(band_count):
+            level_min = float(band_edges[level_index])
+            level_max = float(band_edges[level_index + 1])
+            polygons_geojson: list[list[list[list[float]]]] = []
+
+            vertices_chunks, ring_offsets_chunks, polygon_offsets_chunks = generator.filled(
+                level_min,
+                level_max,
+            )
+
+            for vertices, ring_offsets, polygon_offsets in zip(
+                vertices_chunks,
+                ring_offsets_chunks,
+                polygon_offsets_chunks,
+            ):
+                if vertices is None or ring_offsets is None or polygon_offsets is None:
+                    continue
+
+                vertices_array = np.asarray(vertices, dtype=float)
+                ring_offsets_array = np.asarray(ring_offsets, dtype=int)
+                polygon_offsets_array = np.asarray(polygon_offsets, dtype=int)
+                if (
+                    vertices_array.ndim != 2
+                    or vertices_array.shape[1] != 2
+                    or ring_offsets_array.size < 2
+                    or polygon_offsets_array.size < 2
+                ):
+                    continue
+
+                for polygon_idx in range(len(polygon_offsets_array) - 1):
+                    ring_start = int(polygon_offsets_array[polygon_idx])
+                    ring_end = int(polygon_offsets_array[polygon_idx + 1])
+                    if ring_end <= ring_start:
+                        continue
+
+                    ring_boundaries = ring_offsets_array[ring_start : ring_end + 1]
+                    local_rings: list[np.ndarray] = []
+                    for start_idx, end_idx in zip(ring_boundaries[:-1], ring_boundaries[1:]):
+                        ring = vertices_array[int(start_idx) : int(end_idx)]
+                        if ring.shape[0] < 3:
+                            continue
+                        if not np.allclose(ring[0], ring[-1]):
+                            ring = np.vstack([ring, ring[0]])
+                        if ring.shape[0] >= 4:
+                            local_rings.append(ring)
+
+                    if not local_rings:
+                        continue
+
+                    try:
+                        local_polygon = Polygon(
+                            local_rings[0],
+                            [ring for ring in local_rings[1:] if ring.shape[0] >= 4],
+                        )
+                    except Exception:
+                        continue
+
+                    if local_polygon.is_empty:
+                        continue
+                    if not local_polygon.is_valid:
+                        local_polygon = make_valid(local_polygon)
+
+                    for polygon_geom in _iter_polygonal_geometries(local_polygon):
+                        serialized_rings = _serialize_local_polygon_to_geojson(
+                            polygon_geom,
+                            origin_x=origin[0],
+                            origin_y=origin[1],
+                            utm_zone=self.config.utm_zone,
+                            utm_hemisphere=self.config.utm_hemisphere,
+                        )
+                        if not serialized_rings:
+                            continue
+                        polygons_geojson.append(serialized_rings)
+                        total_area_m2 += float(polygon_geom.area)
+                        for ring_coords in serialized_rings:
+                            for lon, lat in ring_coords:
+                                all_lon_values.append(float(lon))
+                                all_lat_values.append(float(lat))
+
+            if len(polygons_geojson) == 1:
+                geometry = {"type": "Polygon", "coordinates": polygons_geojson[0]}
+            else:
+                geometry = {"type": "MultiPolygon", "coordinates": polygons_geojson}
+
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": geometry,
+                    "properties": {
+                        "level_min": level_min,
+                        "level_max": level_max,
+                        "level_index": int(level_index),
+                        "label": (
+                            f"{_format_contour_label_value(level_min)} - "
+                            f"{_format_contour_label_value(level_max)} μg/m³"
+                        ),
+                        "interp_method": primary_method,
+                    },
+                }
+            )
+
+        if all_lon_values and all_lat_values:
+            base_result["bbox_wgs84"] = [
+                float(min(all_lon_values)),
+                float(min(all_lat_values)),
+                float(max(all_lon_values)),
+                float(max(all_lat_values)),
+            ]
+
+        base_result["geojson"] = {"type": "FeatureCollection", "features": features}
+        base_result["stats"] = {
+            "min_concentration": float(np.min(valid_concentrations)),
+            "max_concentration": float(np.max(valid_concentrations)),
+            "mean_concentration": float(np.mean(valid_concentrations)),
+            "total_area_m2": float(total_area_m2),
+        }
+        return base_result
+
     def _assemble_result(
         self,
         conc_df: pd.DataFrame,
@@ -1587,6 +1972,9 @@ class DispersionCalculator:
                 "met_source": self._met_source_used,
                 "local_origin": {"x": float(origin[0]), "y": float(origin[1])},
                 "display_grid_resolution_m": float(self.config.display_grid_resolution_m),
+                "contour_enabled": bool(self.config.contour_enabled),
+                "contour_interp_resolution_m": float(self.config.contour_interp_resolution_m),
+                "contour_n_levels": int(self.config.contour_n_levels),
             },
             "results": results,
             "summary": {
@@ -1612,6 +2000,36 @@ class DispersionCalculator:
                 utm_hemisphere=self.config.utm_hemisphere,
             ),
         }
+        if self.config.contour_enabled:
+            try:
+                result_data["contour_bands"] = self._generate_contour_bands(
+                    receptor_local_coords=receptors_df[["x", "y"]].to_numpy(dtype=float),
+                    receptor_concentrations=mean_concs,
+                    origin=origin,
+                    interp_resolution_m=self.config.contour_interp_resolution_m,
+                    n_levels=self.config.contour_n_levels,
+                    smooth_sigma=self.config.contour_smooth_sigma,
+                )
+            except Exception as exc:
+                logger.warning("Contour generation failed: %s", exc, exc_info=True)
+                result_data["contour_bands"] = {
+                    "type": "contour_bands",
+                    "interp_resolution_m": float(self.config.contour_interp_resolution_m),
+                    "smooth_sigma": float(self.config.contour_smooth_sigma),
+                    "n_levels": int(self.config.contour_n_levels),
+                    "levels": [],
+                    "n_receptors_used": 0,
+                    "interp_grid_shape": [0, 0],
+                    "bbox_wgs84": [0.0, 0.0, 0.0, 0.0],
+                    "geojson": {"type": "FeatureCollection", "features": []},
+                    "stats": {
+                        "min_concentration": 0.0,
+                        "max_concentration": 0.0,
+                        "mean_concentration": 0.0,
+                        "total_area_m2": 0.0,
+                    },
+                    "error": str(exc),
+                }
         if coverage_assessment is not None:
             result_data["coverage_assessment"] = (
                 coverage_assessment.to_dict()

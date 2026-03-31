@@ -321,7 +321,7 @@ def test_real_dispersion_all_roughness(roughness: float):
 @skip_no_data
 @skip_no_sklearn
 def test_real_dispersion_result_to_spatial_renderer():
-    """验证真实扩散结果能被 SpatialRendererTool 渲染为 raster map。"""
+    """验证真实扩散结果能被 SpatialRendererTool 渲染为 contour 或 raster map。"""
     result = _run_real_dispersion(TEST_6LINKS, "urban_summer_day", roughness=0.5, fresh_calculator=False)
     assert result["status"] == "success"
 
@@ -330,7 +330,7 @@ def test_real_dispersion_result_to_spatial_renderer():
 
     assert render_result.success, f"Renderer failed: {render_result.error}"
     assert render_result.map_data is not None
-    assert render_result.map_data.get("type") == "raster"
+    assert render_result.map_data.get("type") in {"contour", "raster"}
 
     features = render_result.map_data["layers"][0]["data"]["features"]
     assert len(features) > 0
