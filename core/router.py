@@ -329,12 +329,12 @@ class UnifiedRouter:
 
     MAX_TOOL_CALLS_PER_TURN = 3  # Prevent infinite loops
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, memory_storage_dir: Optional[str | Path] = None):
         self.session_id = session_id
         self.runtime_config = get_config()
         self.assembler = ContextAssembler()
         self.executor = ToolExecutor()
-        self.memory = MemoryManager(session_id)
+        self.memory = MemoryManager(session_id, storage_dir=memory_storage_dir)
         self.context_store = SessionContextStore()
         self.llm = get_llm_client("agent", model="qwen-plus")
         self._live_continuation_bundle: Dict[str, Any] = {

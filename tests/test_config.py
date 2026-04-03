@@ -31,7 +31,7 @@ class TestConfigLoading:
         assert config.persist_trace is False
         assert config.enable_contour_output is True
         assert config.contour_interp_resolution_m == 10.0
-        assert config.contour_n_levels == 12
+        assert config.contour_n_levels == 7
         assert config.contour_smooth_sigma == 1.0
         assert config.map_export_dpi == 300
         assert config.map_export_default_format == "png"

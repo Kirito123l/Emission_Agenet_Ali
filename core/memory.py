@@ -58,8 +58,10 @@ class MemoryManager:
 
     MAX_WORKING_MEMORY_TURNS = 5  # Keep last 5 turns
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, storage_dir: Optional[str | Path] = None):
         self.session_id = session_id
+        self._storage_dir = Path(storage_dir) if storage_dir else Path("data/sessions/history")
+        self._storage_dir.mkdir(parents=True, exist_ok=True)
         self.working_memory: List[Turn] = []
         self.fact_memory = FactMemory()
         self.compressed_memory: str = ""
@@ -287,7 +289,7 @@ class MemoryManager:
             ]
         }
 
-        path = Path(f"data/sessions/history/{self.session_id}.json")
+        path = self._storage_dir / f"{self.session_id}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -298,7 +300,11 @@ class MemoryManager:
 
     def _load(self):
         """Load persisted memory from disk"""
-        path = Path(f"data/sessions/history/{self.session_id}.json")
+        path = self._storage_dir / f"{self.session_id}.json"
+        legacy_path = Path("data/sessions/history") / f"{self.session_id}.json"
+        if not path.exists() and legacy_path.exists():
+            path = legacy_path
+
         if not path.exists():
             return
 

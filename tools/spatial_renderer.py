@@ -877,12 +877,12 @@ class SpatialRendererTool(BaseTool):
                 "type": "hotspot_polygon",
                 "data": {"type": "FeatureCollection", "features": hotspot_features},
                 "style": {
-                    "color": "#FF0000",
-                    "weight": 3,
-                    "dashArray": "8, 4",
-                    "fillColor": "#FF0000",
-                    "fillOpacity": 0.1,
-                    "opacity": 0.9,
+                    "color": "#D32F2F",
+                    "weight": 1.2,
+                    "dashArray": None,
+                    "fillColor": "white",
+                    "fillOpacity": 0.12,
+                    "opacity": 0.95,
                 },
             }
         )

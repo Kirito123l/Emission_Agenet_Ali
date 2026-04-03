@@ -29,10 +29,13 @@ function getUserId() {
         }
     }
 
-    // 游客模式：使用 sessionStorage 存储临时 ID（刷新页面会重置）
-    let uid = sessionStorage.getItem('guest_user_id');
+    // 游客模式：使用本地持久化 ID，避免本地开发时因页面重开/会话恢复丢失 user scope
+    let uid = localStorage.getItem('guest_user_id') || sessionStorage.getItem('guest_user_id');
     if (!uid) {
         uid = generateUUID();
+        localStorage.setItem('guest_user_id', uid);
+        sessionStorage.setItem('guest_user_id', uid);
+    } else if (!sessionStorage.getItem('guest_user_id')) {
         sessionStorage.setItem('guest_user_id', uid);
     }
     return uid;
@@ -2109,6 +2112,24 @@ function formatMapValue(value) {
     return numeric.toFixed(4);
 }
 
+function formatConcentration(value) {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric)) {
+        return '0.000';
+    }
+    const absVal = Math.abs(numeric);
+    if (absVal >= 1.0) {
+        return numeric.toFixed(2);
+    }
+    if (absVal >= 0.01) {
+        return numeric.toFixed(3);
+    }
+    if (absVal >= 0.001) {
+        return numeric.toFixed(4);
+    }
+    return numeric.toExponential(1);
+}
+
 function renderMapExportButton(resultType, scenarioLabel) {
     const safeResultType = JSON.stringify(resultType || 'dispersion');
     const safeScenarioLabel = JSON.stringify(scenarioLabel || 'baseline');
@@ -2477,12 +2498,12 @@ function normalizeHotspotMapData(mapData) {
             features: hotspotFeatures,
         },
         style: {
-            color: '#FF0000',
-            weight: 3,
-            dashArray: '8, 4',
-            fillColor: '#FF0000',
-            fillOpacity: 0.1,
-            opacity: 0.9,
+            color: '#D32F2F',
+            weight: 1.2,
+            dashArray: null,
+            fillColor: 'white',
+            fillOpacity: 0.12,
+            opacity: 0.95,
         }
     });
 
@@ -2653,7 +2674,7 @@ function renderContourLegend(style, features) {
     const rows = contourFeatures.map((feature, idx) => {
         const props = feature.properties || {};
         const color = getContourColor(Number(props.level_index ?? idx), Number(style?.n_levels || contourFeatures.length));
-        const label = escapeHtml(props.label || `${formatMapValue(props.level_min)} - ${formatMapValue(props.level_max)} ${legendUnit}`);
+        const label = escapeHtml(props.label || `${formatConcentration(props.level_min)} - ${formatConcentration(props.level_max)} ${legendUnit}`);
         return `
             <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                 <span class="inline-block w-4 h-4 rounded-sm border border-white/40" style="background:${color};"></span>
@@ -2694,11 +2715,11 @@ function renderHotspotLegend(backgroundLayer, roadCount) {
         ${backgroundLegend}
         <div class="mt-3 flex flex-wrap items-center gap-4 text-sm">
             <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-                <span class="inline-block w-6 h-3 rounded-sm" style="border: 3px dashed #FF0000; background: rgba(255,0,0,0.1);"></span>
+                <span class="inline-block w-6 h-3 rounded-sm" style="border: 1.2px solid #D32F2F; background: rgba(255,255,255,0.12);"></span>
                 <span>热点区域 / Hotspot Areas</span>
             </div>
             <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold" style="background:#FF0000;">#</span>
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold" style="background:white; border:1.5px solid #D32F2F; color:#333;">#</span>
                 <span>热点编号 / Rank Label</span>
             </div>
             ${roadLabel}
@@ -2876,7 +2897,7 @@ function initContourLeafletMap(mapData, mapId) {
                 <div style="min-width: 200px;">
                     <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(String(props.label || 'Contour Band'))}</h3>
                     <div style="font-size: 13px; line-height: 1.6;">
-                        <div><strong>浓度范围:</strong> ${Number(props.level_min || 0).toFixed(4)} - ${Number(props.level_max || 0).toFixed(4)} ${unit}</div>
+                        <div><strong>浓度范围:</strong> ${formatConcentration(props.level_min || 0)} - ${formatConcentration(props.level_max || 0)} ${unit}</div>
                     </div>
                 </div>
             `);
@@ -3055,7 +3076,7 @@ function initHotspotLeafletMap(mapData, mapId) {
                     <div style="min-width: 180px;">
                         <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(String(props.label || 'Contour Band'))}</h3>
                         <div style="font-size: 13px; line-height: 1.6;">
-                            <div><strong>Range:</strong> ${Number(props.level_min || 0).toFixed(4)} - ${Number(props.level_max || 0).toFixed(4)} μg/m³</div>
+                            <div><strong>Range:</strong> ${formatConcentration(props.level_min || 0)} - ${formatConcentration(props.level_max || 0)} μg/m³</div>
                         </div>
                     </div>
                 `);
@@ -3081,12 +3102,12 @@ function initHotspotLeafletMap(mapData, mapId) {
     if (hotspotLayerData?.data?.features?.length) {
         hotspotLayer = L.geoJSON(hotspotLayerData.data, {
             style: () => ({
-                color: '#FF0000',
-                weight: 3,
-                dashArray: '8, 4',
-                fillColor: '#FF0000',
-                fillOpacity: 0.1,
-                opacity: 0.9,
+                color: '#D32F2F',
+                weight: 1.2,
+                dashArray: null,
+                fillColor: 'white',
+                fillOpacity: 0.12,
+                opacity: 0.95,
             }),
             onEachFeature: (feature, layer) => {
                 const props = feature.properties || {};
@@ -3131,17 +3152,18 @@ function initHotspotLeafletMap(mapData, mapId) {
         const icon = L.divIcon({
             className: 'hotspot-label',
             html: `<div style="
-                background: #FF0000;
-                color: white;
+                background: white;
+                border: 1.5px solid #D32F2F;
+                color: #333333;
                 border-radius: 50%;
                 width: 24px;
                 height: 24px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-weight: bold;
-                font-size: 12px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                font-weight: 600;
+                font-size: 11px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
             ">#${escapeHtml(String(hotspot.rank || '?'))}</div>`,
             iconSize: [24, 24],
             iconAnchor: [12, 12],

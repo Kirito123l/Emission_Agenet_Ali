@@ -29,6 +29,8 @@ DEFAULT_MET_DATE = 2024010100
 MAX_TRACKED_ROADS_PER_RECEPTOR = 10
 DENSE_ROAD_CONTRIBUTION_LIMIT = 10_000_000
 CONTOUR_MAX_GRID_POINTS = 50_000
+CONTOUR_DISPLAY_FLOOR = 1e-4
+CONTOUR_MIN_LEVEL_DELTA = 5e-5
 
 
 @dataclass
@@ -51,7 +53,7 @@ class DispersionConfig:
     display_grid_resolution_m: float = 50.0
     contour_enabled: bool = True
     contour_interp_resolution_m: float = 10.0
-    contour_n_levels: int = 12
+    contour_n_levels: int = 7
     contour_smooth_sigma: float = 1.0
     contour_max_grid_points: int = CONTOUR_MAX_GRID_POINTS
 
@@ -1036,12 +1038,14 @@ def _serialize_local_polygon_to_geojson(
 
 
 def _format_contour_label_value(value: float) -> str:
-    """Format contour legend values with stable precision."""
-    if value >= 1:
+    """Format contour legend values with display-aware precision."""
+    if value >= 1.0:
         return f"{value:.2f}"
-    if value >= 0.1:
+    if value >= 0.01:
         return f"{value:.3f}"
-    return f"{value:.4f}"
+    if value >= 0.001:
+        return f"{value:.4f}"
+    return f"{value:.1e}"
 
 
 def get_model_paths(
@@ -1125,7 +1129,7 @@ class DispersionCalculator:
                 contour_interp_resolution_m=float(
                     getattr(runtime_config, "contour_interp_resolution_m", 10.0)
                 ),
-                contour_n_levels=int(getattr(runtime_config, "contour_n_levels", 12)),
+                contour_n_levels=int(getattr(runtime_config, "contour_n_levels", 7)),
                 contour_smooth_sigma=float(getattr(runtime_config, "contour_smooth_sigma", 1.0)),
             )
 
@@ -1613,7 +1617,7 @@ class DispersionCalculator:
             if interp_resolution_m is not None
             else self.config.contour_interp_resolution_m
         )
-        band_count = int(n_levels if n_levels is not None else self.config.contour_n_levels)
+        requested_band_count = int(n_levels if n_levels is not None else self.config.contour_n_levels)
         sigma = float(smooth_sigma if smooth_sigma is not None else self.config.contour_smooth_sigma)
         max_grid_points = max(int(self.config.contour_max_grid_points), 1)
 
@@ -1622,7 +1626,7 @@ class DispersionCalculator:
             "type": "contour_bands",
             "interp_resolution_m": float(resolution),
             "smooth_sigma": float(sigma),
-            "n_levels": max(band_count, 1),
+            "n_levels": max(requested_band_count, 1),
             "levels": [],
             "n_receptors_used": 0,
             "interp_grid_shape": [0, 0],
@@ -1689,21 +1693,15 @@ class DispersionCalculator:
         if positive_grid.size == 0:
             return base_result
 
-        band_count = max(band_count, 1)
-        positive_min = float(np.min(positive_grid))
-        positive_max = float(np.max(positive_grid))
-        lower_bound = max(positive_min * 0.95, np.nextafter(0.0, 1.0))
-        if positive_max <= lower_bound:
-            upper_bound = max(positive_max * 1.05, lower_bound * 1.05)
-            band_edges = np.linspace(lower_bound, upper_bound, band_count + 1, dtype=float)
-        else:
-            band_edges = np.geomspace(lower_bound, positive_max, band_count + 1, dtype=float)
-        band_edges[-1] = max(float(band_edges[-1]), positive_max)
-        band_edges = np.maximum.accumulate(band_edges)
-        for idx in range(1, len(band_edges)):
-            if band_edges[idx] <= band_edges[idx - 1]:
-                band_edges[idx] = np.nextafter(float(band_edges[idx - 1]), np.inf)
+        band_edges = self._compute_contour_levels(
+            positive_grid,
+            n_levels=max(requested_band_count, 1),
+        )
+        if band_edges.size < 2:
+            return base_result
 
+        band_count = int(band_edges.size - 1)
+        base_result["n_levels"] = band_count
         levels = [float(value) for value in band_edges[1:].tolist()]
         base_result["levels"] = levels
 
@@ -1836,6 +1834,66 @@ class DispersionCalculator:
             "total_area_m2": float(total_area_m2),
         }
         return base_result
+
+    def _compute_contour_levels(self, values: np.ndarray, n_levels: int = 7) -> np.ndarray:
+        """Compute display-aware contour band edges from positive concentrations."""
+        positive = np.asarray(values, dtype=float)
+        positive = positive[np.isfinite(positive) & (positive > 0)]
+        if positive.size == 0:
+            return np.array([], dtype=float)
+
+        band_count = max(int(n_levels), 1)
+        vmin = float(np.min(positive))
+        vmax = float(np.max(positive))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= 0:
+            return np.array([], dtype=float)
+
+        if np.isclose(vmax, vmin):
+            lower = max(vmin * 0.95, np.nextafter(0.0, 1.0))
+            upper = max(vmax * 1.05, lower + CONTOUR_MIN_LEVEL_DELTA)
+            return np.array([lower, upper], dtype=float)
+
+        if (vmax / max(vmin, np.nextafter(0.0, 1.0))) < 10.0:
+            max_meaningful_bands = max(1, int(np.floor((vmax - vmin) / CONTOUR_MIN_LEVEL_DELTA)))
+            band_count = min(band_count, max_meaningful_bands)
+            raw_levels = np.linspace(vmin, vmax, band_count + 1, dtype=float)
+        else:
+            effective_min = max(vmin, CONTOUR_DISPLAY_FLOOR)
+            raw_levels = np.logspace(
+                np.log10(effective_min),
+                np.log10(vmax),
+                band_count + 1,
+            )
+            if vmin < CONTOUR_DISPLAY_FLOOR and (CONTOUR_DISPLAY_FLOOR - vmin) > CONTOUR_MIN_LEVEL_DELTA:
+                raw_levels = np.concatenate([[vmin], raw_levels])
+
+        rounded_levels = np.unique(np.round(raw_levels.astype(float), 6))
+        if rounded_levels.size < 2:
+            lower = max(vmin * 0.95, np.nextafter(0.0, 1.0))
+            upper = max(vmax * 1.05, lower + CONTOUR_MIN_LEVEL_DELTA)
+            return np.array([lower, upper], dtype=float)
+
+        deduped_levels = [float(rounded_levels[0])]
+        for value in rounded_levels[1:]:
+            value = float(value)
+            if (value - deduped_levels[-1]) <= CONTOUR_MIN_LEVEL_DELTA:
+                deduped_levels[-1] = value
+            else:
+                deduped_levels.append(value)
+
+        if len(deduped_levels) < 2:
+            lower = max(vmin * 0.95, np.nextafter(0.0, 1.0))
+            upper = max(vmax * 1.05, lower + CONTOUR_MIN_LEVEL_DELTA)
+            deduped_levels = [lower, upper]
+
+        deduped_levels[0] = vmin if deduped_levels[0] <= 0 else min(deduped_levels[0], vmin)
+        deduped_levels[-1] = max(deduped_levels[-1], vmax)
+        levels = np.asarray(deduped_levels, dtype=float)
+        levels = np.maximum.accumulate(levels)
+        for idx in range(1, len(levels)):
+            if levels[idx] <= levels[idx - 1]:
+                levels[idx] = levels[idx - 1] + CONTOUR_MIN_LEVEL_DELTA
+        return levels
 
     def _interpolate_contour_surface(
         self,

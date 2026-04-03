@@ -54,7 +54,7 @@ class Config:
         self.contour_interp_resolution_m = float(
             os.getenv("CONTOUR_INTERP_RESOLUTION_M", "10.0")
         )
-        self.contour_n_levels = int(os.getenv("CONTOUR_N_LEVELS", "12"))
+        self.contour_n_levels = int(os.getenv("CONTOUR_N_LEVELS", "7"))
         self.contour_smooth_sigma = float(os.getenv("CONTOUR_SMOOTH_SIGMA", "1.0"))
         self.map_export_dpi = int(os.getenv("MAP_EXPORT_DPI", "300"))
         self.map_export_default_format = (

@@ -373,6 +373,50 @@ class TestContourBands:
         bbox_area = (max_x - min_x) * (max_y - min_y)
         assert result["stats"]["total_area_m2"] < bbox_area * 0.9
 
+    def test_adaptive_levels_avoid_duplicate_low_end_bins(self):
+        calculator = dispersion.DispersionCalculator(
+            config=dispersion.DispersionConfig(
+                contour_enabled=True,
+                contour_interp_resolution_m=10.0,
+                contour_n_levels=7,
+                contour_smooth_sigma=0.0,
+            )
+        )
+        levels = calculator._compute_contour_levels(
+            np.array([5e-6, 8e-5, 3e-4, 2e-3, 0.05, 0.8, 3.0], dtype=float),
+            n_levels=7,
+        )
+
+        assert levels.size >= 2
+        assert np.all(np.diff(levels) > 0.00005)
+
+    def test_adaptive_levels_cap_band_count_and_labels(self):
+        coords, concentrations = _gaussian_field(amplitude=3.0, sigma=35.0)
+        calculator = dispersion.DispersionCalculator(
+            config=dispersion.DispersionConfig(
+                contour_enabled=True,
+                contour_interp_resolution_m=10.0,
+                contour_n_levels=7,
+                contour_smooth_sigma=0.0,
+            )
+        )
+
+        result = calculator._generate_contour_bands(
+            receptor_local_coords=coords,
+            receptor_concentrations=concentrations,
+            origin=_origin(),
+            interp_resolution_m=10.0,
+            n_levels=7,
+            smooth_sigma=0.0,
+        )
+
+        assert len(result["levels"]) <= 8
+        assert np.all(np.diff(np.asarray(result["levels"], dtype=float)) > 0.00005)
+        assert all(
+            "0.0000 - 0.0000" not in feature["properties"]["label"]
+            for feature in result["geojson"]["features"]
+        )
+
     def test_raster_grid_structure_unchanged_and_hotspot_still_works(self):
         result = _build_assembled_result(contour_enabled=True)
         raster = result["data"]["raster_grid"]

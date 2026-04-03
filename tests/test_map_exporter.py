@@ -192,6 +192,14 @@ def _assert_valid_png(path: Path) -> None:
 
 
 class TestMapExporter:
+    def test_resolve_language_falls_back_to_english_without_cjk_font(self, monkeypatch):
+        exporter = MapExporter()
+        monkeypatch.setattr("services.map_exporter._CJK_FONT", None)
+
+        assert exporter._resolve_language("zh") == "en"
+        assert exporter._resolve_language(None) == "en"
+        assert exporter._resolve_language("en") == "en"
+
     def test_export_dispersion_map_with_contour(self, tmp_path: Path):
         exporter = MapExporter()
         output_path = tmp_path / "dispersion.png"

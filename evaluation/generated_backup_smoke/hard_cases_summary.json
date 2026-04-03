@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-04-03T10:52:23+08:00",
+  "model": "qwen3-max",
+  "dimensions": {
+    "vehicle_type": {
+      "status_counts": {
+        "confirmed_correct": 3,
+        "confirmed_abstain": 0,
+        "needs_review": 2,
+        "invalid": 0
+      },
+      "total_generated": 5,
+      "confirmed_correct": 3,
+      "confirmed_abstain": 0,
+      "needs_review": 2,
+      "invalid": 0
+    },
+    "pollutant": {
+      "requested_count": 2,
+      "total_generated": 2,
+      "status_counts": {
+        "confirmed_correct": 0,
+        "confirmed_abstain": 1,
+        "needs_review": 1,
+        "invalid": 0
+      },
+      "confirmed_correct": 0,
+      "confirmed_abstain": 1,
+      "needs_review": 1,
+      "invalid": 0,
+      "last_run": {
+        "new_usable": 2,
+        "new_invalid": 0
+      }
+    }
+  },
+  "status_totals": {
+    "confirmed_correct": 3,
+    "confirmed_abstain": 1,
+    "needs_review": 3,
+    "invalid": 0
+  }
+}

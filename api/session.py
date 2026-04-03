@@ -1,13 +1,13 @@
 """会话管理 - 使用JSON持久化"""
 import uuid
 import json
-import asyncio
 from typing import Dict, Optional, List, Any
 from datetime import datetime
 from pathlib import Path
 
 # Import new architecture components
 from config import get_config
+from core.context_store import SessionContextStore
 from core.router import UnifiedRouter
 
 
@@ -18,7 +18,8 @@ class Session:
         session_id: str,
         title: str = "新对话",
         created_at: Optional[str] = None,
-        message_count: int = 0
+        message_count: int = 0,
+        storage_dir: Optional[str | Path] = None,
     ):
         self.session_id = session_id
         self.title = title
@@ -26,6 +27,11 @@ class Session:
         self.updated_at = datetime.now().isoformat()
         self.message_count = message_count
         self.last_result_file: Optional[Any] = None
+        self._storage_dir = Path(storage_dir) if storage_dir else Path("data/sessions")
+        self._router_state_dir = self._storage_dir / "router_state"
+        self._memory_dir = self._storage_dir / "memory"
+        self._router_state_dir.mkdir(parents=True, exist_ok=True)
+        self._memory_dir.mkdir(parents=True, exist_ok=True)
 
         # Router对象延迟创建，不序列化
         self._router: Optional[UnifiedRouter] = None
@@ -37,7 +43,11 @@ class Session:
     def router(self) -> UnifiedRouter:
         """延迟创建Router"""
         if self._router is None:
-            self._router = UnifiedRouter(session_id=self.session_id)
+            self._router = UnifiedRouter(
+                session_id=self.session_id,
+                memory_storage_dir=self._memory_dir,
+            )
+            self._restore_router_state()
         return self._router
 
     async def chat(self, message: str, file_path: Optional[str] = None) -> Dict:
@@ -49,6 +59,7 @@ class Session:
         """
         trace = {} if get_config().enable_trace else None
         result = await self.router.chat(user_message=message, file_path=file_path, trace=trace)
+        self.save_router_state()
 
         return {
             "text": result.text,
@@ -59,6 +70,40 @@ class Session:
             "trace": result.trace,
             "trace_friendly": result.trace_friendly,
         }
+
+    def save_router_state(self) -> None:
+        """Persist router state required for follow-up turns after process restarts."""
+        if self._router is None:
+            return
+
+        state_path = self._router_state_dir / f"{self.session_id}.json"
+        payload = {
+            "context_store": self._router.context_store.to_persisted_dict(),
+            "saved_at": datetime.now().isoformat(),
+        }
+        try:
+            with open(state_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            print(f"Warning: Failed to persist router state for session {self.session_id}: {exc}")
+
+    def _restore_router_state(self) -> None:
+        """Restore persisted router state for an existing session."""
+        if self._router is None:
+            return
+
+        state_path = self._router_state_dir / f"{self.session_id}.json"
+        if not state_path.exists():
+            return
+
+        try:
+            with open(state_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            context_payload = payload.get("context_store")
+            if isinstance(context_payload, dict):
+                self._router.context_store = SessionContextStore.from_persisted_dict(context_payload)
+        except Exception as exc:
+            print(f"Warning: Failed to restore router state for session {self.session_id}: {exc}")
 
     def save_turn(
         self,
@@ -136,7 +181,7 @@ class SessionManager:
     def create_session(self) -> str:
         """创建新会话"""
         session_id = str(uuid.uuid4())[:8]
-        self._sessions[session_id] = Session(session_id)
+        self._sessions[session_id] = Session(session_id, storage_dir=self._storage_dir)
         self._save_to_disk()
         return session_id
 
@@ -150,7 +195,7 @@ class SessionManager:
             return self._sessions[session_id]
 
         new_id = session_id or str(uuid.uuid4())[:8]
-        self._sessions[new_id] = Session(new_id)
+        self._sessions[new_id] = Session(new_id, storage_dir=self._storage_dir)
         self._save_to_disk()
         return self._sessions[new_id]
 
@@ -191,6 +236,12 @@ class SessionManager:
             history_file = self._history_dir / f"{session_id}.json"
             if history_file.exists():
                 history_file.unlink()
+            router_state_file = self._storage_dir / "router_state" / f"{session_id}.json"
+            if router_state_file.exists():
+                router_state_file.unlink()
+            memory_file = self._storage_dir / "memory" / f"{session_id}.json"
+            if memory_file.exists():
+                memory_file.unlink()
             self._save_to_disk()
 
     def save_session(self):
@@ -218,7 +269,8 @@ class SessionManager:
                     session_id=session_id,
                     title=meta.get("title", "新对话"),
                     created_at=meta.get("created_at"),
-                    message_count=meta.get("message_count", 0)
+                    message_count=meta.get("message_count", 0),
+                    storage_dir=self._storage_dir,
                 )
                 session.updated_at = meta.get("updated_at", session.created_at)
                 session.last_result_file = meta.get("last_result_file")
@@ -253,6 +305,7 @@ class SessionManager:
                     history_file = self._history_dir / f"{session_id}.json"
                     with open(history_file, "w", encoding="utf-8") as f:
                         json.dump(session._history, f, ensure_ascii=False, indent=2)
+                session.save_router_state()
 
             # Success - no message to avoid log pollution
         except Exception as e:

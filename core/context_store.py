@@ -37,6 +37,30 @@ class StoredResult:
             "metadata": self.metadata,
         }
 
+    def to_persisted_dict(self) -> Dict[str, Any]:
+        """Return a disk-safe representation including the full payload."""
+        return {
+            "result_type": self.result_type,
+            "tool_name": self.tool_name,
+            "label": self.label,
+            "timestamp": self.timestamp,
+            "summary": self.summary,
+            "data": self.data,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_persisted_dict(cls, payload: Dict[str, Any]) -> "StoredResult":
+        return cls(
+            result_type=str(payload.get("result_type") or "unknown"),
+            tool_name=str(payload.get("tool_name") or "unknown"),
+            label=str(payload.get("label") or SessionContextStore.BASELINE_LABEL),
+            timestamp=str(payload.get("timestamp") or datetime.now().isoformat()),
+            summary=str(payload.get("summary") or ""),
+            data=payload.get("data") if isinstance(payload.get("data"), dict) else {},
+            metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {},
+        )
+
 
 class SessionContextStore:
     """
@@ -405,6 +429,12 @@ class SessionContextStore:
             "history_count": len(self._history),
         }
 
+    def to_persisted_dict(self) -> Dict[str, Any]:
+        return {
+            "store": {key: value.to_persisted_dict() for key, value in self._store.items()},
+            "history": [value.to_persisted_dict() for value in self._history],
+        }
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SessionContextStore":
         """Restore compact metadata only; full payloads are kept in memory only."""
@@ -427,6 +457,29 @@ class SessionContextStore:
                 data={},
                 metadata=compact.get("metadata", {}) if isinstance(compact.get("metadata"), dict) else {},
             )
+        return store
+
+    @classmethod
+    def from_persisted_dict(cls, data: Dict[str, Any]) -> "SessionContextStore":
+        """Restore full persisted payloads for session reuse across process restarts."""
+        store = cls()
+        payload_store = data.get("store", {})
+        payload_history = data.get("history", [])
+
+        if isinstance(payload_store, dict):
+            for key, payload in payload_store.items():
+                if not isinstance(payload, dict):
+                    continue
+                store._store[str(key)] = StoredResult.from_persisted_dict(payload)
+
+        if isinstance(payload_history, list):
+            for payload in payload_history:
+                if not isinstance(payload, dict):
+                    continue
+                store._history.append(StoredResult.from_persisted_dict(payload))
+
+        if not store._history and store._store:
+            store._history = list(store._store.values())
         return store
 
     def _extract_label(self, result: Dict[str, Any]) -> str:

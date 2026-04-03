@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-04-03T10:52:31+08:00",
+  "model": "qwen3-max",
+  "categories": {
+    "simple": {
+      "status_counts": {
+        "valid": 2,
+        "needs_review": 0,
+        "invalid": 0
+      },
+      "total_generated": 2,
+      "valid": 2,
+      "needs_review": 0,
+      "invalid": 0
+    },
+    "parameter_ambiguous": {
+      "requested_count": 2,
+      "total_generated": 2,
+      "status_counts": {
+        "valid": 1,
+        "needs_review": 1,
+        "invalid": 1
+      },
+      "valid": 1,
+      "needs_review": 1,
+      "invalid": 1,
+      "last_run": {
+        "new_usable": 2,
+        "new_invalid": 1
+      }
+    }
+  },
+  "status_totals": {
+    "valid": 3,
+    "needs_review": 1,
+    "invalid": 1
+  }
+}

@@ -27,6 +27,42 @@ from config import get_config
 
 logger = logging.getLogger(__name__)
 
+
+def _setup_chinese_font() -> Optional[str]:
+    """Configure a best-effort CJK font fallback chain for matplotlib."""
+    try:
+        import matplotlib.font_manager as fm
+    except Exception:
+        plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+        plt.rcParams["axes.unicode_minus"] = False
+        return None
+
+    candidates = [
+        "WenQuanYi Micro Hei",
+        "WenQuanYi Zen Hei",
+        "Noto Sans CJK SC",
+        "Noto Sans SC",
+        "Source Han Sans SC",
+        "SimHei",
+        "Microsoft YaHei",
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Arial Unicode MS",
+    ]
+    available = {font.name for font in fm.fontManager.ttflist}
+    for font_name in candidates:
+        if font_name in available:
+            plt.rcParams["font.sans-serif"] = [font_name, "DejaVu Sans"]
+            plt.rcParams["axes.unicode_minus"] = False
+            return font_name
+
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+    plt.rcParams["axes.unicode_minus"] = False
+    return None
+
+
+_CJK_FONT = _setup_chinese_font()
+
 try:  # pragma: no cover - optional dependency
     import contextily as ctx
 except Exception:  # pragma: no cover - optional dependency
@@ -104,8 +140,13 @@ class MapExporter:
         language: str = "zh",
     ) -> str:
         """导出扩散浓度场静态地图。"""
+        export_language = self._resolve_language(language)
         data = self._unwrap_result_data(dispersion_result)
-        plot_payload = self._build_dispersion_plot_payload(data, title=title, language=language)
+        plot_payload = self._build_dispersion_plot_payload(
+            data,
+            title=title,
+            language=export_language,
+        )
         roads_gdf = self._extract_roads_gdf(data) if add_roads else None
 
         fig, ax = plt.subplots(1, 1, figsize=figsize)
@@ -137,8 +178,13 @@ class MapExporter:
         language: str = "zh",
     ) -> str:
         """导出热点分析静态地图。"""
+        export_language = self._resolve_language(language)
         data = self._unwrap_result_data(hotspot_result)
-        plot_payload = self._build_hotspot_plot_payload(data, title=title, language=language)
+        plot_payload = self._build_hotspot_plot_payload(
+            data,
+            title=title,
+            language=export_language,
+        )
         roads_gdf = self._extract_roads_gdf(data) if add_roads else None
         hotspots_gdf = self._extract_hotspots_gdf(data)
 
@@ -172,8 +218,13 @@ class MapExporter:
         language: str = "zh",
     ) -> str:
         """导出排放强度线图。"""
+        export_language = self._resolve_language(language)
         data = self._unwrap_result_data(emission_result)
-        plot_payload = self._build_emission_plot_payload(data, title=title, language=language)
+        plot_payload = self._build_emission_plot_payload(
+            data,
+            title=title,
+            language=export_language,
+        )
 
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         self._plot_payload(
@@ -354,6 +405,8 @@ class MapExporter:
         add_title: bool,
         add_scalebar: bool,
     ) -> None:
+        fig.patch.set_facecolor("white")
+        ax.set_facecolor("white")
         total_bounds = np.array(plot_payload.gdf.total_bounds, dtype=float)
         if roads_gdf is not None and not roads_gdf.empty:
             road_bounds = np.array(roads_gdf.total_bounds, dtype=float)
@@ -395,32 +448,49 @@ class MapExporter:
                 cmap=plot_payload.cmap,
                 norm=plot_payload.norm,
                 linewidth=2.5,
-                alpha=0.9,
+                alpha=0.92,
                 zorder=10,
             )
 
         if roads_gdf is not None and not roads_gdf.empty:
             roads_gdf.plot(
                 ax=ax,
-                color="#4b5563",
-                linewidth=1.0,
-                alpha=0.65,
-                zorder=12,
+                color="#B0B0B0",
+                linewidth=0.4,
+                alpha=0.35,
+                zorder=2,
             )
 
         if add_colorbar:
             self._add_colorbar(fig, ax, plot_payload)
         if add_title:
-            ax.set_title(f"{plot_payload.title}\n{plot_payload.subtitle}", fontsize=14, pad=14)
+            ax.set_title(
+                plot_payload.title,
+                fontsize=13,
+                fontweight=600,
+                pad=12,
+                color="#333333",
+            )
+            ax.text(
+                0.5,
+                1.015,
+                plot_payload.subtitle,
+                transform=ax.transAxes,
+                fontsize=9,
+                color="#666666",
+                ha="center",
+                va="bottom",
+            )
         if add_scalebar:
             self._add_scalebar(ax, total_bounds)
         self._add_north_arrow(ax)
 
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_facecolor("white")
         for spine in ax.spines.values():
-            spine.set_visible(False)
+            spine.set_visible(True)
+            spine.set_color("#E0E0E0")
+            spine.set_linewidth(0.5)
 
     def _extract_contour_payload(self, data: dict) -> Optional[dict]:
         contour_bands = data.get("contour_bands")
@@ -537,11 +607,11 @@ class MapExporter:
             return
         hotspots_gdf.plot(
             ax=ax,
-            facecolor=(1.0, 0.0, 0.0, 0.1),
-            edgecolor="#b91c1c",
-            linewidth=2.0,
-            linestyle="--",
-            zorder=20,
+            facecolor=(1.0, 1.0, 1.0, 0.15),
+            edgecolor="#D32F2F",
+            linewidth=1.2,
+            linestyle="-",
+            zorder=8,
         )
         for _, row in hotspots_gdf.iterrows():
             point_gdf = gpd.GeoDataFrame(
@@ -551,23 +621,32 @@ class MapExporter:
             ).to_crs(epsg=3857)
             x = float(point_gdf.geometry.iloc[0].x)
             y = float(point_gdf.geometry.iloc[0].y)
-            ax.text(
-                x,
-                y,
+            ax.annotate(
                 f"#{int(row['rank'])}",
+                xy=(x, y),
+                fontsize=8,
+                fontweight="bold",
+                color="#333333",
                 ha="center",
                 va="center",
-                fontsize=9,
-                color="white",
-                bbox={"boxstyle": "circle,pad=0.25", "fc": "#dc2626", "ec": "white", "lw": 0.8},
-                zorder=25,
+                bbox={
+                    "boxstyle": "circle,pad=0.3",
+                    "fc": "white",
+                    "ec": "#D32F2F",
+                    "lw": 1.0,
+                    "alpha": 0.9,
+                },
+                zorder=10,
             )
 
     def _add_colorbar(self, fig: Any, ax: Any, plot_payload: PlotPayload) -> None:
         sm = ScalarMappable(cmap=plot_payload.cmap, norm=plot_payload.colorbar_norm)
         sm.set_array([])
-        cbar = fig.colorbar(sm, ax=ax, orientation="vertical", shrink=0.82, pad=0.02)
+        cbar = fig.colorbar(sm, ax=ax, orientation="vertical", shrink=0.7, pad=0.02)
         cbar.set_label(plot_payload.legend_label, fontsize=10)
+        cbar.ax.tick_params(labelsize=9, length=3, width=0.5, colors="#4B5563")
+        cbar.outline.set_linewidth(0.5)
+        cbar.outline.set_edgecolor("#E0E0E0")
 
         if plot_payload.boundaries and len(plot_payload.boundaries) > 1:
             ticks = self._pick_colorbar_ticks(plot_payload.boundaries)
@@ -713,11 +792,13 @@ class MapExporter:
         return ticks
 
     def _format_numeric_tick(self, value: float) -> str:
-        if value >= 1:
+        if value >= 1.0:
             return f"{value:.2f}"
-        if value >= 0.1:
+        if value >= 0.01:
             return f"{value:.3f}"
-        return f"{value:.4f}"
+        if value >= 0.001:
+            return f"{value:.4f}"
+        return f"{value:.1e}"
 
     def _nice_distance(self, value_m: float) -> float:
         value_m = max(float(value_m), 1.0)
@@ -739,7 +820,7 @@ class MapExporter:
     def _localized_title(self, language: str, pollutant: str, kind: str) -> str:
         if str(language).lower().startswith("en"):
             if kind == "hotspot":
-                return f"{pollutant} Hotspot Analysis"
+                return f"{pollutant} Pollution Hotspot Analysis"
             if kind == "emission":
                 return f"{pollutant} Emission Intensity"
             return f"{pollutant} Concentration Field"
@@ -793,6 +874,13 @@ class MapExporter:
         if str(language).lower().startswith("en"):
             return f"Road segments: {road_count}"
         return f"路段数量: {road_count}"
+
+    def _resolve_language(self, language: str) -> str:
+        resolved = str(language or "zh")
+        normalized = resolved.lower()
+        if normalized.startswith("zh") and _CJK_FONT is None:
+            return "en"
+        return resolved
 
 
 __all__ = ["MapExporter"]
