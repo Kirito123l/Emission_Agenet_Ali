@@ -466,32 +466,16 @@ class MapExporter:
         if roads_gdf is not None and not roads_gdf.empty:
             roads_gdf.plot(
                 ax=ax,
-                color="#B0B0B0",
-                linewidth=0.4,
-                alpha=0.35,
+                color="#C0C0C0",
+                linewidth=0.3,
+                alpha=0.25,
                 zorder=2,
             )
 
         if add_colorbar:
             self._add_colorbar(fig, ax, plot_payload)
         if add_title:
-            ax.set_title(
-                plot_payload.title,
-                fontsize=13,
-                fontweight=600,
-                pad=12,
-                color="#333333",
-            )
-            ax.text(
-                0.5,
-                1.015,
-                plot_payload.subtitle,
-                transform=ax.transAxes,
-                fontsize=9,
-                color="#666666",
-                ha="center",
-                va="bottom",
-            )
+            self._add_title_block(fig, plot_payload)
         if add_scalebar:
             self._add_scalebar(ax, total_bounds)
         self._add_north_arrow(ax)
@@ -620,9 +604,9 @@ class MapExporter:
             return
         hotspots_gdf.plot(
             ax=ax,
-            facecolor=(1.0, 1.0, 1.0, 0.15),
-            edgecolor="#D32F2F",
-            linewidth=1.2,
+            facecolor=(1.0, 1.0, 1.0, 0.08),
+            edgecolor="#B71C1C",
+            linewidth=0.8,
             linestyle="-",
             zorder=8,
         )
@@ -645,7 +629,7 @@ class MapExporter:
                 bbox={
                     "boxstyle": "circle,pad=0.3",
                     "fc": "white",
-                    "ec": "#D32F2F",
+                    "ec": "#B71C1C",
                     "lw": 1.0,
                     "alpha": 0.9,
                 },
@@ -662,9 +646,32 @@ class MapExporter:
         cbar.outline.set_edgecolor("#E0E0E0")
 
         if plot_payload.boundaries and len(plot_payload.boundaries) > 1:
-            ticks = self._pick_colorbar_ticks(plot_payload.boundaries)
+            display_boundaries = self._filter_colorbar_boundaries(plot_payload.boundaries)
+            ticks = self._pick_colorbar_ticks(display_boundaries)
             cbar.set_ticks(ticks)
             cbar.ax.set_yticklabels([self._format_numeric_tick(value) for value in ticks])
+
+    def _add_title_block(self, fig: Figure, plot_payload: PlotPayload) -> None:
+        fig.subplots_adjust(top=0.90)
+        fig.text(
+            0.5,
+            0.96,
+            plot_payload.title,
+            ha="center",
+            va="top",
+            fontsize=14,
+            fontweight=600,
+            color="#333333",
+        )
+        fig.text(
+            0.5,
+            0.93,
+            plot_payload.subtitle,
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="#666666",
+        )
 
     def _add_scalebar(self, ax: Any, bounds: Sequence[float]) -> None:
         if HAS_SCALEBAR:  # pragma: no branch - optional dependency
@@ -865,6 +872,29 @@ class MapExporter:
         if ticks[0] != boundaries[0]:
             ticks.insert(0, boundaries[0])
         return ticks
+
+    def _filter_colorbar_boundaries(
+        self,
+        boundaries: Sequence[float],
+        display_threshold: float = 0.001,
+    ) -> list[float]:
+        cleaned = sorted(
+            {
+                float(value)
+                for value in boundaries
+                if value is not None and np.isfinite(float(value))
+            }
+        )
+        if len(cleaned) <= 1:
+            return cleaned
+
+        filtered = [value for value in cleaned if value >= display_threshold]
+        if not filtered:
+            return [cleaned[-1]]
+
+        if filtered[0] > cleaned[0]:
+            filtered.insert(0, display_threshold)
+        return filtered
 
     def _format_numeric_tick(self, value: float) -> str:
         if value >= 1.0:
