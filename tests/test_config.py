@@ -36,6 +36,8 @@ class TestConfigLoading:
         assert config.map_export_dpi == 300
         assert config.map_export_default_format == "png"
         assert config.map_export_ttl_hours == 1
+        assert config.map_export_basemap_enabled is True
+        assert config.map_export_basemap_timeout == 2.0
         assert config.map_export_dir.name == "exports"
         assert config.standardization_fuzzy_enabled is True
         assert config.continuation_prompt_variant == "balanced_repair_aware"
@@ -101,6 +103,8 @@ class TestConfigLoading:
         monkeypatch.setenv("MAP_EXPORT_DPI", "200")
         monkeypatch.setenv("MAP_EXPORT_DEFAULT_FORMAT", "svg")
         monkeypatch.setenv("MAP_EXPORT_TTL_HOURS", "6")
+        monkeypatch.setenv("MAP_EXPORT_BASEMAP_ENABLED", "false")
+        monkeypatch.setenv("MAP_EXPORT_BASEMAP_TIMEOUT", "1.5")
         monkeypatch.setenv("STANDARDIZATION_FUZZY_ENABLED", "false")
         reset_config()
         config = get_config()
@@ -113,6 +117,8 @@ class TestConfigLoading:
         assert config.map_export_dpi == 200
         assert config.map_export_default_format == "svg"
         assert config.map_export_ttl_hours == 6
+        assert config.map_export_basemap_enabled is False
+        assert config.map_export_basemap_timeout == 1.5
         assert config.standardization_fuzzy_enabled is False
 
     def test_directories_created(self):

@@ -17,9 +17,10 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm, Normalize
+from matplotlib.figure import Figure
 import numpy as np
 from shapely.geometry import LineString, Point, Polygon, box, shape
 
@@ -33,8 +34,8 @@ def _setup_chinese_font() -> Optional[str]:
     try:
         import matplotlib.font_manager as fm
     except Exception:
-        plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
-        plt.rcParams["axes.unicode_minus"] = False
+        matplotlib.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+        matplotlib.rcParams["axes.unicode_minus"] = False
         return None
 
     candidates = [
@@ -52,12 +53,12 @@ def _setup_chinese_font() -> Optional[str]:
     available = {font.name for font in fm.fontManager.ttflist}
     for font_name in candidates:
         if font_name in available:
-            plt.rcParams["font.sans-serif"] = [font_name, "DejaVu Sans"]
-            plt.rcParams["axes.unicode_minus"] = False
+            matplotlib.rcParams["font.sans-serif"] = [font_name, "DejaVu Sans"]
+            matplotlib.rcParams["axes.unicode_minus"] = False
             return font_name
 
-    plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    matplotlib.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+    matplotlib.rcParams["axes.unicode_minus"] = False
     return None
 
 
@@ -98,6 +99,13 @@ class MapExporter:
 
     def __init__(self, runtime_config: Optional[Any] = None):
         self.runtime_config = runtime_config or get_config()
+        self._tile_server_reachable: Optional[bool] = None
+
+    def _create_figure(self, figsize: tuple[float, float]) -> tuple[Figure, Any]:
+        fig = Figure(figsize=figsize)
+        FigureCanvasAgg(fig)
+        ax = fig.add_subplot(1, 1, 1)
+        return fig, ax
 
     def cleanup_expired_exports(
         self,
@@ -149,7 +157,7 @@ class MapExporter:
         )
         roads_gdf = self._extract_roads_gdf(data) if add_roads else None
 
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        fig, ax = self._create_figure(figsize)
         self._plot_payload(
             fig=fig,
             ax=ax,
@@ -160,6 +168,7 @@ class MapExporter:
             add_title=add_title,
             add_scalebar=add_scalebar,
         )
+        self._add_metadata_footer(fig, data)
         return self._save_figure(fig, output_path, format=format, dpi=dpi)
 
     def export_hotspot_map(
@@ -188,7 +197,7 @@ class MapExporter:
         roads_gdf = self._extract_roads_gdf(data) if add_roads else None
         hotspots_gdf = self._extract_hotspots_gdf(data)
 
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        fig, ax = self._create_figure(figsize)
         self._plot_payload(
             fig=fig,
             ax=ax,
@@ -200,6 +209,7 @@ class MapExporter:
             add_scalebar=add_scalebar,
         )
         self._overlay_hotspots(ax, hotspots_gdf)
+        self._add_metadata_footer(fig, data)
         return self._save_figure(fig, output_path, format=format, dpi=dpi)
 
     def export_emission_map(
@@ -226,7 +236,7 @@ class MapExporter:
             language=export_language,
         )
 
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        fig, ax = self._create_figure(figsize)
         self._plot_payload(
             fig=fig,
             ax=ax,
@@ -237,6 +247,7 @@ class MapExporter:
             add_title=add_title,
             add_scalebar=add_scalebar,
         )
+        self._add_metadata_footer(fig, data)
         return self._save_figure(fig, output_path, format=format, dpi=dpi)
 
     def _unwrap_result_data(self, result_payload: dict) -> dict:
@@ -301,7 +312,7 @@ class MapExporter:
         return PlotPayload(
             kind="raster",
             gdf=raster_payload["gdf"],
-            cmap=plt.get_cmap("YlOrRd"),
+            cmap=matplotlib.colormaps.get_cmap("YlOrRd"),
             norm=raster_payload["norm"],
             colorbar_norm=raster_payload["norm"],
             legend_label=f"{pollutant} Concentration (μg/m³)",
@@ -384,7 +395,7 @@ class MapExporter:
         return PlotPayload(
             kind="emission",
             gdf=gdf,
-            cmap=plt.get_cmap("YlOrRd"),
+            cmap=matplotlib.colormaps.get_cmap("YlOrRd"),
             norm=norm,
             colorbar_norm=norm,
             legend_label=f"{pollutant} Emission Intensity (kg/(h·km))",
@@ -426,7 +437,7 @@ class MapExporter:
                 cmap=plot_payload.cmap,
                 norm=plot_payload.norm,
                 alpha=0.75,
-                edgecolor=(1.0, 1.0, 1.0, 0.35),
+                edgecolor="white",
                 linewidth=0.3,
                 zorder=10,
             )
@@ -508,7 +519,9 @@ class MapExporter:
         gdf = gdf.to_crs(epsg=3857)
         gdf["level_index"] = gdf["level_index"].astype(int)
         band_count = max(int(contour_bands.get("n_levels", len(gdf))), 1)
-        cmap = ListedColormap(plt.get_cmap("YlOrRd")(np.linspace(0.1, 0.98, band_count)))
+        cmap = ListedColormap(
+            matplotlib.colormaps.get_cmap("YlOrRd")(np.linspace(0.1, 0.98, band_count))
+        )
         level_boundaries = self._derive_contour_boundaries(features)
         norm = BoundaryNorm(np.arange(-0.5, band_count + 0.5, 1.0), cmap.N)
         return {
@@ -697,8 +710,29 @@ class MapExporter:
             zorder=40,
         )
 
+    def _can_reach_tile_server(self, timeout: float = 2.0) -> bool:
+        """Quickly probe tile-server reachability to avoid long contextily timeouts."""
+        import socket
+
+        try:
+            with socket.create_connection(
+                ("a.basemaps.cartocdn.com", 443),
+                timeout=max(float(timeout), 0.1),
+            ):
+                return True
+        except (socket.timeout, OSError):
+            return False
+
     def _try_add_basemap(self, ax: Any) -> None:
+        if not bool(getattr(self.runtime_config, "map_export_basemap_enabled", True)):
+            return
         if not HAS_CONTEXTILY:
+            return
+        timeout = float(getattr(self.runtime_config, "map_export_basemap_timeout", 2) or 2)
+        if self._tile_server_reachable is None:
+            self._tile_server_reachable = self._can_reach_tile_server(timeout=timeout)
+        if not self._tile_server_reachable:
+            logger.info("Tile server is unreachable, skipping basemap overlay")
             return
         try:  # pragma: no cover - depends on optional dependency + network
             ctx.add_basemap(
@@ -722,8 +756,49 @@ class MapExporter:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(path, dpi=dpi, bbox_inches="tight", facecolor="white", transparent=False, format=format)
-        plt.close(fig)
+        fig.clear()
         return str(path)
+
+    def _add_metadata_footer(self, fig: Figure, data: dict) -> None:
+        footer_text = self._build_metadata_footer_text(data)
+        if not footer_text:
+            return
+        fig.subplots_adjust(bottom=max(fig.subplotpars.bottom, 0.08))
+        fig.text(
+            0.5,
+            0.012,
+            footer_text,
+            ha="center",
+            va="bottom",
+            fontsize=7,
+            color="#999999",
+            style="italic",
+        )
+
+    def _build_metadata_footer_text(self, data: dict) -> str:
+        metadata_parts: list[str] = []
+        payload = data if isinstance(data, dict) else {}
+        query_info = payload.get("query_info", {}) if isinstance(payload.get("query_info"), dict) else {}
+
+        pollutant = query_info.get("pollutant")
+        if not pollutant:
+            pollutants = query_info.get("pollutants")
+            if isinstance(pollutants, list) and pollutants:
+                pollutant = pollutants[0]
+        if pollutant:
+            metadata_parts.append(f"Pollutant: {pollutant}")
+
+        met_source = query_info.get("met_source") or payload.get("met_source")
+        if met_source:
+            metadata_parts.append(f"Met: {met_source}")
+
+        scenario = str(payload.get("scenario_label") or "").strip()
+        if scenario and scenario != "baseline":
+            metadata_parts.append(f"Scenario: {scenario}")
+
+        metadata_parts.append(datetime.now().strftime("%Y-%m-%d %H:%M"))
+        metadata_parts.append("Emission Agent")
+        return " | ".join(metadata_parts)
 
     def _set_axis_extent(self, ax: Any, bounds: Sequence[float]) -> None:
         min_x, min_y, max_x, max_y = [float(value) for value in bounds]

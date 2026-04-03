@@ -61,6 +61,10 @@ class Config:
             os.getenv("MAP_EXPORT_DEFAULT_FORMAT", "png").strip().lower() or "png"
         )
         self.map_export_ttl_hours = int(os.getenv("MAP_EXPORT_TTL_HOURS", "1"))
+        self.map_export_basemap_enabled = (
+            os.getenv("MAP_EXPORT_BASEMAP_ENABLED", "true").lower() == "true"
+        )
+        self.map_export_basemap_timeout = float(os.getenv("MAP_EXPORT_BASEMAP_TIMEOUT", "2"))
         self.standardization_fuzzy_enabled = (
             os.getenv("STANDARDIZATION_FUZZY_ENABLED", "true").lower() == "true"
         )

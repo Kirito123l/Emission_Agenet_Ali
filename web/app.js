@@ -2140,7 +2140,7 @@ function renderMapExportButton(resultType, scenarioLabel) {
             onclick='exportMapImage(this, ${safeResultType}, ${safeScenarioLabel})'
         >
             <span class="material-symbols-outlined" style="font-size: 18px;">download</span>
-            导出地图
+            导出结果图
         </button>
     `;
 }
@@ -4054,7 +4054,7 @@ async function readErrorDetail(response) {
 
 async function exportMapImage(buttonEl, resultType, scenarioLabel) {
     if (!currentSessionId) {
-        alert('当前会话不存在，无法导出地图。');
+        alert('当前会话不存在，无法导出结果图。');
         return;
     }
 
@@ -4089,9 +4089,15 @@ async function exportMapImage(buttonEl, resultType, scenarioLabel) {
         }
 
         const blob = await response.blob();
+        const timestamp = new Date()
+            .toISOString()
+            .replace(/\.\d{3}Z$/, '')
+            .replace(/[-:]/g, '')
+            .replace('T', '_');
+        const safeResultType = String(resultType || 'dispersion').replace(/[^0-9A-Za-z_-]+/g, '_');
         const downloadName = extractFilenameFromResponse(
             response,
-            `${resultType || 'dispersion'}_${scenarioLabel || 'baseline'}.png`
+            `emission_agent_${safeResultType}_${timestamp}.png`
         );
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');

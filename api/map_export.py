@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from functools import partial
 import re
 from pathlib import Path
 from typing import Optional
@@ -18,6 +21,7 @@ from config import get_config
 from services.map_exporter import MapExporter
 
 router = APIRouter()
+_export_executor = ThreadPoolExecutor(max_workers=2)
 
 MEDIA_TYPES = {
     "png": "image/png",
@@ -48,6 +52,51 @@ def _safe_label(value: Optional[str], fallback: str) -> str:
     label = (value or fallback).strip() or fallback
     sanitized = re.sub(r"[^0-9A-Za-z_\-]+", "_", label)
     return sanitized.strip("_") or fallback
+
+
+def _export_map_sync(
+    *,
+    exporter: MapExporter,
+    result_type: str,
+    stored_data: dict,
+    output_path: Path,
+    export_format: str,
+    dpi: int,
+    add_basemap: bool,
+    add_roads: bool,
+    language: str,
+) -> str:
+    if result_type == "dispersion":
+        return exporter.export_dispersion_map(
+            stored_data,
+            output_path=output_path,
+            format=export_format,
+            dpi=dpi,
+            add_basemap=add_basemap,
+            add_roads=add_roads,
+            language=language,
+        )
+    if result_type == "hotspot":
+        return exporter.export_hotspot_map(
+            stored_data,
+            output_path=output_path,
+            format=export_format,
+            dpi=dpi,
+            add_basemap=add_basemap,
+            add_roads=add_roads,
+            language=language,
+        )
+    if result_type == "emission":
+        return exporter.export_emission_map(
+            stored_data,
+            output_path=output_path,
+            format=export_format,
+            dpi=dpi,
+            add_basemap=add_basemap,
+            add_roads=False,
+            language=language,
+        )
+    raise ValueError(f"Unsupported result_type: {result_type}")
 
 
 @router.post("/export_map")
@@ -89,38 +138,24 @@ async def export_map(payload: ExportMapRequest, request: Request):
     filename = f"{result_type}_{scenario_fragment}_{timestamp}.{export_format}"
     output_path = export_dir / filename
 
-    if result_type == "dispersion":
-        file_path = exporter.export_dispersion_map(
-            stored.data,
-            output_path=output_path,
-            format=export_format,
-            dpi=int(payload.dpi or config.map_export_dpi),
-            add_basemap=bool(payload.add_basemap),
-            add_roads=bool(payload.add_roads),
-            language=str(payload.language or "zh"),
-        )
-    elif result_type == "hotspot":
-        file_path = exporter.export_hotspot_map(
-            stored.data,
-            output_path=output_path,
-            format=export_format,
-            dpi=int(payload.dpi or config.map_export_dpi),
-            add_basemap=bool(payload.add_basemap),
-            add_roads=bool(payload.add_roads),
-            language=str(payload.language or "zh"),
-        )
-    elif result_type == "emission":
-        file_path = exporter.export_emission_map(
-            stored.data,
-            output_path=output_path,
-            format=export_format,
-            dpi=int(payload.dpi or config.map_export_dpi),
-            add_basemap=bool(payload.add_basemap),
-            add_roads=False,
-            language=str(payload.language or "zh"),
-        )
-    else:
+    if result_type not in {"dispersion", "hotspot", "emission"}:
         raise HTTPException(status_code=400, detail=f"Unsupported result_type: {result_type}")
+    loop = asyncio.get_running_loop()
+    file_path = await loop.run_in_executor(
+        _export_executor,
+        partial(
+            _export_map_sync,
+            exporter=exporter,
+            result_type=result_type,
+            stored_data=stored.data,
+            output_path=output_path,
+            export_format=export_format,
+            dpi=int(payload.dpi or config.map_export_dpi),
+            add_basemap=bool(payload.add_basemap),
+            add_roads=bool(payload.add_roads),
+            language=str(payload.language or "zh"),
+        ),
+    )
 
     return FileResponse(
         path=file_path,

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 
 from PIL import Image
 import pytest
+import matplotlib.pyplot as plt
 from starlette.requests import Request
 
 import api.map_export as map_export_module
@@ -200,6 +203,44 @@ class TestMapExporter:
         assert exporter._resolve_language(None) == "en"
         assert exporter._resolve_language("en") == "en"
 
+    def test_can_reach_tile_server_returns_false_on_timeout(self, monkeypatch):
+        exporter = MapExporter()
+
+        def fake_create_connection(*args, **kwargs):
+            raise TimeoutError("timed out")
+
+        monkeypatch.setattr("socket.create_connection", fake_create_connection)
+
+        assert exporter._can_reach_tile_server(timeout=0.01) is False
+
+    def test_try_add_basemap_skips_when_disabled(self, monkeypatch):
+        exporter = MapExporter(
+            runtime_config=SimpleNamespace(
+                map_export_basemap_enabled=False,
+                map_export_basemap_timeout=2,
+            )
+        )
+        calls: list[str] = []
+
+        class DummyContextily:
+            providers = SimpleNamespace(CartoDB=SimpleNamespace(PositronNoLabels="dummy"))
+
+            @staticmethod
+            def add_basemap(*args, **kwargs):
+                calls.append("called")
+
+        monkeypatch.setattr("services.map_exporter.HAS_CONTEXTILY", True)
+        monkeypatch.setattr("services.map_exporter.ctx", DummyContextily)
+        monkeypatch.setattr(exporter, "_can_reach_tile_server", lambda timeout=2: True)
+
+        fig, ax = plt.subplots()
+        try:
+            exporter._try_add_basemap(ax)
+        finally:
+            plt.close(fig)
+
+        assert calls == []
+
     def test_export_dispersion_map_with_contour(self, tmp_path: Path):
         exporter = MapExporter()
         output_path = tmp_path / "dispersion.png"
@@ -235,6 +276,20 @@ class TestMapExporter:
         )
 
         _assert_valid_png(Path(file_path))
+
+    def test_build_metadata_footer_text_includes_analysis_context(self):
+        exporter = MapExporter()
+        footer = exporter._build_metadata_footer_text(
+            {
+                "query_info": {"pollutant": "NOx", "met_source": "preset"},
+                "scenario_label": "scenario_a",
+            }
+        )
+
+        assert "Pollutant: NOx" in footer
+        assert "Met: preset" in footer
+        assert "Scenario: scenario_a" in footer
+        assert "Emission Agent" in footer
 
 
 class _DummyStored:
@@ -281,7 +336,12 @@ class TestMapExportApi:
             def get(user_id: str):
                 return _DummySessionManager(payload)
 
+        class InlineLoop:
+            async def run_in_executor(self, executor, func):
+                return func()
+
         monkeypatch.setattr(map_export_module, "SessionRegistry", DummyRegistry)
+        monkeypatch.setattr(map_export_module.asyncio, "get_running_loop", lambda: InlineLoop())
 
         request = Request(
             {
@@ -311,6 +371,59 @@ class TestMapExportApi:
         assert export_path.name.startswith("dispersion_baseline_")
         image = Image.open(BytesIO(export_path.read_bytes()))
         image.verify()
+
+    @pytest.mark.anyio
+    async def test_export_map_endpoint_uses_run_in_executor(self, monkeypatch, tmp_path: Path):
+        monkeypatch.setenv("MAP_EXPORT_DIR", str(tmp_path / "exports"))
+        reset_config()
+
+        payload = {"success": True, "data": _make_dispersion_payload(with_contour=True)}
+
+        class DummyRegistry:
+            @staticmethod
+            def get(user_id: str):
+                return _DummySessionManager(payload)
+
+        class FakeLoop:
+            def __init__(self):
+                self.called = False
+                self.executor = None
+
+            async def run_in_executor(self, executor, func):
+                self.called = True
+                self.executor = executor
+                return func()
+
+        fake_loop = FakeLoop()
+
+        monkeypatch.setattr(map_export_module, "SessionRegistry", DummyRegistry)
+        monkeypatch.setattr(map_export_module.asyncio, "get_running_loop", lambda: fake_loop)
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/api/export_map",
+                "headers": [(b"x-user-id", b"test-user")],
+            }
+        )
+        response = await map_export_module.export_map(
+            ExportMapRequest(
+                session_id="session-1",
+                result_type="dispersion",
+                scenario_label="baseline",
+                format="png",
+                dpi=150,
+                add_basemap=False,
+                add_roads=True,
+                language="zh",
+            ),
+            request,
+        )
+
+        assert fake_loop.called is True
+        assert fake_loop.executor is map_export_module._export_executor
+        assert Path(response.path).exists()
 
 
 @pytest.fixture(autouse=True)

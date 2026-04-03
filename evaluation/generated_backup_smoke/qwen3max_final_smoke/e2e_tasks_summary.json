@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-04-03T19:28:21+08:00",
+  "model": "qwen3-max",
+  "categories": {
+    "simple": {
+      "requested_count": 3,
+      "total_generated": 3,
+      "status_counts": {
+        "valid": 2,
+        "needs_review": 1,
+        "invalid": 4
+      },
+      "valid": 2,
+      "needs_review": 1,
+      "invalid": 4,
+      "last_run": {
+        "new_usable": 3,
+        "new_invalid": 4
+      }
+    }
+  },
+  "status_totals": {
+    "valid": 2,
+    "needs_review": 1,
+    "invalid": 4
+  }
+}
