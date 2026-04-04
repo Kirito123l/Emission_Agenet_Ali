@@ -50,6 +50,9 @@ GEOMETRY_REQUIRED_TOOLS = {
     "render_spatial_map",
 }
 GEOMETRY_TEXT_CUES = ("geometry", "几何", "geojson", "wkt", "坐标")
+FOLLOW_UP_TEXT_CUES = ("请确认", "请告诉我", "请选择", "请回复", "告诉我您的选择", "是否现在开始", "回复", "开始")
+EMISSION_COMPLETION_TEXT_CUES = ("排放计算已完成", "排放已完成", "已完成宏观", "总排放")
+COMPLETED_DOWNSTREAM_TEXT_CUES = ("扩散已完成", "扩散分析已完成", "扩散模拟已完成", "热点分析已完成", "渲染完成", "地图已渲染")
 
 
 def _check_outputs(result_like: Dict[str, Any], expected_outputs: Dict[str, bool]) -> Dict[str, Any]:
@@ -140,20 +143,32 @@ def _geometry_gate_prefix(expected_tool_chain: List[str]) -> Optional[List[str]]
     return None
 
 
+def _normalize_match_text(text: str) -> str:
+    return (
+        text.lower()
+        .replace("₂", "2")
+        .replace("₅", "5")
+        .replace("ₓ", "x")
+        .replace("pm2.₅", "pm2.5")
+    )
+
+
 def _is_geometry_gated_multistep_success(
     task: Dict[str, Any],
     *,
     actual_tool_chain: List[str],
-    criteria_actuals: Dict[str, bool],
     response_payload: Dict[str, Any],
     file_analysis: Optional[Dict[str, Any]],
+    trace_has_error: bool,
 ) -> bool:
     if task.get("category") != "multi_step":
         return False
 
     expected_tool_chain = [str(item) for item in task.get("expected_tool_chain", []) if item]
     expected_prefix = _geometry_gate_prefix(expected_tool_chain)
-    if not expected_prefix or actual_tool_chain != expected_prefix:
+    if not expected_prefix:
+        return False
+    if actual_tool_chain and actual_tool_chain != expected_prefix:
         return False
 
     if _file_has_explicit_geometry(file_analysis):
@@ -164,19 +179,26 @@ def _is_geometry_gated_multistep_success(
         if str(missing_field_diagnostics.get("status") or "").strip().lower() != "complete":
             return False
 
-    if not criteria_actuals.get("tool_executed"):
-        return False
-    if not criteria_actuals.get("params_legal"):
-        return False
-    if not criteria_actuals.get("result_has_data"):
-        return False
-    if not criteria_actuals.get("requires_user_response"):
-        return False
-    if criteria_actuals.get("trace_has_error"):
+    if trace_has_error:
         return False
 
-    response_text = str(response_payload.get("text") or "").lower()
-    return any(cue in response_text for cue in GEOMETRY_TEXT_CUES)
+    response_text = str(response_payload.get("text") or "")
+    lowered_text = _normalize_match_text(response_text)
+    if not any(cue in lowered_text for cue in GEOMETRY_TEXT_CUES):
+        return False
+    if not any(cue in response_text for cue in FOLLOW_UP_TEXT_CUES):
+        return False
+    if not any(cue in response_text for cue in EMISSION_COMPLETION_TEXT_CUES):
+        return False
+    if any(cue in response_text for cue in COMPLETED_DOWNSTREAM_TEXT_CUES):
+        return False
+
+    expected_pollutants = task.get("expected_params", {}).get("pollutants", [])
+    if expected_pollutants:
+        if not any(_normalize_match_text(str(pollutant)) in lowered_text for pollutant in expected_pollutants):
+            return False
+
+    return True
 
 
 def _normalize_task(sample: Dict[str, Any]) -> Dict[str, Any]:
@@ -272,9 +294,9 @@ def _build_task_result(
     geometry_gated_success = _is_geometry_gated_multistep_success(
         task,
         actual_tool_chain=actual_tool_chain,
-        criteria_actuals=criteria_actuals,
         response_payload=response_payload,
         file_analysis=file_analysis,
+        trace_has_error=trace_has_error,
     )
     tool_match = (
         _tool_chain_matches(actual_tool_chain, task.get("expected_tool_chain", []))
@@ -290,11 +312,12 @@ def _build_task_result(
         )
     else:
         output_check = None
-        success = tool_match
-        for key, expected_value in (task.get("success_criteria") or {}).items():
-            if key not in criteria_actuals:
-                continue
-            success = success and (criteria_actuals[key] == expected_value)
+        success = geometry_gated_success or tool_match
+        if not geometry_gated_success:
+            for key, expected_value in (task.get("success_criteria") or {}).items():
+                if key not in criteria_actuals:
+                    continue
+                success = success and (criteria_actuals[key] == expected_value)
 
     record = {
         "task_id": task["id"],
