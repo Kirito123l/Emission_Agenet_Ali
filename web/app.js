@@ -3,6 +3,9 @@ const API_BASE = '/api';
 let currentSessionId = null;
 let currentFile = null;
 const USE_STREAMING = true;  // 是否使用流式输出
+const titledSessions = new Set();
+const sessionMetaById = new Map();
+let activeSessionDeleteConfirm = null;
 
 // ==================== 用户认证与标识 ====================
 // 游客模式状态
@@ -368,6 +371,48 @@ function ensureLeafletStackingStyles() {
         .meteo-confirm-secondary:hover {
             color: #334155;
         }
+
+        .session-delete-confirm {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+
+        .session-delete-confirm-text {
+            flex: 1;
+            color: #666;
+        }
+
+        .session-delete-confirm-yes {
+            padding: 2px 10px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.78rem;
+        }
+
+        .session-delete-confirm-yes:hover {
+            background: #c0392b;
+        }
+
+        .session-delete-confirm-no {
+            padding: 2px 8px;
+            background: transparent;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            color: #888;
+        }
+
+        .session-delete-confirm-no:hover {
+            background: #f5f5f5;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -444,6 +489,57 @@ function renderRequestErrorMessage(target, text, retryable) {
         </div>
     `;
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function isDefaultSessionTitle(title) {
+    const normalized = String(title || '').trim();
+    return !normalized || normalized === '新对话' || normalized.startsWith('上传文件：');
+}
+
+function updateSidebarSessionTitle(sessionId, title) {
+    if (!sessionId || !title) return;
+
+    const sessionItem = sessionListContainer?.querySelector(`[data-session-id="${sessionId}"]`);
+    const titleEl = sessionItem?.querySelector('.session-title');
+    if (titleEl) {
+        titleEl.textContent = title;
+    }
+
+    const currentMeta = sessionMetaById.get(sessionId) || {};
+    sessionMetaById.set(sessionId, { ...currentMeta, session_id: sessionId, title });
+    titledSessions.add(sessionId);
+}
+
+async function tryGenerateSessionTitle() {
+    const sessionId = currentSessionId;
+    if (!sessionId || titledSessions.has(sessionId)) return;
+
+    const sessionMeta = sessionMetaById.get(sessionId);
+    if (sessionMeta && Number(sessionMeta.message_count || 0) > 1 && !isDefaultSessionTitle(sessionMeta.title)) {
+        return;
+    }
+
+    titledSessions.add(sessionId);
+    try {
+        const resp = await fetchWithUser(`${API_BASE}/sessions/${sessionId}/generate_title`, {
+            method: 'POST'
+        });
+        if (!resp.ok) {
+            titledSessions.delete(sessionId);
+            return;
+        }
+
+        const data = await resp.json();
+        if (data.title) {
+            updateSidebarSessionTitle(sessionId, data.title);
+            return;
+        }
+
+        titledSessions.delete(sessionId);
+    } catch (e) {
+        titledSessions.delete(sessionId);
+        console.warn('标题生成失败（静默）:', e);
+    }
 }
 
 function retrySendMessage() {
@@ -618,7 +714,8 @@ async function sendMessage() {
         addAssistantMessage(data);
 
         // 重新加载会话列表（更新标题）
-        loadSessionList();
+        await loadSessionList();
+        await tryGenerateSessionTitle();
 
     } catch (error) {
         console.error('❌ 请求失败:', error);
@@ -768,7 +865,8 @@ async function sendMessageStream(message, file) {
                                 attachTracePanelToMessage(assistantMsgId, data.trace_friendly);
                             }
                             // 重新加载会话列表
-                            loadSessionList();
+                            await loadSessionList();
+                            await tryGenerateSessionTitle();
                             break;
 
                         case 'error':
@@ -1143,7 +1241,7 @@ async function startNewChat() {
         renderHistory([]);
 
         // 重新加载会话列表
-        loadSessionList();
+        await loadSessionList();
 
     } catch (error) {
         console.error('新建会话失败:', error);
@@ -1154,11 +1252,12 @@ async function startNewChat() {
 
 async function loadSessionList() {
     console.log('📋 loadSessionList 被调用');
+    sessionMetaById.clear();
 
     // 游客模式：显示提示信息
     if (isGuest) {
         renderGuestModeBanner();
-        return;
+        return [];
     }
 
     console.log('🌐 API_BASE:', API_BASE);
@@ -1170,25 +1269,36 @@ async function loadSessionList() {
         // 游客模式下 API 返回 401，不显示错误
         if (response.status === 401) {
             renderGuestModeBanner();
-            return;
+            return [];
         }
 
         const data = await response.json();
         console.log('📥 会话列表数据:', data);
 
-        if (data.sessions && data.sessions.length > 0) {
-            renderSessionList(data.sessions);
+        const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+        sessions.forEach((session) => {
+            sessionMetaById.set(session.session_id, session);
+            if (Number(session.message_count || 0) > 1 && !isDefaultSessionTitle(session.title)) {
+                titledSessions.add(session.session_id);
+            }
+        });
+
+        if (sessions.length > 0) {
+            renderSessionList(sessions);
         } else {
             renderEmptySessionList();
         }
+        return sessions;
     } catch (error) {
         console.error('❌ 加载会话列表失败:', error);
+        return [];
     }
 }
 
 // 渲染游客模式提示
 function renderGuestModeBanner() {
     if (!sessionListContainer) return;
+    clearPendingSessionDeleteConfirm({ restore: false });
 
     sessionListContainer.innerHTML = `
         <div class="px-4 py-6 mx-3 mt-2 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -1223,6 +1333,7 @@ function renderGuestModeBanner() {
 // 渲染空会话列表
 function renderEmptySessionList() {
     if (!sessionListContainer) return;
+    clearPendingSessionDeleteConfirm({ restore: false });
 
     sessionListContainer.innerHTML = `
         <div class="px-4 py-6 mx-3 mt-2 text-center">
@@ -1234,6 +1345,7 @@ function renderEmptySessionList() {
 
 function renderSessionList(sessions) {
     if (!sessionListContainer) return;
+    clearPendingSessionDeleteConfirm({ restore: false });
 
     // 清空现有列表（保留标题）
     const title = sessionListContainer.querySelector('h3');
@@ -1271,27 +1383,12 @@ function renderSessionList(sessions) {
         // 点击切换会话
         sessionEl.addEventListener('click', (e) => {
             // 如果正在编辑或点击了操作按钮，不切换
-            if (sessionEl.dataset.editing === '1') return;
-            if (e.target.closest('.delete-btn') || e.target.closest('.edit-btn') || e.target.closest('.session-rename')) return;
+            if (sessionEl.dataset.editing === '1' || sessionEl.dataset.deleteConfirm === '1') return;
+            if (e.target.closest('.delete-btn') || e.target.closest('.edit-btn') || e.target.closest('.session-rename') || e.target.closest('.session-delete-confirm')) return;
             e.preventDefault();
             loadSession(session.session_id);
         });
-
-        // 点击重命名
-        const editBtn = sessionEl.querySelector('.edit-btn');
-        editBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            startInlineRename(sessionEl, session);
-        });
-
-        // 点击删除
-        const deleteBtn = sessionEl.querySelector('.delete-btn');
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm('确定要删除这个会话吗？')) {
-                deleteSession(session.session_id);
-            }
-        });
+        attachSessionItemActionHandlers(sessionEl, session);
 
         sessionListContainer.appendChild(sessionEl);
     });
@@ -1303,14 +1400,94 @@ async function deleteSession(sessionId) {
         if (response.ok) {
             // 如果删除的是当前会话，新建一个
             if (currentSessionId === sessionId) {
-                startNewChat();
+                titledSessions.delete(sessionId);
+                sessionMetaById.delete(sessionId);
+                await startNewChat();
             } else {
-                loadSessionList();
+                titledSessions.delete(sessionId);
+                sessionMetaById.delete(sessionId);
+                await loadSessionList();
             }
         }
     } catch (error) {
         console.error('删除会话失败:', error);
     }
+}
+
+function clearPendingSessionDeleteConfirm({ restore = false } = {}) {
+    if (!activeSessionDeleteConfirm) return;
+
+    const { sessionEl, session, originalHtml, outsideListener } = activeSessionDeleteConfirm;
+    document.removeEventListener('click', outsideListener, true);
+    activeSessionDeleteConfirm = null;
+
+    if (!restore || !sessionEl?.isConnected) {
+        return;
+    }
+
+    sessionEl.dataset.deleteConfirm = '0';
+    sessionEl.innerHTML = originalHtml;
+    attachSessionItemActionHandlers(sessionEl, session);
+}
+
+function showInlineDeleteConfirm(sessionEl, session) {
+    if (!sessionEl || !session) return;
+    clearPendingSessionDeleteConfirm({ restore: true });
+
+    const originalHtml = sessionEl.innerHTML;
+    sessionEl.dataset.deleteConfirm = '1';
+    sessionEl.innerHTML = `
+        <div class="session-delete-confirm">
+            <span class="session-delete-confirm-text">删除此对话？</span>
+            <button type="button" class="session-delete-confirm-yes">删除</button>
+            <button type="button" class="session-delete-confirm-no">取消</button>
+        </div>
+    `;
+
+    const outsideListener = (event) => {
+        if (!sessionEl.contains(event.target)) {
+            clearPendingSessionDeleteConfirm({ restore: true });
+        }
+    };
+
+    activeSessionDeleteConfirm = { sessionEl, session, originalHtml, outsideListener };
+
+    const confirmBtn = sessionEl.querySelector('.session-delete-confirm-yes');
+    const cancelBtn = sessionEl.querySelector('.session-delete-confirm-no');
+
+    confirmBtn?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearPendingSessionDeleteConfirm({ restore: false });
+        await deleteSession(session.session_id);
+    });
+
+    cancelBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearPendingSessionDeleteConfirm({ restore: true });
+    });
+
+    setTimeout(() => {
+        if (activeSessionDeleteConfirm?.sessionEl === sessionEl) {
+            document.addEventListener('click', outsideListener, true);
+        }
+    }, 0);
+}
+
+function attachSessionItemActionHandlers(sessionEl, session) {
+    const editBtn = sessionEl.querySelector('.edit-btn');
+    editBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearPendingSessionDeleteConfirm({ restore: true });
+        startInlineRename(sessionEl, session);
+    });
+
+    const deleteBtn = sessionEl.querySelector('.delete-btn');
+    deleteBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showInlineDeleteConfirm(sessionEl, session);
+    });
 }
 
 async function updateSessionTitle(sessionId, title) {

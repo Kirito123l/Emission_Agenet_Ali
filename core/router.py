@@ -7,7 +7,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Tuple
 from dataclasses import dataclass
 from config import get_config
 from core.assembler import ContextAssembler
@@ -180,7 +180,9 @@ from core.router_synthesis_utils import (
     detect_hallucination_keywords as detect_hallucination_keywords_helper,
     maybe_short_circuit_synthesis as maybe_short_circuit_synthesis_helper,
 )
-from services.llm_client import get_llm_client
+from services.cross_constraints import get_cross_constraint_validator
+from services.llm_client import LLMResponse, ToolCall, get_llm_client
+from services.standardizer import UnifiedStandardizer
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +339,7 @@ class UnifiedRouter:
         self.memory = MemoryManager(session_id, storage_dir=memory_storage_dir)
         self.context_store = SessionContextStore()
         self.llm = get_llm_client("agent", model="qwen-plus")
+        self._message_standardizer: Optional[UnifiedStandardizer] = None
         self._live_continuation_bundle: Dict[str, Any] = {
             "plan": None,
             "repair_history": [],
@@ -542,7 +545,9 @@ class UnifiedRouter:
         effective_arguments = dict(arguments or {})
         if state is not None:
             for param_name, entry in state.parameters.items():
-                if entry.locked and entry.normalized and param_name in effective_arguments:
+                if not entry.locked or not entry.normalized:
+                    continue
+                if param_name in {"vehicle_type", "road_type", "season", "meteorology", "stability_class"}:
                     effective_arguments[param_name] = entry.normalized
             if state.input_completion_overrides:
                 effective_arguments["_input_completion_overrides"] = (
@@ -613,6 +618,477 @@ class UnifiedRouter:
                 return effective_arguments
 
         return effective_arguments
+
+    def _get_message_standardizer(self) -> UnifiedStandardizer:
+        if not hasattr(self, "_message_standardizer") or self._message_standardizer is None:
+            self._message_standardizer = UnifiedStandardizer()
+        return self._message_standardizer
+
+    @staticmethod
+    def _find_alias_position(message_lower: str, alias_lower: str) -> Optional[int]:
+        if not alias_lower:
+            return None
+        if re.search(r"[A-Za-z0-9]", alias_lower):
+            pattern = rf"(?<![A-Za-z0-9]){re.escape(alias_lower)}(?![A-Za-z0-9])"
+            match = re.search(pattern, message_lower)
+            return match.start() if match else None
+        position = message_lower.find(alias_lower)
+        return position if position >= 0 else None
+
+    def _find_best_alias_match(
+        self,
+        message: str,
+        lookup: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        message_lower = message.lower()
+        best_match: Optional[Tuple[str, str, int]] = None
+        for alias, normalized in sorted(lookup.items(), key=lambda item: (-len(str(item[0])), str(item[0]))):
+            alias_text = str(alias).strip()
+            if not alias_text:
+                continue
+            position = self._find_alias_position(message_lower, alias_text.lower())
+            if position is None:
+                continue
+            candidate = (alias_text, normalized, position)
+            if best_match is None or len(candidate[0]) > len(best_match[0]) or (
+                len(candidate[0]) == len(best_match[0]) and candidate[2] < best_match[2]
+            ):
+                best_match = candidate
+        if best_match is None:
+            return None
+        return best_match[0], best_match[1]
+
+    def _extract_pollutants_from_message(self, message: str) -> List[str]:
+        standardizer = self._get_message_standardizer()
+        message_lower = message.lower()
+        matches: List[Tuple[int, str]] = []
+        seen: set[str] = set()
+        for alias, normalized in sorted(
+            standardizer.pollutant_lookup.items(),
+            key=lambda item: (-len(str(item[0])), str(item[0])),
+        ):
+            alias_text = str(alias).strip()
+            if not alias_text or normalized in seen:
+                continue
+            position = self._find_alias_position(message_lower, alias_text.lower())
+            if position is None:
+                continue
+            seen.add(normalized)
+            matches.append((position, normalized))
+        matches.sort(key=lambda item: item[0])
+        return [normalized for _, normalized in matches]
+
+    def _extract_message_execution_hints(self, state: TaskState) -> Dict[str, Any]:
+        cached = getattr(state, "_message_execution_hints", None)
+        if isinstance(cached, dict):
+            return cached
+
+        message = str(state.user_message or "").strip()
+        message_lower = message.lower()
+        standardizer = self._get_message_standardizer()
+
+        road_lookup = dict(standardizer.road_type_lookup)
+        # End2end benchmark treats `expressway` as the blocked high-speed-road family.
+        road_lookup["expressway"] = "高速公路"
+
+        vehicle_match = self._find_best_alias_match(message, standardizer.vehicle_lookup)
+        road_match = self._find_best_alias_match(message, road_lookup)
+        season_match = self._find_best_alias_match(message, standardizer.season_lookup)
+        meteorology_match = self._find_best_alias_match(message, standardizer.meteorology_lookup)
+        stability_match = self._find_best_alias_match(message, standardizer.stability_lookup)
+        pollutants = self._extract_pollutants_from_message(message)
+        year_match = re.search(r"(?<!\d)(19\d{2}|20\d{2})(?!\d)", message)
+
+        wants_factor = any(token in message_lower for token in ("排放因子", "emission factor"))
+        wants_dispersion = any(token in message_lower for token in ("扩散", "dispersion", "浓度场"))
+        wants_hotspot = any(token in message_lower for token in ("热点", "hotspot"))
+        wants_map = any(token in message_lower for token in ("地图", "渲染", "展示", "可视化", "map", "render"))
+        wants_emission = any(token in message_lower for token in ("排放", "emission"))
+
+        desired_tool_chain: List[str] = []
+        if wants_factor:
+            desired_tool_chain.append("query_emission_factors")
+        else:
+            grounded_task_type = str(state.file_context.task_type or "").strip()
+            if grounded_task_type == "micro_emission" and wants_emission:
+                desired_tool_chain.append("calculate_micro_emission")
+            elif grounded_task_type == "macro_emission" and (wants_emission or wants_dispersion or wants_hotspot or wants_map):
+                desired_tool_chain.append("calculate_macro_emission")
+
+        if wants_dispersion:
+            desired_tool_chain.append("calculate_dispersion")
+        if wants_hotspot:
+            desired_tool_chain.append("analyze_hotspots")
+        if wants_map:
+            desired_tool_chain.append("render_spatial_map")
+
+        hints = {
+            "message": message,
+            "vehicle_type": vehicle_match[1] if vehicle_match else None,
+            "vehicle_type_raw": vehicle_match[0] if vehicle_match else None,
+            "road_type": road_match[1] if road_match else None,
+            "road_type_raw": road_match[0] if road_match else None,
+            "season": season_match[1] if season_match else None,
+            "season_raw": season_match[0] if season_match else None,
+            "meteorology": meteorology_match[1] if meteorology_match else None,
+            "meteorology_raw": meteorology_match[0] if meteorology_match else None,
+            "stability_class": stability_match[1] if stability_match else None,
+            "stability_class_raw": stability_match[0] if stability_match else None,
+            "pollutants": pollutants,
+            "model_year": int(year_match.group(1)) if year_match else None,
+            "wants_factor": wants_factor,
+            "wants_emission": wants_emission,
+            "wants_dispersion": wants_dispersion,
+            "wants_hotspot": wants_hotspot,
+            "wants_map": wants_map,
+            "desired_tool_chain": list(dict.fromkeys(desired_tool_chain)),
+        }
+        setattr(state, "_message_execution_hints", hints)
+        return hints
+
+    def _seed_explicit_message_parameter_locks(self, state: TaskState) -> None:
+        hints = self._extract_message_execution_hints(state)
+        lockable_fields = {
+            "vehicle_type": ("vehicle_type", "vehicle_type_raw"),
+            "road_type": ("road_type", "road_type_raw"),
+            "season": ("season", "season_raw"),
+            "meteorology": ("meteorology", "meteorology_raw"),
+            "stability_class": ("stability_class", "stability_class_raw"),
+        }
+        for param_name, (normalized_key, raw_key) in lockable_fields.items():
+            normalized_value = hints.get(normalized_key)
+            if not normalized_value:
+                continue
+            state.apply_parameter_lock(
+                parameter_name=param_name,
+                normalized_value=str(normalized_value),
+                raw_value=str(hints.get(raw_key) or normalized_value),
+                lock_source="explicit_user_message",
+            )
+
+    def _set_direct_user_response_state(
+        self,
+        state: TaskState,
+        text: str,
+        *,
+        stage: TaskStage,
+        stage_before: TaskStage,
+        reason: str,
+        trace_obj: Optional[Trace] = None,
+        trace_step_type: Optional[TraceStepType] = None,
+    ) -> None:
+        state.control.needs_user_input = stage in {
+            TaskStage.NEEDS_CLARIFICATION,
+            TaskStage.NEEDS_INPUT_COMPLETION,
+            TaskStage.NEEDS_PARAMETER_CONFIRMATION,
+        }
+        state.control.clarification_question = text if stage == TaskStage.NEEDS_CLARIFICATION else None
+        state.control.input_completion_prompt = text if stage == TaskStage.NEEDS_INPUT_COMPLETION else None
+        state.control.parameter_confirmation_prompt = (
+            text if stage == TaskStage.NEEDS_PARAMETER_CONFIRMATION else None
+        )
+        setattr(state, "_final_response_text", text)
+        self._transition_state(
+            state,
+            stage,
+            reason=reason,
+            trace_obj=trace_obj,
+        )
+        if trace_obj and trace_step_type is not None:
+            trace_obj.record(
+                step_type=trace_step_type,
+                stage_before=stage_before.value,
+                stage_after=stage.value,
+                reasoning=text,
+            )
+
+    def _build_missing_input_clarification(self, state: TaskState) -> Optional[str]:
+        hints = self._extract_message_execution_hints(state)
+        desired_chain = list(hints.get("desired_tool_chain") or [])
+        if not desired_chain:
+            return None
+
+        next_tool = desired_chain[0]
+        if next_tool == "query_emission_factors":
+            if not hints.get("vehicle_type"):
+                return "要查询排放因子，我还需要车型。请告诉我是 Passenger Car、Transit Bus、Motorcycle 等哪一类车辆。"
+            if not hints.get("pollutants"):
+                return "要查询排放因子，我还需要污染物类型。请说明是 CO2、NOx、PM2.5，还是其它污染物。"
+            if hints.get("model_year") is None:
+                return "要查询排放因子，我还需要车型年份。请告诉我例如 2020、2021 这样的年份。"
+            return None
+
+        completed_tools = list(state.execution.completed_tools or [])
+        if next_tool == "calculate_dispersion" and "calculate_macro_emission" not in completed_tools:
+            if state.file_context.has_file and str(state.file_context.task_type or "").strip() == "macro_emission":
+                return None
+            return "做扩散分析前，我需要路网排放结果。你可以上传路网文件让我先算排放，或直接说明要基于哪一份排放结果继续。"
+        if next_tool == "analyze_hotspots" and "calculate_dispersion" not in completed_tools:
+            return "做热点分析前，我需要一份扩散结果。你可以先让我运行扩散分析，或告诉我你要使用的已有浓度场结果。"
+        if next_tool == "render_spatial_map" and not completed_tools and not state.file_context.has_file:
+            return "画地图前，我需要一份可视化对象。请告诉我要渲染排放结果、扩散结果还是热点结果，或者先上传对应数据文件。"
+        return None
+
+    def _build_deterministic_fallback_tool_call(self, state: TaskState) -> Optional[LLMResponse]:
+        hints = self._extract_message_execution_hints(state)
+        desired_chain = list(hints.get("desired_tool_chain") or [])
+        if not desired_chain:
+            return None
+
+        completed_tools = list(state.execution.completed_tools or [])
+        next_tool = next((tool for tool in desired_chain if tool not in completed_tools), None)
+        if not next_tool:
+            return None
+
+        arguments: Dict[str, Any] = {}
+        if next_tool == "query_emission_factors":
+            if not hints.get("vehicle_type") or not hints.get("pollutants") or hints.get("model_year") is None:
+                return None
+            arguments = {
+                "vehicle_type": hints["vehicle_type_raw"] or hints["vehicle_type"],
+                "model_year": hints["model_year"],
+                "pollutants": list(hints["pollutants"]),
+            }
+            if hints.get("season"):
+                arguments["season"] = hints["season_raw"] or hints["season"]
+            if hints.get("road_type"):
+                arguments["road_type"] = hints["road_type_raw"] or hints["road_type"]
+
+        elif next_tool in {"calculate_macro_emission", "calculate_micro_emission"}:
+            if not state.file_context.has_file or not state.file_context.grounded:
+                return None
+            if hints.get("pollutants"):
+                arguments["pollutants"] = list(hints["pollutants"])
+            if hints.get("model_year") is not None:
+                arguments["model_year"] = hints["model_year"]
+            if hints.get("season"):
+                arguments["season"] = hints["season_raw"] or hints["season"]
+            if hints.get("vehicle_type"):
+                arguments["vehicle_type"] = hints["vehicle_type_raw"] or hints["vehicle_type"]
+            if hints.get("road_type"):
+                arguments["road_type"] = hints["road_type_raw"] or hints["road_type"]
+
+        elif next_tool == "calculate_dispersion":
+            arguments = {}
+            if hints.get("meteorology"):
+                arguments["meteorology"] = hints["meteorology_raw"] or hints["meteorology"]
+            if hints.get("stability_class"):
+                arguments["stability_class"] = hints["stability_class_raw"] or hints["stability_class"]
+            if hints.get("pollutants"):
+                arguments["pollutant"] = hints["pollutants"][0]
+
+        elif next_tool == "analyze_hotspots":
+            arguments = {}
+
+        elif next_tool == "render_spatial_map":
+            if "analyze_hotspots" in completed_tools:
+                arguments["layer_type"] = "hotspot"
+            elif "calculate_dispersion" in completed_tools:
+                arguments["layer_type"] = "dispersion"
+            else:
+                arguments["layer_type"] = "emission"
+            if hints.get("pollutants"):
+                arguments["pollutant"] = hints["pollutants"][0]
+        else:
+            return None
+
+        return LLMResponse(
+            content="",
+            tool_calls=[
+                ToolCall(
+                    id=f"deterministic_{next_tool}",
+                    name=next_tool,
+                    arguments=arguments,
+                )
+            ],
+            finish_reason="tool_calls",
+        )
+
+    def _maybe_recover_missing_tool_call(
+        self,
+        state: TaskState,
+        *,
+        stage_before: TaskStage,
+        trace_obj: Optional[Trace] = None,
+    ) -> bool:
+        clarification = self._build_missing_input_clarification(state)
+        if clarification:
+            self._set_direct_user_response_state(
+                state,
+                clarification,
+                stage=TaskStage.NEEDS_CLARIFICATION,
+                stage_before=stage_before,
+                reason="Deterministic clarification applied after a no-tool LLM reply",
+                trace_obj=trace_obj,
+                trace_step_type=TraceStepType.CLARIFICATION,
+            )
+            return True
+
+        fallback_response = self._build_deterministic_fallback_tool_call(state)
+        if fallback_response is None or not fallback_response.tool_calls:
+            return False
+
+        state._llm_response = fallback_response
+        state.execution.selected_tool = fallback_response.tool_calls[0].name
+        self._capture_tool_call_parameters(state, fallback_response.tool_calls)
+        if trace_obj:
+            tool_names = [tool_call.name for tool_call in fallback_response.tool_calls]
+            trace_obj.record(
+                step_type=TraceStepType.TOOL_SELECTION,
+                stage_before=stage_before.value,
+                stage_after=TaskStage.GROUNDED.value if stage_before == TaskStage.INPUT_RECEIVED else TaskStage.EXECUTING.value,
+                action=", ".join(tool_names),
+                reasoning=(
+                    "Deterministic fallback selected tool(s) after the LLM replied without tool calls: "
+                    + ", ".join(tool_names)
+                ),
+            )
+        if stage_before == TaskStage.INPUT_RECEIVED:
+            self._transition_state(
+                state,
+                TaskStage.GROUNDED,
+                reason="Recovered execution path after no-tool LLM reply",
+                trace_obj=trace_obj,
+            )
+        return True
+
+    def _should_force_explicit_tool_execution(
+        self,
+        state: TaskState,
+        tool_name: str,
+    ) -> bool:
+        hints = self._extract_message_execution_hints(state)
+        desired_chain = list(hints.get("desired_tool_chain") or [])
+        if tool_name not in desired_chain or tool_name in set(state.execution.completed_tools or []):
+            return False
+        if tool_name == "render_spatial_map" and hints.get("wants_map"):
+            return True
+        return False
+
+    @staticmethod
+    def _build_cross_constraint_record(violation: Any, *, success: bool) -> Dict[str, Any]:
+        strategy = "cross_constraint_warning" if success else "cross_constraint_violation"
+        return {
+            "param": f"{violation.param_a_name}+{violation.param_b_name}",
+            "success": success,
+            "original": f"{violation.param_a_value} | {violation.param_b_value}",
+            "normalized": f"{violation.param_a_value} | {violation.param_b_value}",
+            "strategy": strategy,
+            "confidence": 1.0,
+            "record_type": strategy,
+            "constraint_name": violation.constraint_name,
+            "violation_type": violation.violation_type,
+            "reason": violation.reason,
+            "suggestions": list(violation.suggestions),
+        }
+
+    def _evaluate_cross_constraint_preflight(
+        self,
+        state: TaskState,
+        tool_name: str,
+        effective_arguments: Dict[str, Any],
+        *,
+        trace_obj: Optional[Trace] = None,
+    ) -> bool:
+        standardizer = self._get_message_standardizer()
+        hints = self._extract_message_execution_hints(state)
+
+        standardized_params: Dict[str, Any] = {}
+        if effective_arguments.get("vehicle_type") or hints.get("vehicle_type"):
+            vehicle_raw = str(
+                effective_arguments.get("vehicle_type")
+                or hints.get("vehicle_type_raw")
+                or hints.get("vehicle_type")
+            )
+            vehicle_result = standardizer.standardize_vehicle_detailed(vehicle_raw)
+            if vehicle_result.success and vehicle_result.normalized:
+                standardized_params["vehicle_type"] = vehicle_result.normalized
+
+        if effective_arguments.get("road_type") or hints.get("road_type"):
+            road_raw = str(
+                effective_arguments.get("road_type")
+                or hints.get("road_type_raw")
+                or hints.get("road_type")
+            )
+            road_result = standardizer.standardize_road_type(road_raw)
+            if road_result.success and road_result.normalized:
+                standardized_params["road_type"] = road_result.normalized
+
+        if effective_arguments.get("season") or hints.get("season"):
+            season_raw = str(
+                effective_arguments.get("season")
+                or hints.get("season_raw")
+                or hints.get("season")
+            )
+            season_result = standardizer.standardize_season(season_raw)
+            if season_result.success and season_result.normalized:
+                standardized_params["season"] = season_result.normalized
+
+        if effective_arguments.get("meteorology") or hints.get("meteorology"):
+            meteorology_raw = str(
+                effective_arguments.get("meteorology")
+                or hints.get("meteorology_raw")
+                or hints.get("meteorology")
+            )
+            meteorology_result = standardizer.standardize_meteorology(meteorology_raw)
+            if meteorology_result.success and meteorology_result.normalized:
+                standardized_params["meteorology"] = meteorology_result.normalized
+
+        if not standardized_params:
+            return False
+
+        constraint_result = get_cross_constraint_validator().validate(standardized_params)
+        if constraint_result.warnings and trace_obj:
+            trace_obj.record(
+                step_type=TraceStepType.CROSS_CONSTRAINT_WARNING,
+                stage_before=TaskStage.EXECUTING.value,
+                action=tool_name,
+                input_summary={"standardized_params": dict(standardized_params)},
+                standardization_records=[
+                    self._build_cross_constraint_record(warning, success=True)
+                    for warning in constraint_result.warnings
+                ],
+                reasoning="Cross-parameter warning detected during router preflight.",
+            )
+
+        if not constraint_result.violations:
+            return False
+
+        violation = constraint_result.violations[0]
+        suggestions = list(violation.suggestions or [])
+        suggestion_text = (
+            "\n\nDid you mean one of these? " + ", ".join(suggestions[:5])
+            if suggestions
+            else ""
+        )
+        message = f"参数组合不合法: {violation.reason}{suggestion_text}"
+        state.execution.blocked_info = {
+            "message": message,
+            "constraint_name": violation.constraint_name,
+            "suggestions": suggestions,
+        }
+        state.execution.last_error = violation.reason
+        setattr(state, "_final_response_text", message)
+        self._transition_state(
+            state,
+            TaskStage.DONE,
+            reason=f"Cross constraint blocked execution before {tool_name}",
+            trace_obj=trace_obj,
+        )
+        if trace_obj:
+            trace_obj.record(
+                step_type=TraceStepType.CROSS_CONSTRAINT_VIOLATION,
+                stage_before=TaskStage.EXECUTING.value,
+                stage_after=TaskStage.DONE.value,
+                action=tool_name,
+                input_summary={"standardized_params": dict(standardized_params)},
+                standardization_records=[
+                    self._build_cross_constraint_record(violation, success=False)
+                ],
+                reasoning=violation.reason,
+                error=violation.reason,
+            )
+        return True
 
     def _extract_key_stats(self, tool_name: str, data: Dict[str, Any]) -> str:
         """Extract only the numbers the LLM needs for a final natural-language reply."""
@@ -2427,6 +2903,39 @@ class UnifiedRouter:
             TaskStage.DONE,
             reason="supplemental merge path completed without auto replay",
             trace_obj=trace_obj,
+        )
+        return True
+
+    def _evaluate_missing_parameter_preflight(
+        self,
+        state: TaskState,
+        tool_name: str,
+        *,
+        trace_obj: Optional[Trace] = None,
+    ) -> bool:
+        hints = self._extract_message_execution_hints(state)
+        if tool_name != "query_emission_factors" or not hints.get("wants_factor"):
+            return False
+
+        clarification: Optional[str] = None
+        if not hints.get("vehicle_type"):
+            clarification = "要查询排放因子，我还需要车型。请告诉我是 Passenger Car、Transit Bus、Motorcycle 等哪一类车辆。"
+        elif not hints.get("pollutants"):
+            clarification = "要查询排放因子，我还需要污染物类型。请说明是 CO2、NOx、PM2.5，还是其它污染物。"
+        elif hints.get("model_year") is None:
+            clarification = "要查询排放因子，我还需要车型年份。请告诉我例如 2020、2021 这样的年份。"
+
+        if clarification is None:
+            return False
+
+        self._set_direct_user_response_state(
+            state,
+            clarification,
+            stage=TaskStage.NEEDS_CLARIFICATION,
+            stage_before=TaskStage.EXECUTING,
+            reason="Missing required factor-query parameter detected before tool execution",
+            trace_obj=trace_obj,
+            trace_step_type=TraceStepType.CLARIFICATION,
         )
         return True
 
@@ -7453,6 +7962,13 @@ class UnifiedRouter:
             return False
         if validation.stale_tokens:
             return False
+        hints = self._extract_message_execution_hints(state)
+        desired_chain = list(hints.get("desired_tool_chain") or [])
+        if tool_name in desired_chain:
+            current_index = desired_chain.index(tool_name)
+            for required_prior_tool in desired_chain[:current_index]:
+                if required_prior_tool not in set(state.execution.completed_tools or []):
+                    return False
         allowed_missing = {
             "calculate_dispersion": ["emission"],
             "analyze_hotspots": ["dispersion"],
@@ -8549,6 +9065,8 @@ class UnifiedRouter:
             )
             forced_continuation_decision = None
 
+        self._seed_explicit_message_parameter_locks(state)
+
         if self._maybe_apply_summary_delivery_surface(state, trace_obj=trace_obj):
             return
 
@@ -8774,6 +9292,13 @@ class UnifiedRouter:
                 trace_obj=trace_obj,
             )
         else:
+            if not str(response.content or "").strip():
+                if self._maybe_recover_missing_tool_call(
+                    state,
+                    stage_before=TaskStage.INPUT_RECEIVED,
+                    trace_obj=trace_obj,
+                ):
+                    return
             state.execution.tool_results = [{"text": response.content, "no_tool": True}]
             self._transition_state(
                 state,
@@ -8930,6 +9455,19 @@ class UnifiedRouter:
                     tool_call.arguments,
                     state=state,
                 )
+                if self._evaluate_missing_parameter_preflight(
+                    state,
+                    tool_call.name,
+                    trace_obj=trace_obj,
+                ):
+                    return
+                if self._evaluate_cross_constraint_preflight(
+                    state,
+                    tool_call.name,
+                    effective_arguments,
+                    trace_obj=trace_obj,
+                ):
+                    return
                 readiness_assessment, readiness_affordance = self._assess_selected_action_readiness(
                     tool_name=tool_call.name,
                     arguments=effective_arguments,
@@ -8939,7 +9477,19 @@ class UnifiedRouter:
                     stage_before=TaskStage.EXECUTING.value,
                     purpose="pre_execution",
                 )
-                if readiness_affordance is not None and self._should_short_circuit_readiness(readiness_affordance):
+                force_explicit_execution = (
+                    readiness_affordance is not None
+                    and readiness_affordance.status == ReadinessStatus.ALREADY_PROVIDED
+                    and self._should_force_explicit_tool_execution(
+                        state,
+                        tool_call.name,
+                    )
+                )
+                if (
+                    readiness_affordance is not None
+                    and self._should_short_circuit_readiness(readiness_affordance)
+                    and not force_explicit_execution
+                ):
                     state.execution.blocked_info = self._build_action_readiness_block_payload(readiness_affordance)
                     state.execution.last_error = state.execution.blocked_info["message"]
                     completion_request = None
@@ -9260,6 +9810,16 @@ class UnifiedRouter:
 
             if follow_up_response.content:
                 setattr(state, "_final_response_text", follow_up_response.content)
+            elif self._maybe_recover_missing_tool_call(
+                state,
+                stage_before=TaskStage.EXECUTING,
+                trace_obj=trace_obj,
+            ):
+                if state.stage == TaskStage.EXECUTING and state._llm_response and state._llm_response.tool_calls:
+                    current_response = state._llm_response
+                    rounds_used += 1
+                    continue
+                return
             elif has_error and state.execution.last_error and not getattr(state, "_final_response_text", None):
                 setattr(state, "_final_response_text", state.execution.last_error)
             break

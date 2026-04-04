@@ -37,6 +37,7 @@ from .response_utils import (
 
 
 from .session import SessionRegistry
+from services.llm_client import LLMClientService
 
 
 def get_user_id(request: Request) -> str:
@@ -172,6 +173,49 @@ def resolve_download_path(filename: Optional[str], path_raw: Optional[str]) -> O
             return candidate
 
     return file_path
+
+
+def _truncate_history_snippet(content: Any, limit: int = 100) -> str:
+    text = " ".join(str(content or "").split()).strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "..."
+
+
+def _normalize_generated_session_title(raw_title: Optional[str]) -> Optional[str]:
+    title = " ".join(str(raw_title or "").split()).strip()
+    if not title:
+        return None
+    title = title.strip("\"'“”‘’`")
+    title = title.rstrip("。！？!?,，：:；;、")
+    if not title:
+        return None
+    has_cjk = any("\u4e00" <= ch <= "\u9fff" for ch in title)
+    max_length = 12 if has_cjk else 20
+    return title[:max_length].strip() or None
+
+
+def _build_session_title_prompt(history: list[Dict[str, Any]]) -> Optional[str]:
+    snippets: list[str] = []
+    for msg in history[:6]:
+        role = msg.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        content = _truncate_history_snippet(msg.get("content"))
+        if not content:
+            continue
+        speaker = "用户" if role == "user" else "助手"
+        snippets.append(f"{speaker}：{content}")
+
+    if not snippets:
+        return None
+
+    joined = "\n".join(snippets)
+    return (
+        "请根据以下对话内容，生成一个简洁的对话标题（不超过12个汉字或20个英文字符，"
+        "不加引号，不加标点，直接输出标题文字）：\n\n"
+        f"{joined}"
+    )
 
 @router.post("/chat", response_model=ChatResponse, response_model_exclude_none=True)
 async def chat(
@@ -868,6 +912,36 @@ async def update_session_title(session_id: str, payload: UpdateSessionTitleReque
     if not ok:
         raise HTTPException(status_code=400, detail="标题不能为空或会话不存在")
     return {"status": "ok", "session_id": session_id, "title": payload.title.strip()[:80]}
+
+
+@router.post("/sessions/{session_id}/generate_title")
+async def generate_session_title(session_id: str, request: Request):
+    """基于会话前几轮历史生成一个简短语义标题。"""
+    user_id = get_user_id(request)
+    mgr = SessionRegistry.get(user_id)
+    session = mgr.get_session(session_id)
+    if not session:
+        return {"session_id": session_id, "title": None}
+
+    prompt = _build_session_title_prompt(session._history)
+    if not prompt:
+        return {"session_id": session_id, "title": None}
+
+    try:
+        llm = LLMClientService(purpose="synthesis")
+        llm.max_tokens = min(int(getattr(llm, "max_tokens", 30) or 30), 30)
+        response = await llm.chat(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+        )
+        title = _normalize_generated_session_title(response.content)
+        if not title:
+            return {"session_id": session_id, "title": None}
+        mgr.set_session_title(session_id, title)
+        return {"session_id": session_id, "title": title}
+    except Exception as exc:
+        logger.warning("session title generation failed for %s: %s", session_id, exc)
+        return {"session_id": session_id, "title": None}
 
 @router.get("/sessions/{session_id}/history", response_model=HistoryResponse)
 async def get_session_history(session_id: str, request: Request):

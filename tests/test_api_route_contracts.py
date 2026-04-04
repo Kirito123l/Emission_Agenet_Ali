@@ -217,3 +217,48 @@ def test_resolve_download_path_falls_back_to_outputs_dir_when_stored_path_is_sta
         assert resolved == output_path
     finally:
         output_path.unlink(missing_ok=True)
+
+
+@pytest.mark.anyio
+async def test_generate_session_title_route_returns_generated_title_and_persists_it(api_app, monkeypatch):
+    from api.session import SessionRegistry
+    from api import routes as routes_mod
+
+    class FakeLLM:
+        max_tokens = 256
+
+        async def chat(self, messages, temperature=None):
+            assert temperature == 0.0
+            assert "请根据以下对话内容" in messages[0]["content"]
+
+            class _Response:
+                content = "道路扩散结果总结"
+
+            return _Response()
+
+    monkeypatch.setattr(routes_mod, "LLMClientService", lambda purpose="synthesis": FakeLLM())
+
+    user_id = "generate-title-user"
+    headers = {"X-User-ID": user_id}
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        create_response = await api_client.post("/api/sessions/new", headers=headers)
+        assert create_response.status_code == 200
+
+        session_id = create_response.json()["session_id"]
+        manager = SessionRegistry.get(user_id)
+        session = manager.get_session(session_id)
+        session.save_turn(
+            user_input="请帮我做道路扩散分析",
+            assistant_response="我将为您计算 NOx 扩散结果并给出热点分析。",
+        )
+        manager.save_session()
+
+        response = await api_client.post(f"/api/sessions/{session_id}/generate_title", headers=headers)
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["session_id"] == session_id
+        assert payload["title"] == "道路扩散结果总结"
+        assert manager.get_session(session_id).title == "道路扩散结果总结"
