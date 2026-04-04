@@ -252,6 +252,122 @@ function ensureLeafletStackingStyles() {
         .hotspot-detail-popup .leaflet-popup-content {
             margin: 12px 14px;
         }
+
+        .meteo-confirm-card {
+            max-width: 520px;
+            border-radius: 18px;
+            background: #f0f4f8;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-left: 4px solid #3b82f6;
+            padding: 18px 18px 16px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .meteo-confirm-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1e3a5f;
+            margin-bottom: 12px;
+        }
+
+        .meteo-confirm-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .meteo-confirm-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            font-size: 0.84rem;
+        }
+
+        .meteo-confirm-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .meteo-confirm-table td:first-child {
+            width: 38%;
+            color: #64748b;
+        }
+
+        .meteo-confirm-table td:last-child {
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        .meteo-confirm-note {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .meteo-confirm-chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .meteo-confirm-chip {
+            border: 1px solid #cbd5e1;
+            background: rgba(255, 255, 255, 0.88);
+            color: #334155;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            line-height: 1.2;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+        }
+
+        .meteo-confirm-chip:hover {
+            background: #e0ecff;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .meteo-confirm-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-top: 14px;
+        }
+
+        .meteo-confirm-primary {
+            border: none;
+            border-radius: 999px;
+            background: #16a34a;
+            color: white;
+            padding: 9px 16px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+
+        .meteo-confirm-primary:hover {
+            background: #15803d;
+            transform: translateY(-1px);
+        }
+
+        .meteo-confirm-secondary {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            padding: 8px 4px;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .meteo-confirm-secondary:hover {
+            color: #334155;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -348,6 +464,81 @@ function retrySendMessage() {
         inputEl.value = lastUserMsg;
     }
     sendMessageStream(lastUserMsg, null);
+}
+
+function isMeteoConfirmMessage(text) {
+    const raw = String(text || '');
+    const normalized = raw.toLowerCase();
+    const hasDispersionKeyword = raw.includes('扩散分析') || normalized.includes('dispersion');
+    const hasMeteoKeyword = raw.includes('预设') || raw.includes('默认') || raw.includes('气象');
+    const hasActionKeyword = raw.includes('开始') || raw.includes('调整');
+    return hasDispersionKeyword && hasMeteoKeyword && hasActionKeyword;
+}
+
+function buildMeteoQuickActionButton(label, className) {
+    return `<button type="button" class="${className}" onclick="sendMessageStream('${label}', null)">${label}</button>`;
+}
+
+function buildMeteoConfirmCardHtml(rawText) {
+    const primaryOptions = [
+        '北风 3 m/s',
+        '东风 2 m/s',
+        '西北风 4 m/s',
+        '静风条件'
+    ];
+    const secondaryOptions = [
+        '冬季夜间（稳定）',
+        '中性条件',
+        '强不稳定（默认）',
+        '自定义参数...'
+    ];
+    const summaryText = escapeHtml(String(rawText || ''));
+
+    return `
+        <div class="meteo-confirm-card">
+            <div class="meteo-confirm-card-title">🌤 扩散气象条件确认</div>
+            <table class="meteo-confirm-table">
+                <tbody>
+                    <tr><td>风向</td><td>西南风（SW）</td></tr>
+                    <tr><td>风速</td><td>2.5 m/s</td></tr>
+                    <tr><td>大气稳定度</td><td>强不稳定（A类）</td></tr>
+                    <tr><td>混合层高度</td><td>1000 m</td></tr>
+                    <tr><td>适用场景</td><td>城市夏季白天</td></tr>
+                </tbody>
+            </table>
+            <div class="meteo-confirm-note">如需调整，点击下方快捷选项或直接输入参数。</div>
+            <div class="meteo-confirm-chip-group">
+                ${primaryOptions.map((label) => buildMeteoQuickActionButton(label, 'meteo-confirm-chip')).join('')}
+            </div>
+            <div class="meteo-confirm-chip-group">
+                ${secondaryOptions.map((label) => buildMeteoQuickActionButton(label, 'meteo-confirm-chip')).join('')}
+            </div>
+            <div class="meteo-confirm-actions">
+                ${buildMeteoQuickActionButton('开始', 'meteo-confirm-primary')}
+                <button type="button" class="meteo-confirm-secondary" onclick="sendMessageStream('取消扩散分析', null)">取消</button>
+            </div>
+            <div class="mt-3 text-xs leading-relaxed text-slate-500">${summaryText}</div>
+        </div>
+    `;
+}
+
+function renderMeteoConfirmCard(container, rawText) {
+    if (!container) return;
+    container.innerHTML = buildMeteoConfirmCardHtml(rawText);
+}
+
+function renderAssistantTextContent(container, rawText) {
+    if (!container) return;
+    const cleanedReply = formatReplyText(rawText);
+    if (!cleanedReply) {
+        container.innerHTML = '';
+        return;
+    }
+    if (isMeteoConfirmMessage(cleanedReply)) {
+        renderMeteoConfirmCard(container, cleanedReply);
+        return;
+    }
+    container.innerHTML = `<div class="prose prose-slate dark:prose-invert max-w-none text-base text-slate-800 dark:text-slate-200 leading-relaxed">${formatMarkdown(cleanedReply)}</div>`;
 }
 
 async function sendMessage() {
@@ -661,11 +852,7 @@ function updateMessageContent(msgId, content) {
     if (container) {
         const contentDiv = container.querySelector('.message-content');
         if (contentDiv) {
-            const cleanedReply = formatReplyText(content);
-            // 使用与历史消息相同的文本清洗和 Markdown 渲染逻辑
-            contentDiv.innerHTML = cleanedReply
-                ? `<div class="prose prose-slate dark:prose-invert max-w-none text-base text-slate-800 dark:text-slate-200 leading-relaxed">${formatMarkdown(cleanedReply)}</div>`
-                : '';
+            renderAssistantTextContent(contentDiv, content);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     }
@@ -809,23 +996,11 @@ function attachTracePanelToMessage(target, traceFriendly) {
 }
 
 function showTypingIndicator(text) {
-    let indicator = document.getElementById('typing-indicator');
-    if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.id = 'typing-indicator';
-        indicator.className = 'typing-indicator';
-        messagesContainer.appendChild(indicator);
-    }
-    indicator.textContent = text;
-    indicator.style.display = 'flex';
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // disabled: progress shown in message bubble instead
 }
 
 function hideTypingIndicator() {
-    const indicator = document.getElementById('typing-indicator');
-    if (indicator) {
-        indicator.style.display = 'none';
-    }
+    // disabled: progress shown in message bubble instead
 }
 
 function addDownloadButton(msgId, fileId) {
@@ -1353,9 +1528,10 @@ function addAssistantMessage(data) {
     if (!messagesContainer) return;
     ensureLeafletStackingStyles();
 
-    // Clean and format the reply text
-    const cleanedReply = formatReplyText(data.reply);
-    let contentHtml = cleanedReply ? `<div class="prose prose-slate dark:prose-invert max-w-none text-base text-slate-800 dark:text-slate-200 leading-relaxed">${formatMarkdown(cleanedReply)}</div>` : '';
+    let contentHtml = '';
+    const replyHtmlContainer = document.createElement('div');
+    renderAssistantTextContent(replyHtmlContainer, data.reply);
+    contentHtml = replyHtmlContainer.innerHTML;
 
     // 与实时流式路径保持一致：只要存在有效富媒体负载，就应在历史中渲染
     const hasValidChartData =
