@@ -13,7 +13,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.generate_e2e_tasks import CATEGORY_DESCRIPTIONS, CATEGORY_ID_PREFIX
+from evaluation.generate_e2e_tasks import (
+    CATEGORY_DESCRIPTIONS,
+    CATEGORY_ID_PREFIX,
+    CONSTRAINT_CANDIDATE_META_KEYS,
+    INCOMPLETE_CANDIDATE_META_KEYS,
+)
 from evaluation.utils import load_jsonl, write_jsonl
 
 
@@ -71,15 +76,26 @@ def _count_by_category(records: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def _benchmark_record(record: Dict[str, Any], new_id: str) -> Dict[str, Any]:
+    category = str(record.get("category", ""))
+    expected_params = dict(record.get("expected_params", {}) or {})
+    if category == "incomplete":
+        expected_params = dict(expected_params.get("known_params", {}) or {})
+        for key in INCOMPLETE_CANDIDATE_META_KEYS:
+            expected_params.pop(key, None)
+    elif category == "constraint_violation":
+        expected_params = dict(expected_params.get("known_params", expected_params) or {})
+        for key in CONSTRAINT_CANDIDATE_META_KEYS:
+            expected_params.pop(key, None)
+
     payload: Dict[str, Any] = {
         "id": new_id,
-        "category": record["category"],
+        "category": category,
         "description": record.get("description", ""),
         "user_message": record.get("user_message", ""),
         "has_file": bool(record.get("has_file")),
         "test_file": record.get("test_file"),
         "expected_tool_chain": list(record.get("expected_tool_chain", []) or []),
-        "expected_params": dict(record.get("expected_params", {}) or {}),
+        "expected_params": expected_params,
         "success_criteria": dict(record.get("success_criteria", {}) or {}),
     }
     expected_tool = record.get("expected_tool")
