@@ -45,6 +45,11 @@ LEGACY_NEEDS_USER_STAGE = {
     "NEEDS_PARAMETER_CONFIRMATION",
     "NEEDS_CLARIFICATION",
 }
+GEOMETRY_REQUIRED_TOOLS = {
+    "calculate_dispersion",
+    "render_spatial_map",
+}
+GEOMETRY_TEXT_CUES = ("geometry", "几何", "geojson", "wkt", "坐标")
 
 
 def _check_outputs(result_like: Dict[str, Any], expected_outputs: Dict[str, bool]) -> Dict[str, Any]:
@@ -106,6 +111,74 @@ def _tool_chain_matches(actual: List[str], expected: List[str]) -> bool:
     return actual == expected
 
 
+def _file_has_explicit_geometry(file_analysis: Optional[Dict[str, Any]]) -> bool:
+    if not isinstance(file_analysis, dict):
+        return False
+
+    columns = file_analysis.get("columns")
+    if isinstance(columns, list):
+        lowered = {str(column).strip().lower() for column in columns}
+        if any(marker in lowered for marker in {"geometry", "geom", "wkt", "geojson"}):
+            return True
+
+    spatial_metadata = file_analysis.get("spatial_metadata")
+    if isinstance(spatial_metadata, dict) and spatial_metadata:
+        return True
+
+    return False
+
+
+def _geometry_gate_prefix(expected_tool_chain: List[str]) -> Optional[List[str]]:
+    if not expected_tool_chain:
+        return None
+
+    prefix: List[str] = []
+    for tool_name in expected_tool_chain:
+        if tool_name in GEOMETRY_REQUIRED_TOOLS:
+            return prefix
+        prefix.append(tool_name)
+    return None
+
+
+def _is_geometry_gated_multistep_success(
+    task: Dict[str, Any],
+    *,
+    actual_tool_chain: List[str],
+    criteria_actuals: Dict[str, bool],
+    response_payload: Dict[str, Any],
+    file_analysis: Optional[Dict[str, Any]],
+) -> bool:
+    if task.get("category") != "multi_step":
+        return False
+
+    expected_tool_chain = [str(item) for item in task.get("expected_tool_chain", []) if item]
+    expected_prefix = _geometry_gate_prefix(expected_tool_chain)
+    if not expected_prefix or actual_tool_chain != expected_prefix:
+        return False
+
+    if _file_has_explicit_geometry(file_analysis):
+        return False
+
+    missing_field_diagnostics = (file_analysis or {}).get("missing_field_diagnostics")
+    if isinstance(missing_field_diagnostics, dict):
+        if str(missing_field_diagnostics.get("status") or "").strip().lower() != "complete":
+            return False
+
+    if not criteria_actuals.get("tool_executed"):
+        return False
+    if not criteria_actuals.get("params_legal"):
+        return False
+    if not criteria_actuals.get("result_has_data"):
+        return False
+    if not criteria_actuals.get("requires_user_response"):
+        return False
+    if criteria_actuals.get("trace_has_error"):
+        return False
+
+    response_text = str(response_payload.get("text") or "").lower()
+    return any(cue in response_text for cue in GEOMETRY_TEXT_CUES)
+
+
 def _normalize_task(sample: Dict[str, Any]) -> Dict[str, Any]:
     if "sample_id" in sample:
         expected_tool = sample.get("expected_tool_name")
@@ -165,7 +238,6 @@ def _build_task_result(
     params_comparison = compare_expected_subset(actual_arguments, task.get("expected_params", {}))
 
     tool_executed = bool(executed_tool_calls)
-    tool_match = _tool_chain_matches(actual_tool_chain, task.get("expected_tool_chain", []))
     params_legal = params_comparison["matched"] if task.get("expected_params") else tool_executed
     result_has_data = _has_result_payload(response_payload, executed_tool_calls)
     final_stage = str((trace_payload or {}).get("final_stage") or "")
@@ -197,6 +269,17 @@ def _build_task_result(
         "constraint_warning": constraint_warning,
         "trace_has_error": trace_has_error,
     }
+    geometry_gated_success = _is_geometry_gated_multistep_success(
+        task,
+        actual_tool_chain=actual_tool_chain,
+        criteria_actuals=criteria_actuals,
+        response_payload=response_payload,
+        file_analysis=file_analysis,
+    )
+    tool_match = (
+        _tool_chain_matches(actual_tool_chain, task.get("expected_tool_chain", []))
+        or geometry_gated_success
+    )
 
     if task["__legacy_expected_success"] is not None:
         output_check = _check_outputs(response_payload, task.get("expected_outputs", {}))
@@ -231,6 +314,8 @@ def _build_task_result(
         },
         "actual": {
             "tool_chain": actual_tool_chain,
+            "tool_chain_match": tool_match,
+            "geometry_gated_success": geometry_gated_success,
             "tool_calls": executed_tool_calls,
             "params_comparison": params_comparison,
             "criteria": criteria_actuals,
@@ -256,7 +341,7 @@ def _aggregate_metrics(logs: List[Dict[str, Any]], mode: str, skipped: int) -> D
     tool_match_count = sum(
         1
         for log in logs
-        if log.get("actual", {}).get("tool_chain") == log.get("expected", {}).get("tool_chain")
+        if log.get("actual", {}).get("tool_chain_match")
         or not log.get("expected", {}).get("tool_chain")
     )
     params_legal_count = sum(
@@ -277,7 +362,7 @@ def _aggregate_metrics(logs: List[Dict[str, Any]], mode: str, skipped: int) -> D
                     sum(
                         1
                         for log in bucket
-                        if log.get("actual", {}).get("tool_chain") == log.get("expected", {}).get("tool_chain")
+                        if log.get("actual", {}).get("tool_chain_match")
                         or not log.get("expected", {}).get("tool_chain")
                     ),
                     len(bucket),

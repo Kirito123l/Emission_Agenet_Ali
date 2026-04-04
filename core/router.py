@@ -2911,19 +2911,33 @@ class UnifiedRouter:
         state: TaskState,
         tool_name: str,
         *,
+        effective_arguments: Optional[Dict[str, Any]] = None,
         trace_obj: Optional[Trace] = None,
     ) -> bool:
         hints = self._extract_message_execution_hints(state)
-        if tool_name != "query_emission_factors" or not hints.get("wants_factor"):
+        explicit_arguments = effective_arguments if isinstance(effective_arguments, dict) else {}
+        if tool_name != "query_emission_factors" or (not hints.get("wants_factor") and not explicit_arguments):
             return False
 
+        resolved_vehicle_type = explicit_arguments.get("vehicle_type") or hints.get("vehicle_type")
+        resolved_model_year = (
+            explicit_arguments.get("model_year")
+            if explicit_arguments.get("model_year") is not None
+            else hints.get("model_year")
+        )
+        resolved_pollutants = (
+            explicit_arguments.get("pollutants")
+            or explicit_arguments.get("pollutant")
+            or hints.get("pollutants")
+        )
+
         clarification: Optional[str] = None
-        if not hints.get("vehicle_type"):
+        if not resolved_vehicle_type:
             clarification = "要查询排放因子，我还需要车型。请告诉我是 Passenger Car、Transit Bus、Motorcycle 等哪一类车辆。"
-        elif not hints.get("pollutants"):
-            clarification = "要查询排放因子，我还需要污染物类型。请说明是 CO2、NOx、PM2.5，还是其它污染物。"
-        elif hints.get("model_year") is None:
+        elif resolved_model_year is None:
             clarification = "要查询排放因子，我还需要车型年份。请告诉我例如 2020、2021 这样的年份。"
+        elif not explicit_arguments and not resolved_pollutants:
+            clarification = "要查询排放因子，我还需要污染物类型。请说明是 CO2、NOx、PM2.5，还是其它污染物。"
 
         if clarification is None:
             return False
@@ -9458,6 +9472,7 @@ class UnifiedRouter:
                 if self._evaluate_missing_parameter_preflight(
                     state,
                     tool_call.name,
+                    effective_arguments=effective_arguments,
                     trace_obj=trace_obj,
                 ):
                     return

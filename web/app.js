@@ -563,12 +563,7 @@ function retrySendMessage() {
 }
 
 function isMeteoConfirmMessage(text) {
-    const raw = String(text || '');
-    const normalized = raw.toLowerCase();
-    const hasDispersionKeyword = raw.includes('扩散分析') || normalized.includes('dispersion');
-    const hasMeteoKeyword = raw.includes('预设') || raw.includes('默认') || raw.includes('气象');
-    const hasActionKeyword = raw.includes('开始') || raw.includes('调整');
-    return hasDispersionKeyword && hasMeteoKeyword && hasActionKeyword;
+    return false;
 }
 
 function buildMeteoQuickActionButton(label, className) {
