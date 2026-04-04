@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from functools import partial
-import re
+import hashlib
+import json as _json
+import logging
 from pathlib import Path
+import re
 from typing import Optional
 import uuid
 
@@ -22,6 +24,7 @@ from services.map_exporter import MapExporter
 
 router = APIRouter()
 _export_executor = ThreadPoolExecutor(max_workers=2)
+logger = logging.getLogger(__name__)
 
 MEDIA_TYPES = {
     "png": "image/png",
@@ -48,10 +51,33 @@ def get_user_id(request: Request) -> str:
     return str(uuid.uuid4())
 
 
+def _build_data_fingerprint(stored_data: dict) -> str:
+    """Build a compact fingerprint from the stored result payload."""
+    raw = _json.dumps(stored_data, sort_keys=True, default=str, ensure_ascii=False)
+    truncated = raw[:2000]
+    return hashlib.sha256(truncated.encode("utf-8")).hexdigest()[:16]
+
+
 def _safe_label(value: Optional[str], fallback: str) -> str:
     label = (value or fallback).strip() or fallback
     sanitized = re.sub(r"[^0-9A-Za-z_\-]+", "_", label)
     return sanitized.strip("_") or fallback
+
+
+def _make_export_cache_key(payload: ExportMapRequest, data_fingerprint: str) -> str:
+    """Build a stable cache key from export params and result fingerprint."""
+    key_dict = {
+        "result_type": payload.result_type,
+        "scenario_label": payload.scenario_label,
+        "format": payload.format,
+        "dpi": payload.dpi,
+        "add_basemap": payload.add_basemap,
+        "add_roads": payload.add_roads,
+        "language": payload.language,
+        "data": data_fingerprint,
+    }
+    raw = _json.dumps(key_dict, sort_keys=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def _export_map_sync(
@@ -133,10 +159,20 @@ async def export_map(payload: ExportMapRequest, request: Request):
 
     export_dir = Path(config.map_export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    data_fingerprint = _build_data_fingerprint(stored.data)
+    cache_key = _make_export_cache_key(payload, data_fingerprint)
     scenario_fragment = _safe_label(payload.scenario_label, "baseline")
-    filename = f"{result_type}_{scenario_fragment}_{timestamp}.{export_format}"
-    output_path = export_dir / filename
+    cached_path = export_dir / f"{result_type}_{scenario_fragment}_{cache_key}.{export_format}"
+    if cached_path.exists():
+        logger.info("[export_map] cache hit: %s", cached_path.name)
+        return FileResponse(
+            path=str(cached_path),
+            media_type=MEDIA_TYPES[export_format],
+            filename=cached_path.name,
+        )
+
+    output_path = cached_path
 
     if result_type not in {"dispersion", "hotspot", "emission"}:
         raise HTTPException(status_code=400, detail=f"Unsupported result_type: {result_type}")
@@ -160,5 +196,5 @@ async def export_map(payload: ExportMapRequest, request: Request):
     return FileResponse(
         path=file_path,
         media_type=MEDIA_TYPES[export_format],
-        filename=filename,
+        filename=output_path.name,
     )

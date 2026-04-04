@@ -212,6 +212,46 @@ function ensureLeafletStackingStyles() {
         .message-map-container .leaflet-control {
             z-index: 5 !important;
         }
+
+        .stream-progress-text {
+            display: block;
+            font-size: 0.78rem;
+            color: #888;
+            margin-top: 4px;
+            min-height: 1.2em;
+            transition: opacity 0.3s;
+            opacity: 0;
+        }
+
+        .stream-progress-text:not(:empty) {
+            opacity: 1;
+        }
+
+        .retry-btn {
+            margin-top: 8px;
+            padding: 4px 14px;
+            border: 1px solid #d0604c;
+            border-radius: 4px;
+            background: transparent;
+            color: #d0604c;
+            cursor: pointer;
+            font-size: 0.82rem;
+        }
+
+        .retry-btn:hover {
+            background: #d0604c;
+            color: #fff;
+        }
+
+        .hotspot-detail-popup .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            padding: 0;
+        }
+
+        .hotspot-detail-popup .leaflet-popup-content {
+            margin: 12px 14px;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -239,6 +279,76 @@ fileInput.addEventListener('change', handleFileSelect);
 newChatButton?.addEventListener('click', startNewChat);
 
 // ==================== 核心函数 ====================
+
+function getFriendlyErrorMessage(error) {
+    const msg = error?.message || '';
+    if (msg.includes('502') || msg.includes('Bad Gateway')) {
+        return {
+            text: '服务器正忙，计算任务可能耗时较长，请稍后重试。',
+            retryable: true
+        };
+    }
+    if (msg.includes('504') || msg.includes('Gateway Timeout')) {
+        return {
+            text: '请求超时，扩散计算时间较长，请重试或减小计算区域。',
+            retryable: true
+        };
+    }
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('net::')) {
+        return {
+            text: '网络连接中断，请检查网络后重试。',
+            retryable: true
+        };
+    }
+    if (msg.includes('500')) {
+        return {
+            text: '服务器内部错误，请稍后重试。如持续出现请联系管理员。',
+            retryable: false
+        };
+    }
+    return {
+        text: '请求失败，请重试。',
+        retryable: true
+    };
+}
+
+function renderRequestErrorMessage(target, text, retryable) {
+    const container = getAssistantMessageContainer(target);
+    const contentDiv = container?.querySelector('.message-content');
+    if (!contentDiv) return;
+
+    const retryHtml = retryable
+        ? '<button type="button" class="retry-btn" onclick="retrySendMessage()">重试</button>'
+        : '';
+
+    contentDiv.innerHTML = `
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div>${escapeHtml(text)}</div>
+            ${retryHtml}
+        </div>
+    `;
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function retrySendMessage() {
+    const inputEl = messageInput
+        || document.getElementById('message-input')
+        || document.querySelector('textarea[name="message"]')
+        || document.querySelector('input[type="text"].message-input');
+    const userMessages = document.querySelectorAll('.user-message-content, .user-message .message-content, .message.user .content');
+    const lastUserMsg = userMessages.length > 0
+        ? userMessages[userMessages.length - 1].textContent.trim()
+        : '';
+
+    if (!lastUserMsg) {
+        return;
+    }
+
+    if (inputEl) {
+        inputEl.value = lastUserMsg;
+    }
+    sendMessageStream(lastUserMsg, null);
+}
 
 async function sendMessage() {
     console.log('🚀 sendMessage 函数被调用');
@@ -295,6 +405,10 @@ async function sendMessage() {
         });
         console.log('✅ fetch 完成，状态码:', response.status);
 
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
         console.log('📥 收到响应数据:', data);
         console.log('  - data_type:', data.data_type);
@@ -321,10 +435,11 @@ async function sendMessage() {
         if (loadingEl) {
             loadingEl.remove();
         }
-        addAssistantMessage({
-            reply: `抱歉，请求失败: ${error.message}`,
-            success: false
-        });
+        const { text: friendlyText, retryable } = getFriendlyErrorMessage(error);
+        const errorMsgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        createAssistantMessageContainer(errorMsgId);
+        clearStreamLoadingState(errorMsgId);
+        renderRequestErrorMessage(errorMsgId, friendlyText, retryable);
     }
 }
 
@@ -400,10 +515,12 @@ async function sendMessageStream(message, file) {
                         case 'status':
                             // 更新状态提示
                             showTypingIndicator(data.content);
+                            updateStreamProgressText(assistantMsgId, data.content);
                             break;
 
                         case 'text':
                             // 追加文本内容
+                            clearStreamLoadingState(assistantMsgId);
                             fullText += data.content;
                             updateMessageContent(assistantMsgId, fullText);
                             hideTypingIndicator();
@@ -411,12 +528,14 @@ async function sendMessageStream(message, file) {
 
                         case 'chart':
                             // 渲染图表
+                            clearStreamLoadingState(assistantMsgId);
                             hideTypingIndicator();
                             renderChart(data.content, assistantMsgId);
                             break;
 
                         case 'table':
                             // 渲染表格
+                            clearStreamLoadingState(assistantMsgId);
                             hideTypingIndicator();
                             console.log('[DEBUG] Table event received:', {
                                 content: data.content,
@@ -434,6 +553,7 @@ async function sendMessageStream(message, file) {
 
                         case 'map':
                             // 渲染地图
+                            clearStreamLoadingState(assistantMsgId);
                             hideTypingIndicator();
                             const container = document.getElementById(assistantMsgId);
                             if (container) {
@@ -443,6 +563,8 @@ async function sendMessageStream(message, file) {
 
                         case 'done':
                             // 完成，更新session_id
+                            clearStreamProgressText(assistantMsgId);
+                            clearStreamLoadingState(assistantMsgId);
                             hideTypingIndicator();
                             if (data.session_id) {
                                 currentSessionId = data.session_id;
@@ -460,6 +582,8 @@ async function sendMessageStream(message, file) {
 
                         case 'error':
                             // 显示错误
+                            clearStreamProgressText(assistantMsgId);
+                            clearStreamLoadingState(assistantMsgId);
                             hideTypingIndicator();
                             updateMessageContent(assistantMsgId, `❌ ${data.content}`);
                             break;
@@ -472,8 +596,11 @@ async function sendMessageStream(message, file) {
 
     } catch (error) {
         console.error('❌ 流式请求失败:', error);
+        clearStreamProgressText(assistantMsgId);
+        clearStreamLoadingState(assistantMsgId);
         hideTypingIndicator();
-        updateMessageContent(assistantMsgId, `抱歉，请求失败: ${error.message}`);
+        const { text: friendlyText, retryable } = getFriendlyErrorMessage(error);
+        renderRequestErrorMessage(assistantMsgId, friendlyText, retryable);
     }
 }
 
@@ -489,13 +616,44 @@ function createAssistantMessageContainer(msgId) {
         </div>
         <div class="flex flex-col gap-4 flex-1 min-w-0">
             <div class="assistant-message-card bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-                <div class="message-content"></div>
+                <div class="message-content">
+                    <div class="stream-loading-state">
+                        <div class="flex items-center gap-2">
+                            <div class="flex gap-1">
+                                <span class="w-2 h-2 bg-primary rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
+                                <span class="w-2 h-2 bg-primary rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                                <span class="w-2 h-2 bg-primary rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                            </div>
+                            <span class="text-slate-500 text-sm">正在分析...</span>
+                        </div>
+                        <span id="stream-progress-${msgId}" class="stream-progress-text"></span>
+                    </div>
+                </div>
             </div>
         </div>
     `;
     messagesContainer.appendChild(container);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     return container;
+}
+
+function updateStreamProgressText(msgId, text) {
+    const progressEl = document.getElementById(`stream-progress-${msgId}`);
+    if (progressEl) {
+        progressEl.textContent = text || '';
+    }
+}
+
+function clearStreamProgressText(msgId) {
+    updateStreamProgressText(msgId, '');
+}
+
+function clearStreamLoadingState(msgId) {
+    const container = document.getElementById(msgId);
+    const loadingState = container?.querySelector('.stream-loading-state');
+    if (loadingState) {
+        loadingState.remove();
+    }
 }
 
 function updateMessageContent(msgId, content) {
@@ -1165,7 +1323,7 @@ function addUserMessage(text, filename = null) {
     if (!messagesContainer) return;
 
     const html = `
-        <div class="flex justify-end gap-4 ml-auto">
+        <div class="user-message flex justify-end gap-4 ml-auto">
             <div class="flex flex-col gap-2 items-end">
                 ${filename ? `
                 <div class="inline-flex items-center gap-2 max-w-md bg-white/90 dark:bg-slate-700/90 border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-full shadow-sm">
@@ -1179,7 +1337,7 @@ function addUserMessage(text, filename = null) {
                 </div>
                 ` : ''}
                 <div class="bg-primary text-white p-4 rounded-2xl rounded-tr-sm max-w-lg">
-                    <div class="text-base leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
+                    <div class="user-message-content text-base leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
                 </div>
             </div>
             <div class="size-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
@@ -3040,6 +3198,82 @@ function renderContourMap(mapData, msgContainer) {
     }, 150);
 }
 
+function buildHotspotPopupHtml(hotspot) {
+    const roads = Array.isArray(hotspot?.contributing_roads)
+        ? hotspot.contributing_roads.slice(0, 3)
+        : [];
+
+    function fmtConc(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+            return 'N/A';
+        }
+        return num >= 0.01 ? num.toFixed(3) : num.toExponential(2);
+    }
+
+    const roadRows = roads.length > 0
+        ? roads.map((road) => {
+            const roadId = escapeHtml(String(road?.link_id || '-'));
+            const contributionPct = Number(road?.contribution_pct);
+            const pctLabel = Number.isFinite(contributionPct)
+                ? `${contributionPct.toFixed(1)}%`
+                : 'N/A';
+            return `
+                <tr>
+                    <td style="padding:2px 6px;color:#555;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${roadId}">
+                        ${roadId}
+                    </td>
+                    <td style="padding:2px 6px;text-align:right;font-weight:600;color:#c0392b;">
+                        ${pctLabel}
+                    </td>
+                </tr>`;
+        }).join('')
+        : '<tr><td colspan="2" style="color:#aaa;padding:4px 6px;">暂无贡献数据</td></tr>';
+
+    const topRoadName = roads.length > 0 ? escapeHtml(String(roads[0]?.link_id || '未知路段')) : '未知路段';
+    const topPctValue = Number(roads[0]?.contribution_pct);
+    const topPct = Number.isFinite(topPctValue) ? `${topPctValue.toFixed(0)}%` : '';
+    const interpretation = roads.length > 0
+        ? `主要污染来源为 <b>${topRoadName}</b>，贡献占比 ${topPct}。`
+        : '贡献路段数据不足，建议结合路网分布分析。';
+
+    return `
+        <div style="min-width:200px;max-width:260px;font-size:0.82rem;line-height:1.5;">
+            <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:#2c3e50;">
+                热点 #${escapeHtml(String(hotspot?.rank ?? hotspot?.hotspot_id ?? '-'))}
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+                <tr>
+                    <td style="color:#888;padding:2px 6px;">峰值浓度</td>
+                    <td style="padding:2px 6px;text-align:right;">
+                        <b>${fmtConc(hotspot?.max_conc)}</b> μg/m³
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color:#888;padding:2px 6px;">均值浓度</td>
+                    <td style="padding:2px 6px;text-align:right;">
+                        <b>${fmtConc(hotspot?.mean_conc)}</b> μg/m³
+                    </td>
+                </tr>
+            </table>
+            <div style="font-size:0.78rem;color:#666;font-weight:600;margin-bottom:4px;border-top:1px solid #eee;padding-top:6px;">
+                Top 3 贡献路段
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                    <tr style="color:#aaa;font-size:0.72rem;">
+                        <th style="text-align:left;padding:2px 6px;font-weight:400;">路段 ID</th>
+                        <th style="text-align:right;padding:2px 6px;font-weight:400;">贡献占比</th>
+                    </tr>
+                </thead>
+                <tbody>${roadRows}</tbody>
+            </table>
+            <div style="margin-top:8px;padding:6px 8px;background:#fef9f0;border-left:3px solid #e67e22;border-radius:3px;font-size:0.76rem;color:#555;line-height:1.4;">
+                ${interpretation}
+            </div>
+        </div>`;
+}
+
 function initHotspotLeafletMap(mapData, mapId) {
     const initialized = initAnalysisLeafletMap(mapId);
     if (!initialized) {
@@ -3111,29 +3345,18 @@ function initHotspotLeafletMap(mapData, mapId) {
             }),
             onEachFeature: (feature, layer) => {
                 const props = feature.properties || {};
+                const hotspotId = props.hotspot_id;
                 const hotspotDetail = (mapData.hotspots_detail || []).find(
-                    (hotspot) => Number(hotspot.hotspot_id) === Number(props.hotspot_id)
+                    (hotspot) => Number(hotspot.hotspot_id) === Number(hotspotId) || Number(hotspot.rank) === Number(props.rank)
                 );
+                const popupHtml = hotspotDetail
+                    ? buildHotspotPopupHtml(hotspotDetail)
+                    : buildHotspotPopupHtml(props);
 
-                let popupContent =
-                    `<div style="min-width: 220px;">` +
-                    `<h3 style="font-weight: bold; margin: 0 0 8px 0;">Hotspot #${escapeHtml(String(props.rank ?? '-'))}</h3>` +
-                    `<div style="font-size: 13px; line-height: 1.6;">` +
-                    `<div><strong>Max:</strong> ${formatMapValue(props.max_conc || 0)} μg/m³</div>` +
-                    `<div><strong>Mean:</strong> ${formatMapValue(props.mean_conc || 0)} μg/m³</div>` +
-                    `<div><strong>Area:</strong> ${formatMapValue(props.area_m2 || 0)} m²</div>` +
-                    `</div>`;
-
-                if (hotspotDetail && Array.isArray(hotspotDetail.contributing_roads) && hotspotDetail.contributing_roads.length > 0) {
-                    popupContent += '<div style="margin-top: 8px; font-size: 13px; line-height: 1.6;"><strong>Top Contributing Roads:</strong>';
-                    hotspotDetail.contributing_roads.slice(0, 5).forEach((road) => {
-                        popupContent += `<div>${escapeHtml(String(road.link_id || '-'))}: ${formatMapValue(road.contribution_pct || 0)}%</div>`;
-                    });
-                    popupContent += '</div>';
-                }
-
-                popupContent += '</div>';
-                layer.bindPopup(popupContent);
+                layer.bindPopup(popupHtml, {
+                    maxWidth: 280,
+                    className: 'hotspot-detail-popup'
+                });
             }
         });
         hotspotLayer.addTo(map);
