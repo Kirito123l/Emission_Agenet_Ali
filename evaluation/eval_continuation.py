@@ -101,6 +101,7 @@ class _EvalAssembler:
         fact_memory: Optional[Dict[str, Any]] = None,
         file_context: Optional[Dict[str, Any]] = None,
         context_summary: str = "",
+        memory_context: Optional[str] = None,
     ) -> Any:
         tools = [
             {"type": "function", "function": {"name": name}}

@@ -73,7 +73,7 @@ class ConversationIntentClassifier:
     )
     CONFIRM_PATTERNS = (
         r"^[1-9一二三四五六七八九]$",
-        r"^(确认|就这个|选这个|第[1-9]个|option\s*[1-9])$",
+        r"^(确认|好的|好|开始|就这个|选这个|第[1-9]个|option\s*[1-9]|ok|okay)$",
     )
 
     @staticmethod

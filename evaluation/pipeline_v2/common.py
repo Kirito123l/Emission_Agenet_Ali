@@ -428,8 +428,13 @@ def match_constraint_rules(
         value_a = rule["value_a"]
         value_b = rule["value_b"]
 
-        raw_a = params.get(param_a)
-        raw_b = params.get(param_b)
+        chain_values = set(get_tool_chain(task))
+        expected_tool = task.get("expected_tool")
+        if expected_tool:
+            chain_values.add(str(expected_tool))
+
+        raw_a = list(chain_values) if param_a == "tool_name" else params.get(param_a)
+        raw_b = list(chain_values) if param_b == "tool_name" else params.get(param_b)
         if param_b == "pollutants" and raw_b is None:
             raw_b = params.get("pollutant")
 

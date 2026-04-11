@@ -174,6 +174,8 @@ def _cross_constraint_report(
     covered_counter = Counter()
     rule_to_tasks: Dict[str, List[str]] = {}
     for task in tasks:
+        if task.get("category") != "constraint_violation":
+            continue
         matched = match_constraint_rules(task, flattened_rules, catalog)
         for rule_id in matched:
             covered_counter[rule_id] += 1

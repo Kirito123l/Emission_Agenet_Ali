@@ -1,0 +1,478 @@
+{
+  "benchmark_path": "evaluation/benchmarks/end2end_tasks.jsonl",
+  "task_count": 64,
+  "vehicle_type": {
+    "total": 13,
+    "covered": [
+      "Combination Long-haul Truck",
+      "Motorcycle",
+      "Passenger Car",
+      "School Bus",
+      "Single Unit Long-haul Truck",
+      "Transit Bus"
+    ],
+    "missing": [
+      "Passenger Truck",
+      "Light Commercial Truck",
+      "Intercity Bus",
+      "Refuse Truck",
+      "Single Unit Short-haul Truck",
+      "Motor Home",
+      "Combination Short-haul Truck"
+    ],
+    "coverage_rate": 0.4615,
+    "counts": {
+      "Combination Long-haul Truck": 1,
+      "Motorcycle": 9,
+      "Passenger Car": 12,
+      "School Bus": 2,
+      "Single Unit Long-haul Truck": 1,
+      "Transit Bus": 5
+    }
+  },
+  "pollutant": {
+    "total": 6,
+    "covered": [
+      "CO",
+      "CO2",
+      "NOx",
+      "PM10",
+      "PM2.5"
+    ],
+    "missing": [
+      "THC"
+    ],
+    "coverage_rate": 0.8333,
+    "counts": {
+      "CO": 4,
+      "CO2": 25,
+      "NOx": 23,
+      "PM10": 1,
+      "PM2.5": 8
+    }
+  },
+  "season": {
+    "total": 4,
+    "covered": [
+      "冬季",
+      "夏季",
+      "春季",
+      "秋季"
+    ],
+    "missing": [],
+    "coverage_rate": 1.0,
+    "counts": {
+      "冬季": 6,
+      "夏季": 5,
+      "春季": 1,
+      "秋季": 1
+    }
+  },
+  "road_type": {
+    "total": 5,
+    "covered": [
+      "主干道",
+      "快速路",
+      "支路",
+      "次干道",
+      "高速公路"
+    ],
+    "missing": [],
+    "coverage_rate": 1.0,
+    "counts": {
+      "主干道": 2,
+      "快速路": 4,
+      "支路": 2,
+      "次干道": 1,
+      "高速公路": 9
+    }
+  },
+  "meteorology": {
+    "total": 6,
+    "covered": [
+      "calm_stable",
+      "urban_summer_day",
+      "urban_summer_night",
+      "urban_winter_night"
+    ],
+    "missing": [
+      "urban_winter_day",
+      "windy_neutral"
+    ],
+    "coverage_rate": 0.6667,
+    "counts": {
+      "calm_stable": 1,
+      "urban_summer_day": 3,
+      "urban_summer_night": 1,
+      "urban_winter_night": 3
+    }
+  },
+  "stability_class": {
+    "total": 6,
+    "covered": [],
+    "missing": [
+      "VS",
+      "S",
+      "N1",
+      "N2",
+      "U",
+      "VU"
+    ],
+    "coverage_rate": 0.0,
+    "counts": {}
+  },
+  "tool_chain_combos": {
+    "covered": [
+      "(empty)",
+      "calculate_macro_emission",
+      "calculate_macro_emission -> calculate_dispersion",
+      "calculate_macro_emission -> calculate_dispersion -> analyze_hotspots",
+      "calculate_macro_emission -> calculate_dispersion -> analyze_hotspots -> render_spatial_map",
+      "calculate_macro_emission -> calculate_dispersion -> render_spatial_map",
+      "calculate_macro_emission -> render_spatial_map",
+      "calculate_micro_emission",
+      "calculate_micro_emission -> calculate_dispersion",
+      "calculate_micro_emission -> calculate_dispersion -> analyze_hotspots",
+      "query_emission_factors",
+      "query_knowledge"
+    ],
+    "missing": [
+      "calculate_micro_emission -> render_spatial_map",
+      "calculate_micro_emission -> calculate_dispersion -> render_spatial_map"
+    ],
+    "counts": {
+      "(empty)": 25,
+      "calculate_macro_emission": 5,
+      "calculate_macro_emission -> calculate_dispersion": 6,
+      "calculate_macro_emission -> calculate_dispersion -> analyze_hotspots": 2,
+      "calculate_macro_emission -> calculate_dispersion -> analyze_hotspots -> render_spatial_map": 1,
+      "calculate_macro_emission -> calculate_dispersion -> render_spatial_map": 3,
+      "calculate_macro_emission -> render_spatial_map": 1,
+      "calculate_micro_emission": 5,
+      "calculate_micro_emission -> calculate_dispersion": 3,
+      "calculate_micro_emission -> calculate_dispersion -> analyze_hotspots": 1,
+      "query_emission_factors": 11,
+      "query_knowledge": 1
+    }
+  },
+  "cross_constraints": {
+    "testable_rules": [
+      "vehicle_road_compatibility:Motorcycle:高速公路",
+      "vehicle_pollutant_relevance:Motorcycle:PM2.5",
+      "vehicle_pollutant_relevance:Motorcycle:PM10",
+      "pollutant_task_applicability:CO2:calculate_dispersion",
+      "pollutant_task_applicability:THC:calculate_dispersion",
+      "season_meteorology_consistency:冬季:urban_summer_day",
+      "season_meteorology_consistency:冬季:urban_summer_night",
+      "season_meteorology_consistency:夏季:urban_winter_day",
+      "season_meteorology_consistency:夏季:urban_winter_night"
+    ],
+    "covered_rules": [
+      "vehicle_road_compatibility:Motorcycle:高速公路",
+      "vehicle_pollutant_relevance:Motorcycle:PM2.5",
+      "pollutant_task_applicability:CO2:calculate_dispersion",
+      "season_meteorology_consistency:冬季:urban_summer_day",
+      "season_meteorology_consistency:冬季:urban_summer_night",
+      "season_meteorology_consistency:夏季:urban_winter_night"
+    ],
+    "missing_rules": [
+      "vehicle_pollutant_relevance:Motorcycle:PM10",
+      "pollutant_task_applicability:THC:calculate_dispersion",
+      "season_meteorology_consistency:夏季:urban_winter_day"
+    ],
+    "rule_task_counts": {
+      "vehicle_road_compatibility:Motorcycle:高速公路": 8,
+      "vehicle_pollutant_relevance:Motorcycle:PM2.5": 1,
+      "pollutant_task_applicability:CO2:calculate_dispersion": 2,
+      "season_meteorology_consistency:冬季:urban_summer_day": 2,
+      "season_meteorology_consistency:冬季:urban_summer_night": 1,
+      "season_meteorology_consistency:夏季:urban_winter_night": 2
+    },
+    "rule_task_examples": {
+      "vehicle_road_compatibility:Motorcycle:高速公路": [
+        "e2e_constraint_001",
+        "e2e_constraint_002",
+        "e2e_constraint_003",
+        "e2e_constraint_004",
+        "e2e_constraint_006"
+      ],
+      "vehicle_pollutant_relevance:Motorcycle:PM2.5": [
+        "e2e_constraint_010"
+      ],
+      "pollutant_task_applicability:CO2:calculate_dispersion": [
+        "e2e_constraint_008",
+        "e2e_constraint_011"
+      ],
+      "season_meteorology_consistency:冬季:urban_summer_day": [
+        "e2e_constraint_005",
+        "e2e_constraint_007"
+      ],
+      "season_meteorology_consistency:冬季:urban_summer_night": [
+        "e2e_constraint_011"
+      ],
+      "season_meteorology_consistency:夏季:urban_winter_night": [
+        "e2e_constraint_008",
+        "e2e_constraint_014"
+      ]
+    }
+  },
+  "language": {
+    "chinese": 35,
+    "english": 0,
+    "mixed": 29,
+    "english_target": 5
+  },
+  "test_files": {
+    "files": {
+      "evaluation/file_tasks/data/macro_cn_fleet.csv": 2,
+      "evaluation/file_tasks/data/macro_direct.csv": 14,
+      "evaluation/file_tasks/data/macro_fuzzy.csv": 3,
+      "evaluation/file_tasks/data/micro_cn.csv": 1,
+      "evaluation/file_tasks/data/micro_time_speed.csv": 11,
+      "test_data/test_6links.xlsx": 1
+    },
+    "geometry_files": [
+      "test_data/test_6links.xlsx"
+    ],
+    "has_geometry_file": true
+  },
+  "duplicates": {
+    "duplicate_messages": [],
+    "duplicate_signatures": [
+      {
+        "signature": "{\"category\": \"incomplete\", \"chain\": [], \"params\": {}, \"test_file\": null}",
+        "count": 6
+      },
+      {
+        "signature": "{\"category\": \"parameter_ambiguous\", \"chain\": [\"query_emission_factors\"], \"params\": {\"pollutants\": [\"NOx\"], \"road_type\": \"快速路\", \"vehicle_type\": \"Transit Bus\"}, \"test_file\": null}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"multi_step\", \"chain\": [\"calculate_macro_emission\", \"calculate_dispersion\"], \"params\": {\"pollutants\": [\"CO2\"]}, \"test_file\": \"evaluation/file_tasks/data/macro_direct.csv\"}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"multi_step\", \"chain\": [\"calculate_macro_emission\", \"calculate_dispersion\", \"analyze_hotspots\"], \"params\": {\"pollutants\": [\"NOx\"]}, \"test_file\": \"evaluation/file_tasks/data/macro_direct.csv\"}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"constraint_violation\", \"chain\": [\"calculate_macro_emission\", \"calculate_dispersion\"], \"params\": {\"meteorology\": \"urban_summer_day\", \"pollutants\": [\"NOx\"], \"season\": \"冬季\"}, \"test_file\": \"evaluation/file_tasks/data/macro_direct.csv\"}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"incomplete\", \"chain\": [], \"params\": {\"pollutants\": [\"CO2\"]}, \"test_file\": null}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"parameter_ambiguous\", \"chain\": [], \"params\": {\"pollutants\": [\"NOx\"]}, \"test_file\": null}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"simple\", \"chain\": [\"calculate_macro_emission\"], \"params\": {\"pollutants\": [\"CO2\"]}, \"test_file\": \"evaluation/file_tasks/data/macro_direct.csv\"}",
+        "count": 2
+      },
+      {
+        "signature": "{\"category\": \"constraint_violation\", \"chain\": [], \"params\": {\"pollutants\": [\"NOx\"], \"road_type\": \"高速公路\", \"vehicle_type\": \"Motorcycle\"}, \"test_file\": \"evaluation/file_tasks/data/micro_time_speed.csv\"}",
+        "count": 2
+      }
+    ],
+    "near_duplicate_pairs": [
+      {
+        "left_id": "e2e_constraint_001",
+        "right_id": "e2e_constraint_006",
+        "distance": 0.0833
+      },
+      {
+        "left_id": "e2e_simple_001",
+        "right_id": "e2e_ambiguous_001",
+        "distance": 0.1111
+      },
+      {
+        "left_id": "e2e_incomplete_008",
+        "right_id": "e2e_incomplete_015",
+        "distance": 0.1429
+      },
+      {
+        "left_id": "e2e_incomplete_009",
+        "right_id": "e2e_incomplete_016",
+        "distance": 0.1538
+      },
+      {
+        "left_id": "e2e_incomplete_013",
+        "right_id": "e2e_incomplete_016",
+        "distance": 0.1538
+      },
+      {
+        "left_id": "e2e_incomplete_001",
+        "right_id": "e2e_incomplete_002",
+        "distance": 0.2143
+      },
+      {
+        "left_id": "e2e_constraint_008",
+        "right_id": "e2e_constraint_014",
+        "distance": 0.2143
+      },
+      {
+        "left_id": "e2e_simple_001",
+        "right_id": "e2e_incomplete_001",
+        "distance": 0.2222
+      },
+      {
+        "left_id": "e2e_ambiguous_001",
+        "right_id": "e2e_incomplete_001",
+        "distance": 0.2222
+      },
+      {
+        "left_id": "e2e_incomplete_006",
+        "right_id": "e2e_incomplete_011",
+        "distance": 0.2308
+      },
+      {
+        "left_id": "e2e_constraint_005",
+        "right_id": "e2e_constraint_007",
+        "distance": 0.2381
+      }
+    ]
+  },
+  "invalid_expected_values": {
+    "vehicle_type": [],
+    "pollutant": []
+  },
+  "generation_targets": [
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Passenger Truck",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年皮卡在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Light Commercial Truck",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年轻型货车在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Intercity Bus",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年城际客车在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Refuse Truck",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年垃圾车在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Single Unit Short-haul Truck",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年中型货车在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Motor Home",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年房车在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "vehicle_type",
+      "gap": "Combination Short-haul Truck",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年半挂短途在快速路上的NOx排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "pollutant",
+      "gap": "THC",
+      "suggested_category": "simple",
+      "suggested_message_template": "查询2020年乘用车的总碳氢化合物排放因子"
+    },
+    {
+      "priority": "P0",
+      "dimension": "cross_constraints",
+      "gap": "vehicle_pollutant_relevance:Motorcycle:PM10",
+      "suggested_category": "constraint_violation",
+      "suggested_message_template": "补一条触发 vehicle_pollutant_relevance:Motorcycle:PM10 的约束测试任务"
+    },
+    {
+      "priority": "P0",
+      "dimension": "cross_constraints",
+      "gap": "pollutant_task_applicability:THC:calculate_dispersion",
+      "suggested_category": "constraint_violation",
+      "suggested_message_template": "补一条触发 pollutant_task_applicability:THC:calculate_dispersion 的约束测试任务"
+    },
+    {
+      "priority": "P0",
+      "dimension": "cross_constraints",
+      "gap": "season_meteorology_consistency:夏季:urban_winter_day",
+      "suggested_category": "constraint_violation",
+      "suggested_message_template": "补一条触发 season_meteorology_consistency:夏季:urban_winter_day 的约束测试任务"
+    },
+    {
+      "priority": "P1",
+      "dimension": "meteorology",
+      "gap": "urban_winter_day",
+      "suggested_category": "multi_step",
+      "suggested_message_template": "先算路网NOx排放，再用 urban_winter_day 做扩散分析"
+    },
+    {
+      "priority": "P1",
+      "dimension": "meteorology",
+      "gap": "windy_neutral",
+      "suggested_category": "multi_step",
+      "suggested_message_template": "先算路网NOx排放，再用 windy_neutral 做扩散分析"
+    },
+    {
+      "priority": "P1",
+      "dimension": "tool_chain_combo",
+      "gap": "calculate_micro_emission -> render_spatial_map",
+      "suggested_category": "multi_step",
+      "suggested_message_template": "补一条覆盖工具链 calculate_micro_emission -> render_spatial_map 的任务"
+    },
+    {
+      "priority": "P1",
+      "dimension": "tool_chain_combo",
+      "gap": "calculate_micro_emission -> calculate_dispersion -> render_spatial_map",
+      "suggested_category": "multi_step",
+      "suggested_message_template": "补一条覆盖工具链 calculate_micro_emission -> calculate_dispersion -> render_spatial_map 的任务"
+    },
+    {
+      "priority": "P1",
+      "dimension": "language",
+      "gap": "pure_english<5",
+      "suggested_category": "simple",
+      "suggested_message_template": "Query the 2020 passenger-car CO2 emission factor on urban expressways."
+    },
+    {
+      "priority": "P2",
+      "dimension": "season_balance",
+      "gap": "春季",
+      "suggested_category": "simple",
+      "suggested_message_template": "补一条 春季 场景下的排放因子查询"
+    },
+    {
+      "priority": "P2",
+      "dimension": "season_balance",
+      "gap": "秋季",
+      "suggested_category": "simple",
+      "suggested_message_template": "补一条 秋季 场景下的排放因子查询"
+    },
+    {
+      "priority": "P2",
+      "dimension": "road_type_balance",
+      "gap": "次干道",
+      "suggested_category": "simple",
+      "suggested_message_template": "补一条 次干道 场景下的排放任务"
+    }
+  ],
+  "mappings_path": "config/unified_mappings.yaml",
+  "constraints_path": "config/cross_constraints.yaml"
+}

@@ -68,6 +68,13 @@ def test_classifier_treats_confirmation_like_reply_as_non_fast_path():
     assert result.fast_path_allowed is False
 
 
+def test_classifier_treats_ok_as_confirmation_like_reply():
+    result = ConversationIntentClassifier().classify("OK")
+
+    assert result.intent == ConversationIntent.CONFIRM
+    assert result.fast_path_allowed is False
+
+
 def test_classifier_blocks_explanation_fast_path_when_residual_workflow_exists():
     result = ConversationIntentClassifier().classify(
         "解释一下刚才的结果",
