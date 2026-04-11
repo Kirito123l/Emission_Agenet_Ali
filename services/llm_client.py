@@ -20,6 +20,7 @@ separately instantiated `purpose="synthesis"` client.
 """
 import json
 import logging
+import time
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from openai import OpenAI
@@ -101,6 +102,7 @@ class LLMClientService:
         self.client = self._client_proxy if self._use_proxy_primary and self._client_proxy else self._client_direct
 
         self.max_tokens = assignment.max_tokens
+        self._retry_sleep = time.sleep
 
     def _create_openai_client(self, use_proxy: bool) -> OpenAI:
         if not self._api_key:
@@ -138,36 +140,59 @@ class LLMClientService:
 
     def _request_with_failover(self, request_fn, operation: str):
         """
-        Execute request with proxy->direct failover on connection-layer failures.
+        Execute request with proxy->direct failover and bounded transient retry.
         """
+        config = get_config()
+        max_attempts = 3 if getattr(config, "enable_llm_retry_backoff", False) else 1
         last_error = None
-        clients = []
 
-        # keep stable order by current active client
-        if self.client is self._client_proxy and self._client_proxy:
-            clients = [("proxy", self._client_proxy), ("direct", self._client_direct)]
-        else:
-            clients = [("direct", self._client_direct)]
-            if self._client_proxy:
-                clients.append(("proxy", self._client_proxy))
+        for attempt in range(max_attempts):
+            clients = []
 
-        for mode, c in clients:
-            if c is None:
-                continue
-            try:
-                resp = request_fn(c)
-                # promote successful client as active
-                self.client = c
-                if mode == "direct" and self._client_proxy:
-                    logger.warning(f"{operation}: switched to direct connection after proxy/connect failure")
-                return resp
-            except Exception as e:
-                last_error = e
-                if self._is_connection_error(e):
-                    logger.warning(f"{operation} via {mode} failed due to connection issue: {e}")
+            # keep stable order by current active client
+            if self.client is self._client_proxy and self._client_proxy:
+                clients = [("proxy", self._client_proxy), ("direct", self._client_direct)]
+            else:
+                clients = [("direct", self._client_direct)]
+                if self._client_proxy:
+                    clients.append(("proxy", self._client_proxy))
+
+            saw_transient = False
+            for mode, c in clients:
+                if c is None:
                     continue
-                # Non-connection errors should fail fast
-                raise
+                try:
+                    resp = request_fn(c)
+                    # promote successful client as active
+                    self.client = c
+                    if mode == "direct" and self._client_proxy:
+                        logger.warning(f"{operation}: switched to direct connection after proxy/connect failure")
+                    return resp
+                except Exception as e:
+                    last_error = e
+                    if self._is_connection_error(e):
+                        saw_transient = True
+                        logger.warning(
+                            "%s via %s failed due to connection issue (attempt %s/%s): %s",
+                            operation,
+                            mode,
+                            attempt + 1,
+                            max_attempts,
+                            e,
+                        )
+                        continue
+                    # Non-connection errors should fail fast
+                    raise
+
+            if saw_transient and attempt < max_attempts - 1:
+                wait_seconds = 1.0 * (2 ** attempt)
+                logger.warning(
+                    "%s retrying in %.1fs after transient connection failure",
+                    operation,
+                    wait_seconds,
+                )
+                retry_sleep = getattr(self, "_retry_sleep", time.sleep)
+                retry_sleep(wait_seconds)
 
         # all attempts failed
         if last_error:

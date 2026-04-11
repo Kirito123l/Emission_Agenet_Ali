@@ -32,6 +32,7 @@ class TestConfigLoading:
         assert config.enable_live_state_persistence is True
         assert config.enable_conversation_fast_path is True
         assert config.enable_layered_memory_context is True
+        assert config.enable_llm_retry_backoff is True
         assert config.enable_contour_output is True
         assert config.contour_interp_resolution_m == 10.0
         assert config.contour_n_levels == 7

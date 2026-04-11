@@ -43,6 +43,11 @@ class FakeMemory:
             "last_tool_summary": self.fact_memory.last_tool_summary,
             "last_tool_snapshot": self.fact_memory.last_tool_snapshot,
             "last_spatial_data": self.fact_memory.last_spatial_data,
+            "session_topic": self.fact_memory.session_topic,
+            "user_language_preference": self.fact_memory.user_language_preference,
+            "cumulative_tools_used": list(self.fact_memory.cumulative_tools_used),
+            "key_findings": list(self.fact_memory.key_findings),
+            "user_corrections": list(self.fact_memory.user_corrections),
         }
 
     def get_working_memory(self):
@@ -591,6 +596,20 @@ async def test_fast_path_uses_shared_memory_context_and_history_builders():
     assert router.memory.build_conversational_messages.call_count == 1
     assert router.memory.build_context_for_prompt.call_count >= 1
     assert "[Conversation summaries]" in router.llm.chat.await_args.kwargs["system"]
+
+
+def test_conversational_prompt_includes_language_preference_and_logs_context(caplog):
+    router = make_router(
+        llm_response=LLMResponse(content="unused"),
+        fact_memory={"user_language_preference": "zh"},
+    )
+    router.memory.build_context_for_prompt = Mock(return_value="[Session facts]\nActive file: /tmp/demo.csv")
+
+    prompt = router._build_conversational_system_prompt()
+
+    assert "语言偏好" in prompt
+    assert "zh" in prompt
+    assert "[Session facts]" in prompt
 
 
 @pytest.mark.anyio

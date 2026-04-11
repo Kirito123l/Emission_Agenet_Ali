@@ -60,3 +60,50 @@ async def test_chat_json_logs_dict_usage_without_changing_return_value(caplog):
     assert result == {"ok": True}
     assert "[TOKEN_TELEMETRY]" in caplog.text
     assert "total=7" in caplog.text
+
+
+def _make_failover_client():
+    client = object.__new__(LLMClientService)
+    client.model = "retry-model"
+    client.purpose = "agent"
+    client._client_proxy = None
+    client._client_direct = "direct-client"
+    client.client = client._client_direct
+    client._retry_sleep_calls = []
+    client._retry_sleep = client._retry_sleep_calls.append
+    return client
+
+
+def test_request_with_failover_retries_transient_connection_errors(caplog):
+    caplog.set_level(logging.WARNING, logger="services.llm_client")
+    client = _make_failover_client()
+    calls = {"count": 0}
+    response = object()
+
+    def request_fn(_client):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("connection error: temporary network issue")
+        return response
+
+    result = client._request_with_failover(request_fn, operation="retry-test")
+
+    assert result is response
+    assert calls["count"] == 2
+    assert client._retry_sleep_calls == [1.0]
+    assert "retrying in 1.0s" in caplog.text
+
+
+def test_request_with_failover_does_not_retry_non_connection_errors():
+    client = _make_failover_client()
+    calls = {"count": 0}
+
+    def request_fn(_client):
+        calls["count"] += 1
+        raise ValueError("invalid request")
+
+    with pytest.raises(ValueError):
+        client._request_with_failover(request_fn, operation="non-retry-test")
+
+    assert calls["count"] == 1
+    assert client._retry_sleep_calls == []

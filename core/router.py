@@ -545,11 +545,14 @@ class UnifiedRouter:
         explain_result: bool = False,
     ) -> str:
         fact_memory = self.memory.get_fact_memory() if hasattr(self.memory, "get_fact_memory") else {}
+        language_preference = str(fact_memory.get("user_language_preference") or "").strip()
         sections = [
             "你是 EmissionAgent，一个专注于交通排放分析的智能助手。",
             "你的能力范围包括道路交通排放估算、扩散模拟、热点识别、情景对比，以及相关知识解释。",
-            "回答要求：简洁、自然、忠于当前会话上下文；如果请求明显需要执行工具或继续任务，不要假装已执行。",
+            "回答要求：简洁、自然、忠于当前会话上下文；如果请求明显需要执行工具或继续任务，不要假装已执行，并主动说明需要进入分析流程。",
         ]
+        if language_preference:
+            sections.append(f"语言偏好：优先跟随用户最近使用的语言（{language_preference}）。")
 
         context_summary = self._get_context_summary()
         if context_summary:
@@ -577,7 +580,15 @@ class UnifiedRouter:
                 sections.append(f"结果快照：{snapshot_text}")
             sections.append("当前模式：用户在追问或要求解释既有结果，请解释而不是重新规划任务。")
 
-        return "\n\n".join(sections)
+        prompt = "\n\n".join(sections)
+        logger.info(
+            "[ConversationPrompt] explain_result=%s context_summary_chars=%s memory_context_chars=%s prompt_chars=%s",
+            explain_result,
+            len(context_summary or ""),
+            len(memory_context or ""),
+            len(prompt),
+        )
+        return prompt
 
     async def _maybe_handle_conversation_fast_path(
         self,
@@ -601,6 +612,13 @@ class UnifiedRouter:
                 self._ensure_live_file_relationship_bundle().get("awaiting_clarification")
             ),
             has_residual_workflow=self._has_active_residual_workflow(),
+        )
+        logger.info(
+            "[ConversationFastPath] intent=%s confidence=%.2f allowed=%s blockers=%s",
+            intent_result.intent.value,
+            intent_result.confidence,
+            intent_result.fast_path_allowed,
+            ",".join(intent_result.blocking_signals) if intent_result.blocking_signals else "none",
         )
 
         if trace is not None:
@@ -708,6 +726,12 @@ class UnifiedRouter:
                 "continuation_bundle": self._json_safe_payload(
                     self._ensure_live_continuation_bundle()
                 ),
+                "file_relationship": self._json_safe_payload(
+                    self._ensure_live_file_relationship_bundle()
+                ),
+                "intent_resolution": self._json_safe_payload(
+                    self._ensure_live_intent_resolution_bundle()
+                ),
             },
         }
 
@@ -735,6 +759,14 @@ class UnifiedRouter:
         continuation_bundle = live_state.get("continuation_bundle")
         if isinstance(continuation_bundle, dict):
             self._ensure_live_continuation_bundle().update(continuation_bundle)
+
+        file_relationship = live_state.get("file_relationship")
+        if isinstance(file_relationship, dict):
+            self._ensure_live_file_relationship_bundle().update(file_relationship)
+
+        intent_resolution = live_state.get("intent_resolution")
+        if isinstance(intent_resolution, dict):
+            self._ensure_live_intent_resolution_bundle().update(intent_resolution)
 
     def _sanitize_response_text(self, text: Optional[str]) -> str:
         """Apply the user-facing output safety rail on every response path."""

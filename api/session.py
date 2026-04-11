@@ -2,7 +2,7 @@
 import uuid
 import json
 from typing import Dict, Optional, List, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Import new architecture components
@@ -173,6 +173,7 @@ class Session:
 
 class SessionManager:
     """会话管理器 - 使用JSON持久化"""
+    SESSION_TTL_HOURS = 72
 
     def __init__(self, storage_dir: str = "data/sessions"):
         self._sessions: Dict[str, Session] = {}
@@ -250,6 +251,23 @@ class SessionManager:
             if memory_file.exists():
                 memory_file.unlink()
             self._save_to_disk()
+
+    def cleanup_idle_sessions(self, ttl_hours: Optional[int] = None) -> int:
+        """Remove idle sessions from memory without deleting persisted files."""
+        ttl = ttl_hours if ttl_hours is not None else self.SESSION_TTL_HOURS
+        cutoff = datetime.now() - timedelta(hours=ttl)
+        to_remove: List[str] = []
+        for session_id, session in self._sessions.items():
+            try:
+                updated_at = datetime.fromisoformat(session.updated_at)
+            except Exception:
+                continue
+            if updated_at < cutoff:
+                to_remove.append(session_id)
+
+        for session_id in to_remove:
+            del self._sessions[session_id]
+        return len(to_remove)
 
     def save_session(self):
         """手动保存会话状态（用于更新计数或时间后）"""

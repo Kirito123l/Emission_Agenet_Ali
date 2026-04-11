@@ -53,6 +53,7 @@ class Config:
         self.enable_live_state_persistence = os.getenv("ENABLE_LIVE_STATE_PERSISTENCE", "true").lower() == "true"
         self.enable_conversation_fast_path = os.getenv("ENABLE_CONVERSATION_FAST_PATH", "true").lower() == "true"
         self.enable_layered_memory_context = os.getenv("ENABLE_LAYERED_MEMORY_CONTEXT", "true").lower() == "true"
+        self.enable_llm_retry_backoff = os.getenv("ENABLE_LLM_RETRY_BACKOFF", "true").lower() == "true"
         self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
         self.contour_interp_resolution_m = float(
             os.getenv("CONTOUR_INTERP_RESOLUTION_M", "10.0")

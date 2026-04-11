@@ -59,6 +59,10 @@ def test_session_reload_restores_live_router_state(tmp_path):
         "pollutant": "NOx",
     }
     session.router._ensure_live_continuation_bundle()["residual_plan_summary"] = "continue dispersion"
+    session.router._ensure_live_file_relationship_bundle()["awaiting_clarification"] = True
+    session.router._ensure_live_intent_resolution_bundle()["latest_decision"] = {
+        "progress_intent": "shift_output_mode",
+    }
     manager.save_session()
 
     reloaded_manager = SessionManager(storage_dir=str(storage_dir))
@@ -68,6 +72,29 @@ def test_session_reload_restores_live_router_state(tmp_path):
     negotiation = reloaded_session.router._ensure_live_parameter_negotiation_bundle()
     completion = reloaded_session.router._ensure_live_input_completion_bundle()
     continuation = reloaded_session.router._ensure_live_continuation_bundle()
+    file_relationship = reloaded_session.router._ensure_live_file_relationship_bundle()
+    intent_resolution = reloaded_session.router._ensure_live_intent_resolution_bundle()
     assert negotiation["active_request"]["parameter"] == "vehicle_type"
     assert completion["overrides"]["pollutant"] == "NOx"
     assert continuation["residual_plan_summary"] == "continue dispersion"
+    assert file_relationship["awaiting_clarification"] is True
+    assert intent_resolution["latest_decision"]["progress_intent"] == "shift_output_mode"
+
+
+def test_cleanup_idle_sessions_removes_only_in_memory_session(tmp_path):
+    storage_dir = tmp_path / "sessions"
+    manager = SessionManager(storage_dir=str(storage_dir))
+    session_id = manager.create_session()
+    session = manager.get_session(session_id)
+    assert session is not None
+    session.updated_at = "2000-01-01T00:00:00"
+    manager.save_session()
+
+    removed = manager.cleanup_idle_sessions(ttl_hours=1)
+
+    assert removed == 1
+    assert manager.get_session(session_id) is None
+    assert (storage_dir / "sessions_meta.json").exists()
+
+    reloaded = SessionManager(storage_dir=str(storage_dir))
+    assert reloaded.get_session(session_id) is not None
