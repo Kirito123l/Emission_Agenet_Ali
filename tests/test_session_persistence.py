@@ -42,3 +42,32 @@ def test_session_reload_restores_context_store_and_file_memory(tmp_path):
     assert fact_memory["active_file"] == "/tmp/input.xlsx"
     assert fact_memory["file_analysis"]["detected_type"] == "trajectory"
     assert fact_memory["last_spatial_data"]["results"][0]["link_id"] == "L1"
+
+
+def test_session_reload_restores_live_router_state(tmp_path):
+    storage_dir = tmp_path / "sessions"
+    manager = SessionManager(storage_dir=str(storage_dir))
+    session_id = manager.create_session()
+    session = manager.get_session(session_id)
+    assert session is not None
+
+    session.router._ensure_live_parameter_negotiation_bundle()["active_request"] = {
+        "parameter": "vehicle_type",
+        "options": ["Passenger Car", "Transit Bus"],
+    }
+    session.router._ensure_live_input_completion_bundle()["overrides"] = {
+        "pollutant": "NOx",
+    }
+    session.router._ensure_live_continuation_bundle()["residual_plan_summary"] = "continue dispersion"
+    manager.save_session()
+
+    reloaded_manager = SessionManager(storage_dir=str(storage_dir))
+    reloaded_session = reloaded_manager.get_session(session_id)
+    assert reloaded_session is not None
+
+    negotiation = reloaded_session.router._ensure_live_parameter_negotiation_bundle()
+    completion = reloaded_session.router._ensure_live_input_completion_bundle()
+    continuation = reloaded_session.router._ensure_live_continuation_bundle()
+    assert negotiation["active_request"]["parameter"] == "vehicle_type"
+    assert completion["overrides"]["pollutant"] == "NOx"
+    assert continuation["residual_plan_summary"] == "continue dispersion"

@@ -16,7 +16,7 @@ from core.memory import FactMemory
 from core.plan import ExecutionPlan, PlanStep, PlanStepStatus
 from core.readiness import ReadinessStatus
 from core.residual_reentry import RecoveredWorkflowReentryContext, ResidualReentryTarget
-from core.router import UnifiedRouter
+from core.router import RouterResponse, UnifiedRouter
 from core.task_state import TaskStage, TaskState
 from core.trace import Trace
 from services.llm_client import LLMResponse, ToolCall
@@ -362,6 +362,235 @@ async def test_state_loop_no_tool_call():
     assert len(router.memory.update_calls) == 1
     assert router.memory.update_calls[0]["tool_calls"] is None
     assert router.llm.chat_with_tools.await_count == 1
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_handles_chitchat_before_state_loop():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(llm_response=LLMResponse(content="unused"))
+    router._run_state_loop = AsyncMock(side_effect=AssertionError("state loop should not run"))
+    router.llm.chat = AsyncMock(return_value=LLMResponse(content="你好，我可以继续帮你分析交通排放。"))
+
+    try:
+        result = await router.chat("你好", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert "交通排放" in result.text
+    assert router.llm.chat.await_count == 1
+    assert router.llm.chat_with_tools.await_count == 0
+    assert router.memory.update_calls[-1]["tool_calls"] is None
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_knowledge_uses_tool_executor_without_state_loop():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(
+        llm_response=LLMResponse(content="unused"),
+        executor_result={"success": True, "summary": "PM2.5 是细颗粒物。", "data": {"answer": "PM2.5 是细颗粒物。"}},
+    )
+    router._run_state_loop = AsyncMock(side_effect=AssertionError("state loop should not run"))
+
+    try:
+        result = await router.chat("PM2.5 是什么", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert result.text == "PM2.5 是细颗粒物。"
+    assert router.executor.execute.await_count == 1
+    assert router.llm.chat_with_tools.await_count == 0
+    assert router.memory.update_calls[-1]["tool_calls"][0]["name"] == "query_knowledge"
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_respects_active_negotiation_blocker():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(llm_response=LLMResponse(content="unused"))
+    router._ensure_live_parameter_negotiation_bundle()["active_request"] = {"parameter_name": "vehicle_type"}
+    router._run_state_loop = AsyncMock(return_value=RouterResponse(text="from state loop"))
+
+    try:
+        result = await router.chat("你好", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert result.text == "from state loop"
+    assert router._run_state_loop.await_count == 1
+    assert router.llm.chat.await_count == 0
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_respects_input_completion_blocker():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(llm_response=LLMResponse(content="unused"))
+    router._ensure_live_input_completion_bundle()["active_request"] = {"reason_code": "missing_required_field"}
+    router._run_state_loop = AsyncMock(return_value=RouterResponse(text="from state loop"))
+
+    try:
+        result = await router.chat("PM2.5 是什么", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert result.text == "from state loop"
+    assert router._run_state_loop.await_count == 1
+    assert router.executor.execute.await_count == 0
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_respects_file_relationship_clarification_blocker():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(llm_response=LLMResponse(content="unused"))
+    router._ensure_live_file_relationship_bundle()["awaiting_clarification"] = True
+    router._run_state_loop = AsyncMock(return_value=RouterResponse(text="from state loop"))
+
+    try:
+        result = await router.chat("你好", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert result.text == "from state loop"
+    assert router._run_state_loop.await_count == 1
+    assert router.llm.chat.await_count == 0
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_respects_residual_workflow_blocker():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(llm_response=LLMResponse(content="unused"))
+    router._ensure_live_continuation_bundle()["residual_plan_summary"] = "continue repaired workflow"
+    router._run_state_loop = AsyncMock(return_value=RouterResponse(text="from state loop"))
+
+    try:
+        result = await router.chat("解释一下刚才的结果", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert result.text == "from state loop"
+    assert router._run_state_loop.await_count == 1
+    assert router.llm.chat.await_count == 0
+
+
+@pytest.mark.anyio
+async def test_conversation_fast_path_does_not_intercept_summary_delivery_like_request():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+
+    router = make_router(
+        llm_response=LLMResponse(content="unused"),
+        fact_memory={
+            "last_tool_name": "calculate_macro_emission",
+            "active_file": "/tmp/roads.csv",
+        },
+    )
+    router._run_state_loop = AsyncMock(return_value=RouterResponse(text="from state loop"))
+
+    try:
+        result = await router.chat("帮我可视化一下", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+
+    assert result.text == "from state loop"
+    assert router._run_state_loop.await_count == 1
+    assert router.llm.chat.await_count == 0
+
+
+@pytest.mark.anyio
+async def test_state_loop_passes_layered_memory_context_to_assembler():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    previous_layered = config.enable_layered_memory_context
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = False
+    config.enable_layered_memory_context = True
+
+    router = make_router(llm_response=LLMResponse(content="state direct response"))
+    router.memory.build_context_for_prompt = Mock(return_value="[Session facts]\\nActive file: /tmp/demo.csv")
+
+    try:
+        await router.chat("state request", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+        config.enable_layered_memory_context = previous_layered
+
+    assert router.assembler.assemble.call_args.kwargs["memory_context"] == (
+        "[Session facts]\\nActive file: /tmp/demo.csv"
+    )
+
+
+@pytest.mark.anyio
+async def test_fast_path_uses_shared_memory_context_and_history_builders():
+    config = get_config()
+    previous_state_orchestration = config.enable_state_orchestration
+    previous_fast_path = config.enable_conversation_fast_path
+    previous_layered = config.enable_layered_memory_context
+    config.enable_state_orchestration = True
+    config.enable_conversation_fast_path = True
+    config.enable_layered_memory_context = True
+
+    router = make_router(llm_response=LLMResponse(content="unused"))
+    router.memory.build_context_for_prompt = Mock(return_value="[Conversation summaries]\\n- Turns 1-3: summary")
+    router.memory.build_conversational_messages = Mock(
+        return_value=[
+            {"role": "user", "content": "之前的问题"},
+            {"role": "assistant", "content": "之前的回答"},
+            {"role": "user", "content": "你好"},
+        ]
+    )
+    router.llm.chat = AsyncMock(return_value=LLMResponse(content="你好，我可以继续帮你分析。"))
+    router._run_state_loop = AsyncMock(side_effect=AssertionError("state loop should not run"))
+
+    try:
+        await router.chat("你好", trace={})
+    finally:
+        config.enable_state_orchestration = previous_state_orchestration
+        config.enable_conversation_fast_path = previous_fast_path
+        config.enable_layered_memory_context = previous_layered
+
+    assert router.memory.build_conversational_messages.call_count == 1
+    assert router.memory.build_context_for_prompt.call_count >= 1
+    assert "[Conversation summaries]" in router.llm.chat.await_args.kwargs["system"]
 
 
 @pytest.mark.anyio

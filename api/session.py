@@ -77,10 +77,14 @@ class Session:
             return
 
         state_path = self._router_state_dir / f"{self.session_id}.json"
-        payload = {
-            "context_store": self._router.context_store.to_persisted_dict(),
-            "saved_at": datetime.now().isoformat(),
-        }
+        if get_config().enable_live_state_persistence and hasattr(self._router, "to_persisted_state"):
+            payload = self._router.to_persisted_state()
+            payload["saved_at"] = datetime.now().isoformat()
+        else:
+            payload = {
+                "context_store": self._router.context_store.to_persisted_dict(),
+                "saved_at": datetime.now().isoformat(),
+            }
         try:
             with open(state_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -99,9 +103,12 @@ class Session:
         try:
             with open(state_path, "r", encoding="utf-8") as f:
                 payload = json.load(f)
-            context_payload = payload.get("context_store")
-            if isinstance(context_payload, dict):
-                self._router.context_store = SessionContextStore.from_persisted_dict(context_payload)
+            if get_config().enable_live_state_persistence and hasattr(self._router, "restore_persisted_state"):
+                self._router.restore_persisted_state(payload)
+            else:
+                context_payload = payload.get("context_store")
+                if isinstance(context_payload, dict):
+                    self._router.context_store = SessionContextStore.from_persisted_dict(context_payload)
         except Exception as exc:
             print(f"Warning: Failed to restore router state for session {self.session_id}: {exc}")
 

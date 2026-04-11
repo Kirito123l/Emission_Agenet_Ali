@@ -49,10 +49,126 @@ GEOMETRY_REQUIRED_TOOLS = {
     "calculate_dispersion",
     "render_spatial_map",
 }
-GEOMETRY_TEXT_CUES = ("geometry", "几何", "geojson", "wkt", "坐标")
-FOLLOW_UP_TEXT_CUES = ("请确认", "请告诉我", "请选择", "请回复", "告诉我您的选择", "是否现在开始", "回复", "开始")
-EMISSION_COMPLETION_TEXT_CUES = ("排放计算已完成", "排放已完成", "已完成宏观", "总排放")
-COMPLETED_DOWNSTREAM_TEXT_CUES = ("扩散已完成", "扩散分析已完成", "扩散模拟已完成", "热点分析已完成", "渲染完成", "地图已渲染")
+GEOMETRY_TEXT_CUES = (
+    "geometry",
+    "几何",
+    "geojson",
+    "wkt",
+    "坐标",
+    "经纬度",
+    "空间信息",
+    "空间位置",
+    "位置信息",
+    "方位",
+    "geo",
+    "spatial",
+    "空间数据",
+    "地理信息",
+    "空间元数据",
+    "没有可用于空间分析的几何信息",
+    "缺少空间",
+    "无空间",
+)
+METEOROLOGY_TEXT_CUES = ("气象", "风向", "风速", "稳定度", "混合层", "气象配置", "meteorology")
+FOLLOW_UP_TEXT_CUES = (
+    "请",
+    "补充",
+    "提供",
+    "上传",
+    "确认",
+    "告诉",
+    "需要",
+    "如需",
+    "如果您",
+    "您可以",
+    "你可以",
+    "建议",
+    "要继续",
+    "才能继续",
+)
+EMISSION_COMPLETION_TEXT_CUES = (
+    "排放",
+    "emission",
+    "计算完成",
+    "计算结果",
+    "已完成",
+    "结果如下",
+    "排放量",
+    "排放结果",
+    "g/h",
+    "g/km",
+    "kg/h",
+    "克",
+    "总排放",
+    "total emission",
+)
+COMPLETED_DOWNSTREAM_TEXT_CUES = (
+    "扩散分析已完成",
+    "扩散计算已完成",
+    "浓度场已生成",
+    "热点分析已完成",
+    "地图已生成",
+    "渲染完成",
+    "dispersion completed",
+    "hotspot completed",
+)
+ASKING_USER_CUES = (
+    "请告诉我",
+    "请确认",
+    "请选择",
+    "请提供",
+    "请说明",
+    "请输入",
+    "请指定",
+    "请问",
+    "我需要",
+    "需要知道",
+    "需要确认",
+    "需要先确认",
+    "需要了解",
+    "需要提供",
+    "还需要",
+    "能告诉我",
+    "您能",
+    "你能",
+    "以下信息",
+    "以下关键信息",
+    "1.",
+    "1、",
+    "未指定",
+    "未提供",
+    "缺少",
+    "尚未",
+    "没有指定",
+    "没有提供",
+    "不确定",
+    "请任选其一",
+    "请选择一个补救方式",
+    "如果你选择",
+    "如果现在不处理",
+    "暂停当前",
+    "上传文件",
+    "which",
+    "please specify",
+    "please confirm",
+    "please provide",
+    "please tell",
+    "what is your",
+)
+RESULT_DELIVERY_CUES = (
+    "✅ 计算完成",
+    "计算完成",
+    "查询结果",
+    "排放结果如下",
+    "已成功查询",
+    "已查询到",
+    "已查得",
+    "已完成路段文件",
+    "已完成宏观排放计算",
+    "已完成微观排放计算",
+)
+CONSTRAINT_WARNING_CUES = ("警告", "warning", "不一致", "不匹配", "冲突", "实际等效")
+CONSTRAINT_WARNING_CONTEXT_CUES = ("季节", "气象", "meteorology", "summer", "winter", "urban_summer", "urban_winter")
 
 
 def _check_outputs(result_like: Dict[str, Any], expected_outputs: Dict[str, bool]) -> Dict[str, Any]:
@@ -153,6 +269,42 @@ def _normalize_match_text(text: str) -> str:
     )
 
 
+def _has_emission_completion_signal(response_text: str) -> bool:
+    normalized_text = _normalize_match_text(response_text)
+    return (
+        any(cue in response_text for cue in EMISSION_COMPLETION_TEXT_CUES)
+        or ("排放" in response_text and "已完成" in response_text)
+        or ("排放" in response_text and "已执行" in response_text)
+        or ("排放结果摘要" in response_text)
+        or ("总排放" in response_text)
+        or ("emission" in normalized_text and "completed" in normalized_text)
+    )
+
+
+def _response_text_is_asking_user(text: str) -> bool:
+    if not text:
+        return False
+    stripped_text = text.strip()
+    normalized_text = _normalize_match_text(stripped_text)
+    if any(normalized_text.startswith(_normalize_match_text(cue)) for cue in RESULT_DELIVERY_CUES):
+        return False
+    hit_count = sum(
+        1
+        for cue in ASKING_USER_CUES
+        if _normalize_match_text(cue) in normalized_text or cue in stripped_text
+    )
+    return hit_count >= 1
+
+
+def _response_text_has_constraint_warning(text: str) -> bool:
+    if not text:
+        return False
+    normalized_text = _normalize_match_text(text)
+    has_warning_cue = any(cue in normalized_text for cue in CONSTRAINT_WARNING_CUES)
+    has_context_cue = any(cue in normalized_text for cue in CONSTRAINT_WARNING_CONTEXT_CUES)
+    return has_warning_cue and has_context_cue
+
+
 def _is_geometry_gated_multistep_success(
     task: Dict[str, Any],
     *,
@@ -161,7 +313,7 @@ def _is_geometry_gated_multistep_success(
     file_analysis: Optional[Dict[str, Any]],
     trace_has_error: bool,
 ) -> bool:
-    if task.get("category") != "multi_step":
+    if not (task.get("success_criteria") or {}).get("geometry_gated_halt_acceptable"):
         return False
 
     expected_tool_chain = [str(item) for item in task.get("expected_tool_chain", []) if item]
@@ -184,13 +336,19 @@ def _is_geometry_gated_multistep_success(
 
     response_text = str(response_payload.get("text") or "")
     lowered_text = _normalize_match_text(response_text)
-    if not any(cue in lowered_text for cue in GEOMETRY_TEXT_CUES):
+    has_geometry_mention = any(_normalize_match_text(cue) in lowered_text for cue in GEOMETRY_TEXT_CUES)
+    has_meteorology_gate = any(_normalize_match_text(cue) in lowered_text for cue in METEOROLOGY_TEXT_CUES)
+    has_emission_evidence = _has_emission_completion_signal(response_text)
+    has_follow_up = (
+        any(_normalize_match_text(cue) in lowered_text for cue in FOLLOW_UP_TEXT_CUES)
+        or _response_text_is_asking_user(response_text)
+    )
+    if any(_normalize_match_text(cue) in lowered_text for cue in COMPLETED_DOWNSTREAM_TEXT_CUES):
         return False
-    if not any(cue in response_text for cue in FOLLOW_UP_TEXT_CUES):
+    evidence_count = sum([has_geometry_mention or has_meteorology_gate, has_emission_evidence, has_follow_up])
+    if evidence_count < 2:
         return False
-    if not any(cue in response_text for cue in EMISSION_COMPLETION_TEXT_CUES):
-        return False
-    if any(cue in response_text for cue in COMPLETED_DOWNSTREAM_TEXT_CUES):
+    if not has_emission_evidence:
         return False
 
     expected_pollutants = task.get("expected_params", {}).get("pollutants", [])
@@ -258,6 +416,7 @@ def _build_task_result(
     actual_tool_chain = [str(call.get("name")) for call in executed_tool_calls if call.get("name")]
     actual_arguments = executed_tool_calls[0].get("arguments", {}) if executed_tool_calls else {}
     params_comparison = compare_expected_subset(actual_arguments, task.get("expected_params", {}))
+    response_text = str(response_payload.get("text") or "")
 
     tool_executed = bool(executed_tool_calls)
     params_legal = params_comparison["matched"] if task.get("expected_params") else tool_executed
@@ -266,9 +425,10 @@ def _build_task_result(
     requires_user_response = (
         final_stage in LEGACY_NEEDS_USER_STAGE
         or any(step_type in {"clarification", "input_completion_required", "parameter_negotiation_required"} for step_type in trace_step_types)
+        or _response_text_is_asking_user(response_text)
     )
     constraint_blocked = (
-        "参数组合不合法" in str(response_payload.get("text", ""))
+        "参数组合不合法" in response_text
         or any(
             record.get("record_type") == "cross_constraint_violation"
             for record in standardization_records
@@ -277,7 +437,7 @@ def _build_task_result(
     constraint_warning = any(
         record.get("record_type") == "cross_constraint_warning"
         for record in standardization_records
-    )
+    ) or _response_text_has_constraint_warning(response_text)
     trace_has_error = any(step.get("error") for step in trace_steps) or any(
         step_type == "error" for step_type in trace_step_types
     )
@@ -290,6 +450,7 @@ def _build_task_result(
         "constraint_blocked": constraint_blocked,
         "constraint_warning": constraint_warning,
         "trace_has_error": trace_has_error,
+        "geometry_gated_halt_acceptable": False,
     }
     geometry_gated_success = _is_geometry_gated_multistep_success(
         task,
@@ -298,6 +459,7 @@ def _build_task_result(
         file_analysis=file_analysis,
         trace_has_error=trace_has_error,
     )
+    criteria_actuals["geometry_gated_halt_acceptable"] = geometry_gated_success
     tool_match = (
         _tool_chain_matches(actual_tool_chain, task.get("expected_tool_chain", []))
         or geometry_gated_success

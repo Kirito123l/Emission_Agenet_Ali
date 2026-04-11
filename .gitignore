@@ -88,3 +88,4 @@ nginx/
 # *.png
 # *.jpg
 # *.jpeg
+.omx/

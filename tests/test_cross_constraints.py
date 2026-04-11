@@ -43,6 +43,56 @@ class TestCrossConstraintValidator:
         assert result.all_valid is True
         assert len(result.warnings) == 1
 
+    def test_vehicle_pollutant_relevance_warns_for_motorcycle_pm(self):
+        validator = CrossConstraintValidator()
+        result = validator.validate(
+            {
+                "vehicle_type": "Motorcycle",
+                "pollutants": ["PM2.5", "CO"],
+            }
+        )
+        assert result.all_valid is True
+        assert len(result.warnings) == 1
+        assert result.warnings[0].constraint_name == "vehicle_pollutant_relevance"
+        assert result.warnings[0].param_b_value == "PM2.5"
+        assert result.warnings[0].violation_type == "warning"
+
+    def test_vehicle_pollutant_relevance_skips_supported_combination(self):
+        validator = CrossConstraintValidator()
+        result = validator.validate(
+            {
+                "vehicle_type": "Passenger Car",
+                "pollutants": ["PM2.5", "NOx"],
+            }
+        )
+        assert result.all_valid is True
+        assert result.warnings == []
+
+    def test_pollutant_task_applicability_warns_for_co2_dispersion(self):
+        validator = CrossConstraintValidator()
+        result = validator.validate(
+            {
+                "pollutant": "CO2",
+            },
+            tool_name="calculate_dispersion",
+        )
+        assert result.all_valid is True
+        assert len(result.warnings) == 1
+        assert result.warnings[0].constraint_name == "pollutant_task_applicability"
+        assert result.warnings[0].param_b_value == "calculate_dispersion"
+        assert result.warnings[0].violation_type == "warning"
+
+    def test_pollutant_task_applicability_skips_nox_dispersion(self):
+        validator = CrossConstraintValidator()
+        result = validator.validate(
+            {
+                "pollutant": "NOx",
+            },
+            tool_name="calculate_dispersion",
+        )
+        assert result.all_valid is True
+        assert result.warnings == []
+
     def test_missing_params_skip_validation(self):
         validator = CrossConstraintValidator()
         result = validator.validate(
@@ -90,6 +140,40 @@ class TestCrossConstraintEngineIntegration:
         assert standardized["meteorology"] == "urban_summer_day"
         warning_records = [record for record in records if record.get("record_type") == "cross_constraint_warning"]
         assert len(warning_records) == 1
+        assert engine.get_last_constraint_trace()["warnings"]
+
+    def test_standardize_batch_records_vehicle_pollutant_warning(self):
+        engine = StandardizationEngine({"llm_enabled": False, "enable_cross_constraint_validation": True})
+
+        standardized, records = engine.standardize_batch(
+            {
+                "vehicle_type": "Motorcycle",
+                "pollutants": ["PM2.5", "CO"],
+            },
+            tool_name="query_emission_factors",
+        )
+
+        assert standardized["vehicle_type"] == "Motorcycle"
+        assert standardized["pollutants"] == ["PM2.5", "CO"]
+        warning_records = [record for record in records if record.get("record_type") == "cross_constraint_warning"]
+        assert len(warning_records) == 1
+        assert warning_records[0]["constraint_name"] == "vehicle_pollutant_relevance"
+        assert engine.get_last_constraint_trace()["warnings"]
+
+    def test_standardize_batch_records_tool_context_warning(self):
+        engine = StandardizationEngine({"llm_enabled": False, "enable_cross_constraint_validation": True})
+
+        standardized, records = engine.standardize_batch(
+            {
+                "pollutant": "CO2",
+            },
+            tool_name="calculate_dispersion",
+        )
+
+        assert standardized["pollutant"] == "CO2"
+        warning_records = [record for record in records if record.get("record_type") == "cross_constraint_warning"]
+        assert len(warning_records) == 1
+        assert warning_records[0]["constraint_name"] == "pollutant_task_applicability"
         assert engine.get_last_constraint_trace()["warnings"]
 
     def test_standardize_batch_can_disable_cross_constraint_validation(self):

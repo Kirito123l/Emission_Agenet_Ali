@@ -60,6 +60,8 @@ class ContextAssembler:
 
     # Max chars to keep per assistant response in working memory
     MAX_ASSISTANT_RESPONSE_CHARS = 300
+    MAX_FILE_CONTEXT_COLUMNS_CHARS = 500
+    MAX_FILE_CONTEXT_COLUMNS = 20
 
     @staticmethod
     def _load_prompt_file(path: Path) -> str:
@@ -79,6 +81,7 @@ class ContextAssembler:
         fact_memory: Dict,
         file_context: Optional[Dict] = None,
         context_summary: Optional[str] = None,
+        memory_context: Optional[str] = None,
     ) -> AssembledContext:
         """
         Assemble complete context for LLM.
@@ -87,9 +90,9 @@ class ContextAssembler:
         """
         if self.runtime_config.enable_skill_injection and self.skill_injector:
             return self._assemble_with_skills(
-                user_message, working_memory, fact_memory, file_context, context_summary
+                user_message, working_memory, fact_memory, file_context, context_summary, memory_context
             )
-        return self._assemble_legacy(user_message, working_memory, fact_memory, file_context, context_summary)
+        return self._assemble_legacy(user_message, working_memory, fact_memory, file_context, context_summary, memory_context)
 
     def _assemble_with_skills(
         self,
@@ -98,6 +101,7 @@ class ContextAssembler:
         fact_memory: Dict,
         file_context: Optional[Dict] = None,
         context_summary: Optional[str] = None,
+        memory_context: Optional[str] = None,
     ) -> AssembledContext:
         """Assemble context using skill-based prompt injection."""
         has_file = file_context is not None
@@ -122,6 +126,8 @@ class ContextAssembler:
         )
         if context_summary:
             system_prompt = f"{system_prompt}\n\n{context_summary}"
+        if memory_context:
+            system_prompt = f"{system_prompt}\n\n{memory_context}"
         used_tokens += self._estimate_tokens(system_prompt)
 
         # 3. Always expose the full tool surface and let the LLM decide.
@@ -159,6 +165,7 @@ class ContextAssembler:
         fact_memory: Dict,
         file_context: Optional[Dict] = None,
         context_summary: Optional[str] = None,
+        memory_context: Optional[str] = None,
     ) -> AssembledContext:
         """
         Assemble complete context for LLM (legacy mode, unchanged behavior).
@@ -177,6 +184,8 @@ class ContextAssembler:
         system_prompt = self.config["system_prompt"]
         if context_summary:
             system_prompt = f"{system_prompt}\n\n{context_summary}"
+        if memory_context:
+            system_prompt = f"{system_prompt}\n\n{memory_context}"
         used_tokens += self._estimate_tokens(system_prompt)
 
         # 2. Tool definitions (MUST)
@@ -334,6 +343,17 @@ class ContextAssembler:
 
     def _format_file_context(self, file_context: Dict, max_tokens: int) -> str:
         """Format file context for LLM"""
+        columns = [str(col) for col in file_context.get("columns", [])]
+        columns_str = ", ".join(columns)
+        if len(columns_str) > self.MAX_FILE_CONTEXT_COLUMNS_CHARS:
+            shown = columns[: self.MAX_FILE_CONTEXT_COLUMNS]
+            while shown and len(", ".join(shown)) > self.MAX_FILE_CONTEXT_COLUMNS_CHARS:
+                shown.pop()
+            omitted = max(0, len(columns) - len(shown))
+            columns_str = ", ".join(shown)
+            if omitted:
+                columns_str = f"{columns_str} ... ({omitted} more columns)"
+
         lines = [
             f"Filename: {file_context.get('filename', 'unknown')}",
             f"File path: {file_context.get('file_path', 'unknown')}",
@@ -345,7 +365,7 @@ class ContextAssembler:
 
         lines.extend([
             f"Rows: {file_context.get('row_count', 'unknown')}",
-            f"Columns: {', '.join(file_context.get('columns', []))}",
+            f"Columns: {columns_str}",
         ])
 
         # Add sample data if space available

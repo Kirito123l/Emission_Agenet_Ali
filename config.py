@@ -24,7 +24,7 @@ class Config:
 
         self.agent_llm = LLMAssignment(
             provider=os.getenv("AGENT_LLM_PROVIDER", "qwen"),
-            model=os.getenv("AGENT_LLM_MODEL", "qwen-plus"),
+            model=os.getenv("AGENT_LLM_MODEL", "qwen3-max"),
             temperature=0.0  # v2.0+: 降低temperature提高确定性
         )
         self.standardizer_llm = LLMAssignment(
@@ -34,7 +34,7 @@ class Config:
         )
         self.synthesis_llm = LLMAssignment(
             provider=os.getenv("SYNTHESIS_LLM_PROVIDER", "qwen"),
-            model=os.getenv("SYNTHESIS_LLM_MODEL", "qwen-plus")
+            model=os.getenv("SYNTHESIS_LLM_MODEL", "qwen3-max")
         )
         self.rag_refiner_llm = LLMAssignment(
             provider=os.getenv("RAG_REFINER_LLM_PROVIDER", "qwen"),
@@ -50,6 +50,9 @@ class Config:
         self.enable_state_orchestration = os.getenv("ENABLE_STATE_ORCHESTRATION", "true").lower() == "true"
         self.enable_trace = os.getenv("ENABLE_TRACE", "true").lower() == "true"
         self.persist_trace = os.getenv("PERSIST_TRACE", "false").lower() == "true"
+        self.enable_live_state_persistence = os.getenv("ENABLE_LIVE_STATE_PERSISTENCE", "true").lower() == "true"
+        self.enable_conversation_fast_path = os.getenv("ENABLE_CONVERSATION_FAST_PATH", "true").lower() == "true"
+        self.enable_layered_memory_context = os.getenv("ENABLE_LAYERED_MEMORY_CONTEXT", "true").lower() == "true"
         self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
         self.contour_interp_resolution_m = float(
             os.getenv("CONTOUR_INTERP_RESOLUTION_M", "10.0")
@@ -74,7 +77,7 @@ class Config:
         self.enable_cross_constraint_validation = (
             os.getenv("ENABLE_CROSS_CONSTRAINT_VALIDATION", "true").lower() == "true"
         )
-        self.enable_parameter_negotiation = os.getenv("ENABLE_PARAMETER_NEGOTIATION", "false").lower() == "true"
+        self.enable_parameter_negotiation = os.getenv("ENABLE_PARAMETER_NEGOTIATION", "true").lower() == "true"
         self.enable_file_analysis_llm_fallback = os.getenv("ENABLE_FILE_ANALYSIS_LLM_FALLBACK", "false").lower() == "true"
         self.enable_workflow_templates = os.getenv("ENABLE_WORKFLOW_TEMPLATES", "false").lower() == "true"
         self.enable_capability_aware_synthesis = (

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Optional
 
 from core.capability_summary import get_capability_aware_follow_up
@@ -680,6 +681,53 @@ def render_single_tool_success(
     return result.get("summary") or "执行完成。"
 
 
+HEAVY_SYNTHESIS_KEYS = {
+    "raster_grid",
+    "matrix_mean",
+    "concentration_grid",
+    "cell_centers_wgs84",
+    "contour_bands",
+    "contour_geojson",
+    "receptor_top_roads",
+    "cell_receptor_map",
+    "map_data",
+    "geojson",
+    "features",
+}
+
+
+def _estimate_payload_chars(value: Any) -> int:
+    """Return a best-effort character size for synthesis strip markers."""
+    try:
+        return len(json.dumps(value, ensure_ascii=False, default=str))
+    except Exception:
+        return len(str(value))
+
+
+def _strip_heavy_payload_for_synthesis(value: Any) -> Any:
+    """Return a compact copy suitable for synthesis prompts without raw spatial payloads."""
+    if isinstance(value, dict):
+        stripped: Dict[str, Any] = {}
+        for key, child in value.items():
+            if key in HEAVY_SYNTHESIS_KEYS:
+                stripped[key] = (
+                    f"[{key}: stripped for synthesis, "
+                    f"~{_estimate_payload_chars(child)} chars]"
+                )
+            else:
+                stripped[key] = _strip_heavy_payload_for_synthesis(child)
+        return stripped
+
+    if isinstance(value, list):
+        if len(value) <= 20:
+            return [_strip_heavy_payload_for_synthesis(item) for item in value]
+        preview = [_strip_heavy_payload_for_synthesis(item) for item in value[:5]]
+        preview.append(f"... ({len(value) - 5} more items)")
+        return preview
+
+    return value
+
+
 def filter_results_for_synthesis(tool_results: list[Dict[str, Any]]) -> Dict[str, Any]:
     """Keep only the high-value fields needed by synthesis."""
     filtered: Dict[str, Any] = {}
@@ -736,7 +784,8 @@ def filter_results_for_synthesis(tool_results: list[Dict[str, Any]]) -> Dict[str
         else:
             filtered[tool_name] = {
                 "success": True,
-                "data": data,
+                "summary": result.get("summary"),
+                "data": _strip_heavy_payload_for_synthesis(data),
             }
 
     return filtered

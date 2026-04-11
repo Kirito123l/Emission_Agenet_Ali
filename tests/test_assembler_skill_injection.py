@@ -134,6 +134,25 @@ class TestAssemblerSkillMode:
         user_msg = ctx.messages[-1]["content"]
         assert "test.xlsx" in user_msg
 
+    def test_file_context_columns_are_bounded_for_wide_tables(self):
+        assembler = _make_assembler(enable_skill=True)
+        file_ctx = {
+            "filename": "wide.csv",
+            "file_path": "/tmp/wide.csv",
+            "task_type": "macro_emission",
+            "row_count": 10,
+            "columns": [f"very_long_column_name_{idx:03d}" for idx in range(120)],
+        }
+
+        formatted = assembler._format_file_context(file_ctx, max_tokens=500)
+
+        assert "Filename: wide.csv" in formatted
+        assert "task_type: macro_emission" in formatted
+        assert "Rows: 10" in formatted
+        assert "more columns" in formatted
+        assert "very_long_column_name_119" not in formatted
+        assert len(formatted) < 900
+
     def test_messages_structure_matches_legacy(self):
         """Both modes should produce same message structure."""
         assembler_skill = _make_assembler(enable_skill=True)
@@ -150,6 +169,19 @@ class TestAssemblerSkillMode:
         assert len(ctx_skill.messages) == len(ctx_legacy.messages)
         for s, l in zip(ctx_skill.messages, ctx_legacy.messages):
             assert s["role"] == l["role"]
+
+    def test_memory_context_is_appended_to_system_prompt(self):
+        assembler = _make_assembler(enable_skill=True)
+
+        ctx = assembler.assemble(
+            "新问题",
+            [],
+            _empty_fact_memory(),
+            memory_context="[Session facts]\nActive file: /tmp/demo.csv",
+        )
+
+        assert "[Session facts]" in ctx.system_prompt
+        assert "Active file: /tmp/demo.csv" in ctx.system_prompt
 
     def test_dispersion_with_meteo_skill_in_prompt(self):
         """Dispersion intent should inject meteorology guide into system prompt."""

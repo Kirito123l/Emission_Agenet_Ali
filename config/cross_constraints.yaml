@@ -1,4 +1,4 @@
-version: "1.0"
+version: "1.1"
 
 constraints:
   - name: "vehicle_road_compatibility"
@@ -13,11 +13,42 @@ constraints:
         reason: "摩托车不允许上高速公路"
 
   - name: "vehicle_pollutant_relevance"
-    description: "Reserved rule slot for vehicle and pollutant relevance checks."
+    description: "Certain vehicle and pollutant combinations are physically atypical or have limited MOVES coverage."
     param_a: "vehicle_type"
     param_b: "pollutants"
     type: "conditional_warning"
-    rules: {}
+    violation_type: "warning"
+    rules:
+      # unified_mappings.yaml currently exposes MOVES standard source types only.
+      # There is no standalone pure battery-electric vehicle standard value yet,
+      # so only motorcycle-specific relevance warnings are activated here.
+      "Motorcycle":
+        warned:
+          - "PM2.5"
+          - "PM10"
+        reason: "摩托车颗粒物排放通常很低，且 MOVES 对摩托车 PM 排放率数据覆盖有限，结果代表性可能较弱"
+        suggestions:
+          - "如需常规尾气查询，可优先选择 CO、NOx、THC 或 CO2"
+
+  - name: "pollutant_task_applicability"
+    description: "Some pollutants have limited applicability for downstream task types such as near-road dispersion."
+    param_a: "pollutant"
+    param_b: "tool_name"
+    type: "conditional_warning"
+    violation_type: "warning"
+    rules:
+      "CO2":
+        warned:
+          - "calculate_dispersion"
+        reason: "CO2 在大气中混合较快，通常不作为近地扩散热点分析的重点污染物"
+        suggestions:
+          - "若目标是近地浓度热点，请优先考虑 NOx、CO 或 PM2.5"
+      "THC":
+        warned:
+          - "calculate_dispersion"
+        reason: "THC 的代理扩散模型支持有限，扩散结果应谨慎解释"
+        suggestions:
+          - "如需稳定的近地扩散结果，可优先考虑 NOx、CO 或 PM2.5"
 
   - name: "season_meteorology_consistency"
     description: "Season and meteorology presets should remain broadly consistent."

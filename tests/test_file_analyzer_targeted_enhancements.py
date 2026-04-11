@@ -112,6 +112,42 @@ def test_shapefile_analysis_exposes_structured_spatial_metadata():
     assert analysis["task_type"] == "macro_emission"
 
 
+def test_macro_file_analysis_adds_speed_road_type_quality_warning():
+    analyzer = _make_analyzer()
+    df = pd.DataFrame(
+        {
+            "highway": ["motorway", "motorway", "motorway"],
+            "flow": [1800, 1750, 1900],
+            "speed": [20, 24, 28],
+            "length": [1.2, 1.5, 1.1],
+        }
+    )
+
+    analysis = analyzer._analyze_structure(df, "roads.csv")
+
+    warnings = analysis["data_quality_warnings"]
+    assert len(warnings) == 1
+    assert warnings[0]["warning_type"] == "speed_road_type_consistency"
+    assert warnings[0]["road_type"] == "高速公路"
+    assert warnings[0]["observed_mean_speed_kph"] < 30.0
+
+
+def test_macro_file_analysis_skips_speed_road_type_warning_for_consistent_data():
+    analyzer = _make_analyzer()
+    df = pd.DataFrame(
+        {
+            "highway": ["motorway", "motorway", "residential", "residential"],
+            "flow": [1800, 1750, 300, 260],
+            "speed": [80, 85, 35, 40],
+            "length": [1.2, 1.5, 0.3, 0.4],
+        }
+    )
+
+    analysis = analyzer._analyze_structure(df, "roads.csv")
+
+    assert analysis["data_quality_warnings"] == []
+
+
 @pytest.mark.anyio
 async def test_zip_multi_dataset_analysis_outputs_dataset_roles(tmp_path: Path):
     analyzer = _make_analyzer()

@@ -29,6 +29,9 @@ class TestConfigLoading:
         assert config.enable_llm_standardization is True
         assert config.enable_standardization_cache is True
         assert config.persist_trace is False
+        assert config.enable_live_state_persistence is True
+        assert config.enable_conversation_fast_path is True
+        assert config.enable_layered_memory_context is True
         assert config.enable_contour_output is True
         assert config.contour_interp_resolution_m == 10.0
         assert config.contour_n_levels == 7
@@ -42,7 +45,7 @@ class TestConfigLoading:
         assert config.standardization_fuzzy_enabled is True
         assert config.continuation_prompt_variant == "balanced_repair_aware"
         assert config.enable_cross_constraint_validation is True
-        assert config.enable_parameter_negotiation is False
+        assert config.enable_parameter_negotiation is True
         assert config.parameter_negotiation_confidence_threshold == 0.85
         assert config.parameter_negotiation_max_candidates == 5
         assert config.enable_capability_aware_synthesis is True

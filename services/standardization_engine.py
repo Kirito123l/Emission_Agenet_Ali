@@ -641,7 +641,10 @@ class StandardizationEngine:
             )
 
         if self._cross_constraint_validation_enabled():
-            constraint_result = get_cross_constraint_validator().validate(standardized)
+            constraint_result = get_cross_constraint_validator().validate(
+                standardized,
+                tool_name=tool_name,
+            )
             self._last_constraint_result = constraint_result
             self._append_cross_constraint_warnings(records, constraint_result.warnings)
 

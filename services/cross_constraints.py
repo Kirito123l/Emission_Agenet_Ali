@@ -17,6 +17,10 @@ import yaml
 logger = logging.getLogger(__name__)
 
 CONSTRAINTS_FILE = Path(__file__).parent.parent / "config" / "cross_constraints.yaml"
+PARAM_ALIASES: Dict[str, tuple[str, ...]] = {
+    "pollutant": ("pollutants",),
+    "pollutants": ("pollutant",),
+}
 
 
 @dataclass
@@ -77,9 +81,18 @@ class CrossConstraintValidator:
             payload = yaml.safe_load(handle) or {}
         return list(payload.get("constraints", []) or [])
 
-    def validate(self, standardized_params: Dict[str, Any]) -> CrossConstraintResult:
+    def validate(
+        self,
+        standardized_params: Dict[str, Any],
+        *,
+        tool_name: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> CrossConstraintResult:
         violations: List[CrossConstraintViolation] = []
         warnings: List[CrossConstraintViolation] = []
+        validation_context = dict(context or {})
+        if tool_name:
+            validation_context.setdefault("tool_name", tool_name)
 
         for constraint in self._constraints:
             param_a_name = constraint.get("param_a")
@@ -89,8 +102,16 @@ class CrossConstraintValidator:
             if not param_a_name or not param_b_name or not constraint_type:
                 continue
 
-            val_a = standardized_params.get(param_a_name)
-            val_b = standardized_params.get(param_b_name)
+            val_a = self._resolve_param_value(
+                str(param_a_name),
+                standardized_params,
+                validation_context,
+            )
+            val_b = self._resolve_param_value(
+                str(param_b_name),
+                standardized_params,
+                validation_context,
+            )
             if val_a is None or val_b is None:
                 continue
 
@@ -107,7 +128,7 @@ class CrossConstraintValidator:
                         val_b=val_b,
                         val_a_rules=val_a_rules,
                         field_name="blocked",
-                        violation_type="blocked",
+                        default_violation_type="blocked",
                         default_reason=f"{val_a} 与 {val_b} 不兼容",
                     )
                 )
@@ -119,8 +140,20 @@ class CrossConstraintValidator:
                         val_b=val_b,
                         val_a_rules=val_a_rules,
                         field_name="inconsistent",
-                        violation_type="inconsistent",
+                        default_violation_type="inconsistent",
                         default_reason=f"{val_a} 与 {val_b} 可能不一致",
+                    )
+                )
+            elif constraint_type == "conditional_warning":
+                warnings.extend(
+                    self._collect_matches(
+                        constraint=constraint,
+                        val_a=val_a,
+                        val_b=val_b,
+                        val_a_rules=val_a_rules,
+                        field_name="warned",
+                        default_violation_type="warning",
+                        default_reason=f"{val_a} 与 {val_b} 的组合需要谨慎解释",
                     )
                 )
 
@@ -130,6 +163,25 @@ class CrossConstraintValidator:
             warnings=warnings,
         )
 
+    def _resolve_param_value(
+        self,
+        param_name: str,
+        standardized_params: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> Any:
+        candidate_names = (param_name, *PARAM_ALIASES.get(param_name, ()))
+        for source in (standardized_params, context):
+            for candidate_name in candidate_names:
+                if candidate_name not in source:
+                    continue
+                value = source.get(candidate_name)
+                if value is None:
+                    continue
+                if param_name == "pollutants" and not isinstance(value, list):
+                    return [value]
+                return value
+        return None
+
     def _collect_matches(
         self,
         *,
@@ -138,21 +190,28 @@ class CrossConstraintValidator:
         val_b: Any,
         val_a_rules: Dict[str, Any],
         field_name: str,
-        violation_type: str,
+        default_violation_type: str,
         default_reason: str,
     ) -> List[CrossConstraintViolation]:
-        targets = {str(item) for item in val_a_rules.get(field_name, [])}
+        targets = {str(item) for item in val_a_rules.get(field_name, []) if item is not None}
         if not targets:
             return []
 
         matched_values = (
             [item for item in val_b if str(item) in targets]
-            if isinstance(val_b, list)
+            if isinstance(val_b, (list, tuple, set))
             else [val_b] if str(val_b) in targets else []
         )
+        if not matched_values:
+            return []
 
         reason = str(val_a_rules.get("reason", default_reason))
         suggestions = [str(item) for item in val_a_rules.get("suggestions", []) if item]
+        violation_type = str(
+            val_a_rules.get("violation_type")
+            or constraint.get("violation_type")
+            or default_violation_type
+        )
 
         return [
             CrossConstraintViolation(

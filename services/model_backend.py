@@ -80,6 +80,8 @@ class APIModelBackend(ParameterModelBackend):
         self._timeout = float(_config_value(self._config, "llm_timeout", 5.0))
         self._max_retries = int(_config_value(self._config, "llm_max_retries", 1))
         self._enabled = bool(_config_value(self._config, "llm_enabled", True))
+        self._consecutive_failures = 0
+        self._disable_after_failures = max(int(_config_value(self._config, "llm_disable_after_failures", 3)), 1)
         self._disabled_reason: Optional[str] = None
         self._client = None
 
@@ -91,18 +93,37 @@ class APIModelBackend(ParameterModelBackend):
         aliases: Dict[str, List[str]],
         context: Optional[Dict[str, Any]] = None,
     ) -> Optional["StandardizationResult"]:
-        if not self._enabled or self._backend != "api" or self._disabled_reason is not None:
+        if not self._enabled or self._backend != "api":
+            return None
+
+        if self._consecutive_failures >= self._disable_after_failures:
+            logger.warning(
+                "LLM standardization temporarily disabled for this backend after %d consecutive failures: %s",
+                self._consecutive_failures,
+                self._disabled_reason or "unknown error",
+            )
             return None
 
         try:
             payload = self._call_llm(param_type, raw_value, candidates, aliases, context)
         except Exception as exc:
             self._disabled_reason = str(exc)
-            logger.warning("LLM standardization failed for %s=%r: %s", param_type, raw_value, exc)
+            self._consecutive_failures += 1
+            logger.warning(
+                "LLM standardization failed for %s=%r (consecutive_failures=%d/%d): %s",
+                param_type,
+                raw_value,
+                self._consecutive_failures,
+                self._disable_after_failures,
+                exc,
+            )
             return None
 
         if not isinstance(payload, dict):
             return None
+
+        self._consecutive_failures = 0
+        self._disabled_reason = None
 
         raw_choice = payload.get("value")
         if raw_choice is None:

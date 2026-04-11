@@ -148,6 +148,12 @@ class FileAnalyzerTool(BaseTool):
             micro_mapping,
             macro_mapping,
         )
+        data_quality_warnings = self._build_data_quality_warnings(
+            df,
+            task_identification["task_type"],
+            macro_mapping,
+            value_features,
+        )
 
         return {
             "filename": filename,
@@ -189,6 +195,7 @@ class FileAnalyzerTool(BaseTool):
                 "role_fallback_eligible": False,
             },
             "missing_field_diagnostics": missing_field_diagnostics,
+            "data_quality_warnings": data_quality_warnings,
             "value_features_summary": {
                 col: feat.get("feature_hints", [])
                 for col, feat in value_features.items()
@@ -251,6 +258,149 @@ class FileAnalyzerTool(BaseTool):
         else:
             mapped = set((micro_mapping or {}).keys()) | set((macro_mapping or {}).keys())
         return [str(column) for column in columns if column not in mapped]
+
+    def _build_data_quality_warnings(
+        self,
+        df: pd.DataFrame,
+        task_type: str,
+        macro_mapping: Dict[str, str],
+        value_features: Dict[str, Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        if task_type != "macro_emission" or df.empty:
+            return []
+
+        speed_column = next(
+            (source for source, standard in (macro_mapping or {}).items() if standard == "avg_speed_kph"),
+            None,
+        )
+        if not speed_column:
+            candidates = self._identify_derivable_candidates(
+                "avg_speed_kph",
+                list(df.columns),
+                value_features,
+            )
+            for candidate in candidates:
+                if candidate.get("derivation") in {"direct_speed_signal", "speed_unit_conversion"}:
+                    speed_column = candidate["source_column"]
+                    break
+
+        road_type_column = self._find_road_type_column(list(df.columns))
+        if not speed_column or not road_type_column:
+            return []
+
+        speed_series = pd.to_numeric(df[speed_column], errors="coerce")
+        road_type_series = self._normalize_road_type_series(df[road_type_column])
+        quality_frame = pd.DataFrame(
+            {
+                "road_type": road_type_series,
+                "avg_speed_kph": speed_series,
+            }
+        ).dropna()
+        if quality_frame.empty:
+            return []
+
+        warnings: List[Dict[str, Any]] = []
+        grouped = quality_frame.groupby("road_type")["avg_speed_kph"].agg(["mean", "count"])
+
+        if "高速公路" in grouped.index:
+            mean_speed = float(grouped.loc["高速公路", "mean"])
+            if mean_speed < 30.0:
+                warnings.append(
+                    {
+                        "warning_type": "speed_road_type_consistency",
+                        "severity": "warning",
+                        "road_type": "高速公路",
+                        "observed_mean_speed_kph": round(mean_speed, 2),
+                        "expected_range_note": "高速公路均速通常不应长期低于 30 km/h",
+                        "sample_size": int(grouped.loc["高速公路", "count"]),
+                        "source_columns": {
+                            "road_type": road_type_column,
+                            "avg_speed_kph": speed_column,
+                        },
+                        "message": (
+                            f"Road rows standardized as 高速公路 have mean speed {mean_speed:.1f} km/h, "
+                            "which is unusually low and may indicate road-type labeling or speed-quality issues."
+                        ),
+                    }
+                )
+
+        if "支路" in grouped.index:
+            mean_speed = float(grouped.loc["支路", "mean"])
+            if mean_speed > 100.0:
+                warnings.append(
+                    {
+                        "warning_type": "speed_road_type_consistency",
+                        "severity": "warning",
+                        "road_type": "支路",
+                        "observed_mean_speed_kph": round(mean_speed, 2),
+                        "expected_range_note": "支路均速通常不应长期高于 100 km/h",
+                        "sample_size": int(grouped.loc["支路", "count"]),
+                        "source_columns": {
+                            "road_type": road_type_column,
+                            "avg_speed_kph": speed_column,
+                        },
+                        "message": (
+                            f"Road rows standardized as 支路 have mean speed {mean_speed:.1f} km/h, "
+                            "which is unusually high and may indicate road-type labeling or speed-quality issues."
+                        ),
+                    }
+                )
+
+        return warnings
+
+    def _find_road_type_column(self, columns: List[str]) -> Optional[str]:
+        preferred_exact = {
+            "road_type",
+            "road_class",
+            "road_category",
+            "functional_class",
+            "道路类型",
+            "道路等级",
+            "道路功能",
+            "highway",
+        }
+        preferred_tokens = (
+            "road_type",
+            "roadclass",
+            "road_class",
+            "roadcategory",
+            "road_category",
+            "functionalclass",
+            "functional_class",
+            "道路类型",
+            "道路等级",
+            "道路功能",
+            "highway",
+        )
+
+        for column in columns:
+            normalized = str(column).lower().strip().replace("-", "_").replace(" ", "_")
+            if normalized in preferred_exact:
+                return str(column)
+
+        for column in columns:
+            normalized = str(column).lower().strip().replace("-", "_").replace(" ", "_")
+            if any(token in normalized for token in preferred_tokens):
+                return str(column)
+
+        return None
+
+    def _normalize_road_type_series(self, series: pd.Series) -> pd.Series:
+        cache: Dict[str, Optional[str]] = {}
+        normalized_values: List[Optional[str]] = []
+
+        for value in series:
+            text = str(value).strip() if value is not None else ""
+            if not text or text.lower() == "nan":
+                normalized_values.append(None)
+                continue
+
+            if text not in cache:
+                result = self.standardizer.standardize_road_type(text)
+                cache[text] = result.normalized if result.strategy != "default" else None
+            normalized_values.append(cache[text])
+
+        return pd.Series(normalized_values, index=series.index, dtype="object")
 
     def _build_missing_field_diagnostics(
         self,
@@ -881,6 +1031,10 @@ class FileAnalyzerTool(BaseTool):
             summary += "\n\nGrounding evidence:\n"
             for e in analysis["evidence"][:8]:
                 summary += f"  - {e}\n"
+        if analysis.get("data_quality_warnings"):
+            summary += "\nData quality warnings:\n"
+            for warning in analysis["data_quality_warnings"][:3]:
+                summary += f"  - {warning.get('message')}\n"
 
         return summary
 
@@ -1104,6 +1258,12 @@ class FileAnalyzerTool(BaseTool):
             micro_mapping,
             macro_mapping,
         )
+        data_quality_warnings = self._build_data_quality_warnings(
+            attr_df,
+            task_identification["task_type"],
+            macro_mapping,
+            value_features,
+        )
 
         return {
             "filename": filename,
@@ -1146,6 +1306,7 @@ class FileAnalyzerTool(BaseTool):
                 "role_fallback_eligible": False,
             },
             "missing_field_diagnostics": missing_field_diagnostics,
+            "data_quality_warnings": data_quality_warnings,
             "spatial_metadata": spatial_metadata,
             "evidence": task_identification["evidence"],
             "value_features_summary": {
@@ -1287,6 +1448,7 @@ class FileAnalyzerTool(BaseTool):
                     "missing_fields": [],
                     "derivable_opportunities": [],
                 },
+                "data_quality_warnings": [],
                 "spatial_metadata": self._extract_geojson_spatial_metadata(payload),
                 "analysis_strategy": "rule",
                 "fallback_used": False,
@@ -1380,6 +1542,7 @@ class FileAnalyzerTool(BaseTool):
                 "role_fallback_eligible": False,
             },
             "missing_field_diagnostics": missing_field_diagnostics,
+            "data_quality_warnings": [],
             "spatial_metadata": spatial_metadata,
             "evidence": task_identification["evidence"],
             "value_features_summary": {
@@ -1407,6 +1570,8 @@ class FileAnalyzerTool(BaseTool):
         columns = analysis.get("columns") or []
         if columns:
             lines.append(f"Columns: {', '.join(columns)}")
+        for warning in analysis.get("data_quality_warnings", [])[:3]:
+            lines.append(f"Data quality warning: {warning.get('message')}")
         return "\n".join(lines)
 
     def _format_shapefile_summary(self, analysis: Dict) -> str:
@@ -1423,6 +1588,8 @@ class FileAnalyzerTool(BaseTool):
             lines.append(f"Coordinate system: {b['crs']}")
 
         lines.append(f"Columns: {', '.join(analysis['columns'])}")
+        for warning in analysis.get("data_quality_warnings", [])[:3]:
+            lines.append(f"Data quality warning: {warning.get('message')}")
 
         return "\n".join(lines)
 

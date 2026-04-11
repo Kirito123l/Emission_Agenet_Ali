@@ -416,6 +416,39 @@ def test_filter_results_and_error_formatting_keep_retry_and_synthesis_signal():
     assert summaries == "[calculate_macro_emission] 宏观计算完成\n[query_knowledge] Error: retriever unavailable"
 
 
+def test_filter_results_for_synthesis_strips_heavy_payloads_without_mutating_original():
+    raster_grid = {"matrix_mean": [[1] * 100 for _ in range(50)]}
+    features = [{"geometry": {"coordinates": [idx, idx + 1]}} for idx in range(100)]
+    payload = {
+        "summary": {"max_concentration": 1.2},
+        "raster_grid": raster_grid,
+        "nested": {"features": features},
+        "long_small_list": [{"rank": idx} for idx in range(30)],
+    }
+
+    filtered = filter_results_for_synthesis(
+        [
+            {
+                "name": "calculate_dispersion",
+                "result": {
+                    "success": True,
+                    "summary": "扩散完成",
+                    "data": payload,
+                },
+            }
+        ]
+    )
+
+    data = filtered["calculate_dispersion"]["data"]
+    assert filtered["calculate_dispersion"]["summary"] == "扩散完成"
+    assert data["summary"] == {"max_concentration": 1.2}
+    assert "stripped for synthesis" in data["raster_grid"]
+    assert "stripped for synthesis" in data["nested"]["features"]
+    assert data["long_small_list"][-1] == "... (25 more items)"
+    assert payload["raster_grid"] is raster_grid
+    assert payload["nested"]["features"] is features
+
+
 def test_extract_chart_data_prefers_explicit_chart_payload():
     router = make_router()
     explicit_chart = {"type": "provided_by_tool", "series": [1, 2, 3]}

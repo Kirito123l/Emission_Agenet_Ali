@@ -58,6 +58,7 @@ class LLMResponse:
     content: str
     tool_calls: Optional[List[ToolCall]] = None
     finish_reason: Optional[str] = None
+    usage: Optional[Dict[str, Any]] = None
 
 
 class LLMClientService:
@@ -173,6 +174,37 @@ class LLMClientService:
             raise last_error
         raise RuntimeError(f"{operation} failed with unknown error")
 
+    @staticmethod
+    def _extract_usage(response: Any) -> Optional[Dict[str, Any]]:
+        """Extract token usage from an OpenAI-compatible response."""
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return None
+        if isinstance(usage, dict):
+            return dict(usage)
+
+        payload: Dict[str, Any] = {}
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            value = getattr(usage, key, None)
+            if value is not None:
+                payload[key] = value
+        return payload or None
+
+    def _log_usage(self, response: Any, operation: str) -> Optional[Dict[str, Any]]:
+        """Log token telemetry when the provider returns usage metadata."""
+        usage = self._extract_usage(response)
+        if usage:
+            logger.info(
+                "[TOKEN_TELEMETRY] operation=%s purpose=%s model=%s prompt=%s completion=%s total=%s",
+                operation,
+                self.purpose,
+                self.model,
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                usage.get("total_tokens"),
+            )
+        return usage
+
     async def chat(
         self,
         messages: List[Dict[str, str]],
@@ -208,13 +240,15 @@ class LLMClientService:
                 ),
                 operation="LLM chat"
             )
+            usage = self._log_usage(response, "chat")
 
             content = response.choices[0].message.content
             finish_reason = response.choices[0].finish_reason
 
             return LLMResponse(
                 content=content,
-                finish_reason=finish_reason
+                finish_reason=finish_reason,
+                usage=usage,
             )
 
         except Exception as e:
@@ -260,6 +294,7 @@ class LLMClientService:
                 ),
                 operation="LLM chat with tools"
             )
+            usage = self._log_usage(response, "chat_with_tools")
 
             message = response.choices[0].message
             content = message.content or ""
@@ -285,7 +320,8 @@ class LLMClientService:
             return LLMResponse(
                 content=content,
                 tool_calls=tool_calls,
-                finish_reason=finish_reason
+                finish_reason=finish_reason,
+                usage=usage,
             )
 
         except Exception as e:
@@ -327,6 +363,7 @@ class LLMClientService:
                 ),
                 operation="LLM async JSON chat",
             )
+            self._log_usage(response, "chat_json")
 
             content = response.choices[0].message.content or "{}"
             return json.loads(content)

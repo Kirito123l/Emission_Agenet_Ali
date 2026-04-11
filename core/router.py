@@ -70,6 +70,7 @@ from core.intent_resolution import (
     infer_intent_resolution_fallback,
     parse_intent_resolution_result,
 )
+from core.conversation_intent import ConversationIntent, ConversationIntentClassifier
 from core.memory import MemoryManager
 from core.output_safety import sanitize_response
 from core.remediation_policy import (
@@ -338,7 +339,9 @@ class UnifiedRouter:
         self.executor = ToolExecutor()
         self.memory = MemoryManager(session_id, storage_dir=memory_storage_dir)
         self.context_store = SessionContextStore()
-        self.llm = get_llm_client("agent", model="qwen-plus")
+        self.llm = get_llm_client("agent")
+        logger.info("Router LLM model for session %s: %s", self.session_id, self.llm.model)
+        self.conversation_intent_classifier = ConversationIntentClassifier()
         self._message_standardizer: Optional[UnifiedStandardizer] = None
         self._live_continuation_bundle: Dict[str, Any] = {
             "plan": None,
@@ -480,6 +483,258 @@ class UnifiedRouter:
     def _get_context_summary(self) -> str:
         """Return the current compact session summary for LLM context."""
         return self._ensure_context_store().get_context_summary()
+
+    def _ensure_conversation_intent_classifier(self) -> ConversationIntentClassifier:
+        if (
+            not hasattr(self, "conversation_intent_classifier")
+            or self.conversation_intent_classifier is None
+        ):
+            self.conversation_intent_classifier = ConversationIntentClassifier()
+        return self.conversation_intent_classifier
+
+    def _has_active_residual_workflow(self) -> bool:
+        bundle = self._ensure_live_continuation_bundle()
+        return bool(
+            bundle.get("plan")
+            or bundle.get("blocked_info")
+            or bundle.get("residual_plan_summary")
+        )
+
+    def _get_memory_context_for_prompt(self) -> Optional[str]:
+        if not getattr(self.runtime_config, "enable_layered_memory_context", True):
+            return None
+        if hasattr(self.memory, "build_context_for_prompt"):
+            return self.memory.build_context_for_prompt()
+        return None
+
+    def _build_conversational_messages(
+        self,
+        user_message: str,
+        *,
+        max_turns: int = 5,
+        assistant_char_limit: int = 1200,
+    ) -> List[Dict[str, str]]:
+        if hasattr(self.memory, "build_conversational_messages"):
+            return self.memory.build_conversational_messages(
+                user_message,
+                max_turns=max_turns,
+                assistant_char_limit=assistant_char_limit,
+            )
+
+        messages: List[Dict[str, str]] = []
+        history = []
+        if hasattr(self, "memory") and hasattr(self.memory, "get_working_memory"):
+            history = self.memory.get_working_memory() or []
+
+        for turn in history[-max_turns:]:
+            user_text = str(turn.get("user", "")).strip()
+            assistant_text = str(turn.get("assistant", "")).strip()
+            if user_text:
+                messages.append({"role": "user", "content": user_text})
+            if assistant_text:
+                if len(assistant_text) > assistant_char_limit:
+                    assistant_text = assistant_text[:assistant_char_limit].rstrip() + "...(truncated)"
+                messages.append({"role": "assistant", "content": assistant_text})
+
+        messages.append({"role": "user", "content": user_message})
+        return messages
+
+    def _build_conversational_system_prompt(
+        self,
+        *,
+        explain_result: bool = False,
+    ) -> str:
+        fact_memory = self.memory.get_fact_memory() if hasattr(self.memory, "get_fact_memory") else {}
+        sections = [
+            "你是 EmissionAgent，一个专注于交通排放分析的智能助手。",
+            "你的能力范围包括道路交通排放估算、扩散模拟、热点识别、情景对比，以及相关知识解释。",
+            "回答要求：简洁、自然、忠于当前会话上下文；如果请求明显需要执行工具或继续任务，不要假装已执行。",
+        ]
+
+        context_summary = self._get_context_summary()
+        if context_summary:
+            sections.append(f"当前会话摘要：\n{context_summary}")
+        memory_context = self._get_memory_context_for_prompt()
+        if memory_context:
+            sections.append(f"分层记忆上下文：\n{memory_context}")
+
+        if explain_result:
+            last_tool_name = str(fact_memory.get("last_tool_name") or "未知")
+            last_tool_summary = str(fact_memory.get("last_tool_summary") or "")
+            snapshot = fact_memory.get("last_tool_snapshot")
+            snapshot_text = ""
+            if snapshot:
+                try:
+                    snapshot_text = json.dumps(snapshot, ensure_ascii=False)
+                except Exception:
+                    snapshot_text = str(snapshot)
+                if len(snapshot_text) > 1000:
+                    snapshot_text = snapshot_text[:1000].rstrip() + "...(truncated)"
+            sections.append(f"上一次成功工具：{last_tool_name}")
+            if last_tool_summary:
+                sections.append(f"上一次结果摘要：{last_tool_summary[:500]}")
+            if snapshot_text:
+                sections.append(f"结果快照：{snapshot_text}")
+            sections.append("当前模式：用户在追问或要求解释既有结果，请解释而不是重新规划任务。")
+
+        return "\n\n".join(sections)
+
+    async def _maybe_handle_conversation_fast_path(
+        self,
+        user_message: str,
+        file_path: Optional[str],
+        trace: Optional[Dict[str, Any]],
+    ) -> Optional[RouterResponse]:
+        if not getattr(self.runtime_config, "enable_conversation_fast_path", True):
+            return None
+
+        fact_memory = self.memory.get_fact_memory() if hasattr(self.memory, "get_fact_memory") else {}
+        classifier = self._ensure_conversation_intent_classifier()
+        intent_result = classifier.classify(
+            user_message=user_message,
+            has_new_file=bool(file_path),
+            has_last_tool_name=bool(fact_memory.get("last_tool_name")),
+            has_active_file=bool(fact_memory.get("active_file")),
+            has_active_negotiation=bool(self._ensure_live_parameter_negotiation_bundle().get("active_request")),
+            has_active_completion=bool(self._ensure_live_input_completion_bundle().get("active_request")),
+            has_file_relationship_clarification=bool(
+                self._ensure_live_file_relationship_bundle().get("awaiting_clarification")
+            ),
+            has_residual_workflow=self._has_active_residual_workflow(),
+        )
+
+        if trace is not None:
+            trace.clear()
+            trace["input"] = {
+                "user_message": user_message,
+                "file_path": file_path,
+            }
+            trace["intent_classification"] = {
+                "intent": intent_result.intent.value,
+                "confidence": intent_result.confidence,
+                "rationale": intent_result.rationale,
+                "fast_path_allowed": intent_result.fast_path_allowed,
+                "blocking_signals": list(intent_result.blocking_signals),
+            }
+
+        if not intent_result.fast_path_allowed:
+            return None
+
+        tool_calls_data = None
+        if intent_result.intent == ConversationIntent.CHITCHAT:
+            llm_response = await self.llm.chat(
+                messages=self._build_conversational_messages(user_message),
+                system=self._build_conversational_system_prompt(),
+            )
+            text = self._sanitize_response_text(llm_response.content)
+        elif intent_result.intent == ConversationIntent.EXPLAIN_RESULT:
+            llm_response = await self.llm.chat(
+                messages=self._build_conversational_messages(user_message),
+                system=self._build_conversational_system_prompt(explain_result=True),
+            )
+            text = self._sanitize_response_text(llm_response.content)
+        elif intent_result.intent == ConversationIntent.KNOWLEDGE_QA:
+            result = await self.executor.execute(
+                tool_name="query_knowledge",
+                arguments={"query": user_message},
+                file_path=file_path,
+            )
+            tool_calls_data = [
+                {
+                    "name": "query_knowledge",
+                    "arguments": {"query": user_message},
+                    "result": result,
+                }
+            ]
+            if result.get("success"):
+                self._save_result_to_session_context("query_knowledge", result)
+                text = self._sanitize_response_text(
+                    str(result.get("summary") or result.get("message") or "知识查询完成。")
+                )
+            else:
+                text = self._sanitize_response_text(
+                    str(result.get("message") or result.get("error") or "知识查询未成功完成。")
+                )
+        else:
+            return None
+
+        self.memory.update(
+            user_message=user_message,
+            assistant_response=text,
+            tool_calls=tool_calls_data,
+            file_path=None,
+            file_analysis=None,
+        )
+
+        response = RouterResponse(
+            text=text,
+            executed_tool_calls=tool_calls_data,
+        )
+        if trace is not None:
+            trace["conversation_fast_path"] = {
+                "intent": intent_result.intent.value,
+                "used_tool": tool_calls_data[0]["name"] if tool_calls_data else None,
+            }
+            trace["final"] = {
+                "text": text,
+                "fast_path": True,
+                "tool_calls": tool_calls_data,
+            }
+            if getattr(self.runtime_config, "enable_trace", False):
+                response.trace = trace
+                response.trace_friendly = []
+        return response
+
+    @staticmethod
+    def _json_safe_payload(value: Any) -> Any:
+        """Convert live router state to a JSON-safe payload."""
+        try:
+            return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+        except Exception:
+            return None
+
+    def to_persisted_state(self) -> Dict[str, Any]:
+        """Serialize restart-sensitive router state with a versioned envelope."""
+        return {
+            "version": 2,
+            "context_store": self._ensure_context_store().to_persisted_dict(),
+            "live_state": {
+                "parameter_negotiation": self._json_safe_payload(
+                    self._ensure_live_parameter_negotiation_bundle()
+                ),
+                "input_completion": self._json_safe_payload(
+                    self._ensure_live_input_completion_bundle()
+                ),
+                "continuation_bundle": self._json_safe_payload(
+                    self._ensure_live_continuation_bundle()
+                ),
+            },
+        }
+
+    def restore_persisted_state(self, payload: Dict[str, Any]) -> None:
+        """Restore versioned router state while accepting legacy context-store payloads."""
+        if not isinstance(payload, dict):
+            return
+
+        context_payload = payload.get("context_store")
+        if isinstance(context_payload, dict):
+            self.context_store = SessionContextStore.from_persisted_dict(context_payload)
+
+        live_state = payload.get("live_state")
+        if not isinstance(live_state, dict):
+            return
+
+        parameter_negotiation = live_state.get("parameter_negotiation")
+        if isinstance(parameter_negotiation, dict):
+            self._ensure_live_parameter_negotiation_bundle().update(parameter_negotiation)
+
+        input_completion = live_state.get("input_completion")
+        if isinstance(input_completion, dict):
+            self._ensure_live_input_completion_bundle().update(input_completion)
+
+        continuation_bundle = live_state.get("continuation_bundle")
+        if isinstance(continuation_bundle, dict):
+            self._ensure_live_continuation_bundle().update(continuation_bundle)
 
     def _sanitize_response_text(self, text: Optional[str]) -> str:
         """Apply the user-facing output safety rail on every response path."""
@@ -1034,10 +1289,34 @@ class UnifiedRouter:
             if meteorology_result.success and meteorology_result.normalized:
                 standardized_params["meteorology"] = meteorology_result.normalized
 
+        if effective_arguments.get("pollutant"):
+            pollutant_raw = str(effective_arguments.get("pollutant"))
+            pollutant_result = standardizer.standardize_pollutant_detailed(pollutant_raw)
+            if pollutant_result.success and pollutant_result.normalized:
+                standardized_params["pollutant"] = pollutant_result.normalized
+
+        if isinstance(effective_arguments.get("pollutants"), list):
+            normalized_pollutants: List[Any] = []
+            for item in effective_arguments.get("pollutants", []):
+                if item is None or not isinstance(item, str):
+                    normalized_pollutants.append(item)
+                    continue
+                pollutant_result = standardizer.standardize_pollutant_detailed(item)
+                normalized_pollutants.append(
+                    pollutant_result.normalized
+                    if pollutant_result.success and pollutant_result.normalized
+                    else item
+                )
+            if normalized_pollutants:
+                standardized_params["pollutants"] = normalized_pollutants
+
         if not standardized_params:
             return False
 
-        constraint_result = get_cross_constraint_validator().validate(standardized_params)
+        constraint_result = get_cross_constraint_validator().validate(
+            standardized_params,
+            tool_name=tool_name,
+        )
         if constraint_result.warnings and trace_obj:
             trace_obj.record(
                 step_type=TraceStepType.CROSS_CONSTRAINT_WARNING,
@@ -1172,6 +1451,13 @@ class UnifiedRouter:
         self._ensure_context_store().clear_current_turn()
         config = get_config()
         if config.enable_state_orchestration:
+            fast_path_response = await self._maybe_handle_conversation_fast_path(
+                user_message,
+                file_path,
+                trace,
+            )
+            if fast_path_response is not None:
+                return fast_path_response
             return await self._run_state_loop(user_message, file_path, trace)
         else:
             return await self._run_legacy_loop(user_message, file_path, trace)
@@ -1271,6 +1557,7 @@ class UnifiedRouter:
             fact_memory=self.memory.get_fact_memory(),
             file_context=file_context,
             context_summary=self._get_context_summary(),
+            memory_context=self._get_memory_context_for_prompt(),
         )
         if trace is not None:
             trace["assembled_context"] = {
@@ -9092,6 +9379,7 @@ class UnifiedRouter:
             fact_memory=self.memory.get_fact_memory(),
             file_context=file_context,
             context_summary=self._get_context_summary(),
+            memory_context=self._get_memory_context_for_prompt(),
         )
         setattr(state, "_assembled_context", context)
 
@@ -9402,6 +9690,7 @@ class UnifiedRouter:
                 fact_memory=self.memory.get_fact_memory(),
                 file_context=self._build_state_file_context(state),
                 context_summary=self._get_context_summary(),
+                memory_context=self._get_memory_context_for_prompt(),
             )
             setattr(state, "_assembled_context", context)
 
