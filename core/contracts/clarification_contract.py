@@ -215,47 +215,69 @@ class ClarificationContract(BaseContract):
             missing_required=missing_required,
             confirm_first_detected=confirm_first_detected,
         )
-        followup_missing = []
-        if is_resume and not missing_required:
-            followup_missing = self._missing_slots(
-                snapshot,
-                tool_spec.get("clarification_followup_slots") or [],
-            )
-        final_missing = list(dict.fromkeys([*missing_required, *followup_missing]))
+        probe_optional_slot = None
+        pending_decision: Optional[str] = None
+        should_proceed = False
+        question = None
+        pending_slots: List[str] = []
 
-        question = self._build_question(
-            tool_name=tool_name,
-            snapshot=snapshot,
-            missing_slots=final_missing,
-            rejected_slots=rejected_slots,
-            llm_question=llm_question,
-        )
+        if missing_required or rejected_slots:
+            pending_decision = "clarify_required"
+            pending_slots = list(dict.fromkeys([*missing_required, *rejected_slots]))
+            question = self._build_question(
+                tool_name=tool_name,
+                snapshot=snapshot,
+                missing_slots=missing_required,
+                rejected_slots=rejected_slots,
+                llm_question=llm_question,
+            )
+        elif not collection_mode:
+            should_proceed = True
+        else:
+            unfilled_optionals_without_default = self._get_unfilled_optionals_without_default(
+                snapshot,
+                tool_spec,
+            )
+            if unfilled_optionals_without_default:
+                probe_optional_slot = unfilled_optionals_without_default[0]
+                pending_decision = "probe_optional"
+                pending_slots = [probe_optional_slot]
+                question = self._build_question(
+                    tool_name=tool_name,
+                    snapshot=snapshot,
+                    missing_slots=[probe_optional_slot],
+                    rejected_slots=[],
+                    llm_question=None,
+                )
+            else:
+                should_proceed = True
+
         self._persist_snapshot_state(
             ao=current_ao,
             tool_name=tool_name,
             snapshot=snapshot,
-            clarification_question=question,
-            pending=bool(final_missing or rejected_slots),
-            missing_slots=final_missing,
+            clarification_question=question or "",
+            pending=not should_proceed,
+            missing_slots=pending_slots,
             rejected_slots=rejected_slots,
             followup_slots=list(tool_spec.get("clarification_followup_slots") or []),
             confirm_first_detected=confirm_first_detected,
             collection_mode=collection_mode,
-            pending_decision="clarify_required" if final_missing or rejected_slots else None,
+            pending_decision=pending_decision,
         )
 
-        if final_missing or rejected_slots:
+        if not should_proceed:
             telemetry.final_decision = "clarify"
             response = RouterResponse(
-                text=question,
+                text=question or "我还需要补充一个关键参数后才能继续，请直接告诉我缺失的参数值。",
                 executed_tool_calls=[],
                 trace=self._build_short_circuit_trace(
-                    question=question,
+                    question=question or "我还需要补充一个关键参数后才能继续，请直接告诉我缺失的参数值。",
                     telemetry=telemetry.to_dict(),
                     tool_name=tool_name,
                     snapshot=snapshot,
                 ),
-                trace_friendly=[{"step_type": "clarification", "summary": question}],
+                trace_friendly=[{"step_type": "clarification", "summary": question or ""}],
             )
             return ContractInterception(
                 proceed=False,
@@ -737,6 +759,25 @@ class ClarificationContract(BaseContract):
         if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
             return False
         return bool(ao.metadata.get("collection_mode"))
+
+    @staticmethod
+    def _get_unfilled_optionals_without_default(
+        snapshot: Dict[str, Dict[str, Any]],
+        tool_spec: Dict[str, Any],
+    ) -> List[str]:
+        optional_slots = [str(item) for item in list(tool_spec.get("optional_slots") or []) if str(item).strip()]
+        default_slots = {
+            str(key)
+            for key in dict(tool_spec.get("defaults") or {}).keys()
+            if str(key).strip()
+        }
+        no_default_slots = [slot_name for slot_name in optional_slots if slot_name not in default_slots]
+        unfilled: List[str] = []
+        for slot_name in no_default_slots:
+            slot_payload = snapshot.get(slot_name) or {}
+            if not isinstance(slot_payload, dict) or slot_payload.get("value") is None:
+                unfilled.append(slot_name)
+        return unfilled
 
     def _inject_snapshot_into_context(
         self,
