@@ -133,21 +133,13 @@ class ClarificationContract(BaseContract):
 
         confirm_first_detected = bool(is_fresh and self._detect_confirm_first(context.effective_user_message))
         active_required_slots = list(tool_spec.get("required_slots") or [])
-        if is_resume and pending_state.get("pending"):
+        pending_decision = str(pending_state.get("pending_decision") or "").strip()
+        if is_resume and pending_state.get("pending") and pending_decision == "clarify_required":
             active_required_slots.extend(
                 slot_name
                 for slot_name in list(pending_state.get("missing_slots") or [])
                 if slot_name
             )
-        if confirm_first_detected:
-            promoted_slots = list(tool_spec.get("confirm_first_slots") or [])
-            if not promoted_slots:
-                promoted_slots = [
-                    slot_name
-                    for slot_name in list(tool_spec.get("optional_slots") or [])
-                    if slot_name in dict(tool_spec.get("defaults") or {})
-                ]
-            active_required_slots.extend(promoted_slots)
         active_required_slots = list(dict.fromkeys(active_required_slots))
 
         telemetry = ClarificationTelemetry(
@@ -218,6 +210,11 @@ class ClarificationContract(BaseContract):
         telemetry.stage3_rejected_slots = list(rejected_slots)
 
         missing_required = self._missing_slots(snapshot, active_required_slots)
+        collection_mode = self._resolve_collection_mode(
+            ao=current_ao,
+            missing_required=missing_required,
+            confirm_first_detected=confirm_first_detected,
+        )
         followup_missing = []
         if is_resume and not missing_required:
             followup_missing = self._missing_slots(
@@ -243,6 +240,8 @@ class ClarificationContract(BaseContract):
             rejected_slots=rejected_slots,
             followup_slots=list(tool_spec.get("clarification_followup_slots") or []),
             confirm_first_detected=confirm_first_detected,
+            collection_mode=collection_mode,
+            pending_decision="clarify_required" if final_missing or rejected_slots else None,
         )
 
         if final_missing or rejected_slots:
@@ -696,12 +695,15 @@ class ClarificationContract(BaseContract):
         rejected_slots: List[str],
         followup_slots: List[str],
         confirm_first_detected: bool,
+        collection_mode: bool,
+        pending_decision: Optional[str],
     ) -> None:
         if ao is None:
             return
         if not isinstance(ao.metadata, dict):
             ao.metadata = {}
         ao.metadata["parameter_snapshot"] = copy.deepcopy(snapshot)
+        ao.metadata["collection_mode"] = bool(collection_mode)
         ao.metadata["clarification_contract"] = {
             "tool_name": tool_name,
             "parameter_snapshot": copy.deepcopy(snapshot),
@@ -711,7 +713,30 @@ class ClarificationContract(BaseContract):
             "rejected_slots": list(rejected_slots),
             "followup_slots": list(followup_slots),
             "confirm_first_detected": bool(confirm_first_detected),
+            "pending_decision": pending_decision,
         }
+
+    @staticmethod
+    def _is_first_ao_turn(ao: Any) -> bool:
+        if ao is None:
+            return False
+        tool_log = getattr(ao, "tool_call_log", None)
+        if not isinstance(tool_log, list):
+            return True
+        return len(tool_log) == 0
+
+    def _resolve_collection_mode(
+        self,
+        *,
+        ao: Any,
+        missing_required: List[str],
+        confirm_first_detected: bool,
+    ) -> bool:
+        if self._is_first_ao_turn(ao):
+            return bool(missing_required or confirm_first_detected)
+        if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
+            return False
+        return bool(ao.metadata.get("collection_mode"))
 
     def _inject_snapshot_into_context(
         self,
