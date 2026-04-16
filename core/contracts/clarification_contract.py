@@ -40,6 +40,8 @@ class ClarificationTelemetry:
     stage3_normalizations: List[Dict[str, Any]]
     final_decision: str
     confirm_first_detected: bool
+    collection_mode: bool
+    probe_optional_slot: Optional[str]
     proceed_mode: Optional[str]
     ao_id: Optional[str]
     tool_name: Optional[str]
@@ -59,6 +61,8 @@ class ClarificationTelemetry:
             "stage3_normalizations": [dict(item) for item in self.stage3_normalizations],
             "final_decision": self.final_decision,
             "confirm_first_detected": self.confirm_first_detected,
+            "collection_mode": self.collection_mode,
+            "probe_optional_slot": self.probe_optional_slot,
             "proceed_mode": self.proceed_mode,
             "ao_id": self.ao_id,
             "tool_name": self.tool_name,
@@ -156,6 +160,8 @@ class ClarificationContract(BaseContract):
             stage3_normalizations=[],
             final_decision="proceed",
             confirm_first_detected=confirm_first_detected,
+            collection_mode=False,
+            probe_optional_slot=None,
             proceed_mode=None,
             ao_id=current_ao.ao_id if current_ao is not None else None,
             tool_name=tool_name,
@@ -215,6 +221,7 @@ class ClarificationContract(BaseContract):
             missing_required=missing_required,
             confirm_first_detected=confirm_first_detected,
         )
+        telemetry.collection_mode = collection_mode
         probe_optional_slot = None
         pending_decision: Optional[str] = None
         should_proceed = False
@@ -240,6 +247,7 @@ class ClarificationContract(BaseContract):
             )
             if unfilled_optionals_without_default:
                 probe_optional_slot = unfilled_optionals_without_default[0]
+                telemetry.probe_optional_slot = probe_optional_slot
                 pending_decision = "probe_optional"
                 pending_slots = [probe_optional_slot]
                 question = await self._build_probe_question(
