@@ -101,6 +101,53 @@ async def test_missing_factor_slots_short_circuits_with_question():
 
 
 @pytest.mark.anyio
+async def test_pcm_triggers_on_missing_required_first_turn():
+    hints = {
+        "wants_factor": True,
+        "desired_tool_chain": ["query_emission_factors"],
+        "pollutants": [],
+    }
+    llm_payload = {
+        "tool_name": "query_emission_factors",
+        "parameter_snapshot": {
+            "vehicle_type": {"value": None, "source": "missing", "confidence": None, "raw_text": None},
+            "pollutants": {"value": None, "source": "missing", "confidence": None, "raw_text": None},
+        },
+        "missing_required": ["vehicle_type", "pollutants"],
+        "needs_clarification": True,
+        "clarification_question": "请告诉我车辆类型和污染物。",
+        "ambiguous_slots": [],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload=llm_payload)
+    ao = manager.create_ao("查排放因子", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="帮我查一下排放因子", session_id="clarification-session")
+    context = ContractContext(
+        user_message="帮我查一下排放因子",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="查排放因子",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+
+    assert interception.proceed is False
+    assert ao.metadata["collection_mode"] is True
+
+
+@pytest.mark.anyio
 async def test_colloquial_vehicle_inferred_candidate_can_proceed():
     hints = {
         "wants_factor": True,
@@ -170,6 +217,7 @@ async def test_pending_factor_snapshot_asks_for_model_year_before_proceed():
     }
     contract, manager, _inner = _make_contract(hints, llm_payload={})
     ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["collection_mode"] = True
     ao.metadata["clarification_contract"] = {
         "tool_name": "query_emission_factors",
         "parameter_snapshot": {
@@ -193,7 +241,8 @@ async def test_pending_factor_snapshot_asks_for_model_year_before_proceed():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert "哪一年" in interception.response.text
+    assert "车型年份" in interception.response.text
+    assert interception.metadata["clarification"]["telemetry"]["probe_optional_slot"] == "model_year"
 
 
 @pytest.mark.anyio
@@ -272,6 +321,45 @@ async def test_confirm_first_promotes_defaulted_optional_slots_on_fresh_turn():
 
 
 @pytest.mark.anyio
+async def test_pcm_triggers_on_confirm_first():
+    hints = {
+        "wants_factor": True,
+        "desired_tool_chain": ["query_emission_factors"],
+        "vehicle_type": "Transit Bus",
+        "vehicle_type_raw": "公交车",
+        "pollutants": ["CO2"],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload={})
+    ao = manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="我需要公交车CO2那类因子，先帮我确认参数", session_id="clarification-session")
+    context = ContractContext(
+        user_message="我需要公交车CO2那类因子，先帮我确认参数",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="确认参数",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+
+    assert interception.proceed is False
+    assert ao.metadata["collection_mode"] is True
+    assert interception.metadata["clarification"]["telemetry"]["confirm_first_detected"] is True
+
+
+@pytest.mark.anyio
 async def test_resume_pending_missing_slots_remain_required_until_filled():
     hints = {
         "desired_tool_chain": [],
@@ -281,6 +369,7 @@ async def test_resume_pending_missing_slots_remain_required_until_filled():
     }
     contract, manager, _inner = _make_contract(hints, llm_payload={})
     ao = manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["collection_mode"] = True
     ao.metadata["clarification_contract"] = {
         "tool_name": "query_emission_factors",
         "parameter_snapshot": {
@@ -305,7 +394,172 @@ async def test_resume_pending_missing_slots_remain_required_until_filled():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert "缺失的参数值" in interception.response.text
+    assert "车型年份" in interception.response.text
+    assert interception.metadata["clarification"]["telemetry"]["probe_optional_slot"] == "model_year"
+
+
+@pytest.mark.anyio
+async def test_pcm_persists_across_turns_via_metadata():
+    hints = {
+        "desired_tool_chain": [],
+        "vehicle_type": "Passenger Car",
+        "vehicle_type_raw": "乘用车",
+        "pollutants": ["NOx"],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload={})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["collection_mode"] = True
+    ao.metadata["clarification_contract"] = {
+        "tool_name": "query_emission_factors",
+        "parameter_snapshot": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": 1.0, "raw_text": "乘用车"},
+            "pollutants": {"value": ["NOx"], "source": "user", "confidence": 1.0, "raw_text": ["NOx"]},
+            "model_year": {"value": None, "source": "missing", "confidence": None, "raw_text": None},
+        },
+        "pending": True,
+        "missing_slots": ["model_year"],
+        "pending_decision": "probe_optional",
+        "followup_slots": ["model_year"],
+        "clarification_question": "请问哪一年的车型",
+    }
+    state = TaskState(user_message="乘用车", session_id="clarification-session")
+    context = ContractContext(
+        user_message="乘用车",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={},
+    )
+
+    interception = await contract.before_turn(context)
+
+    assert interception.proceed is False
+    assert ao.metadata["collection_mode"] is True
+
+
+@pytest.mark.anyio
+async def test_pcm_probes_unfilled_optionals_without_default():
+    hints = {
+        "wants_factor": True,
+        "desired_tool_chain": ["query_emission_factors"],
+        "vehicle_type": "Transit Bus",
+        "vehicle_type_raw": "公交车",
+        "pollutants": ["CO2"],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload={})
+    manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="我需要公交车CO2那类因子，先帮我确认参数", session_id="clarification-session")
+    context = ContractContext(
+        user_message="我需要公交车CO2那类因子，先帮我确认参数",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="确认参数",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["collection_mode"] is True
+    assert telemetry["probe_optional_slot"] == "model_year"
+
+
+@pytest.mark.anyio
+async def test_pcm_proceeds_when_all_no_default_optionals_filled():
+    hints = {
+        "desired_tool_chain": [],
+        "pollutants": [],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload={})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["collection_mode"] = True
+    ao.metadata["clarification_contract"] = {
+        "tool_name": "query_emission_factors",
+        "parameter_snapshot": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": 1.0, "raw_text": "乘用车"},
+            "pollutants": {"value": ["NOx"], "source": "user", "confidence": 1.0, "raw_text": ["NOx"]},
+            "model_year": {"value": "2022", "source": "user", "confidence": 1.0, "raw_text": "2022"},
+        },
+        "pending": True,
+        "missing_slots": ["model_year"],
+        "pending_decision": "probe_optional",
+        "followup_slots": ["model_year"],
+        "clarification_question": "请问哪一年的车型",
+    }
+    state = TaskState(user_message="继续", session_id="clarification-session")
+    context = ContractContext(
+        user_message="继续",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={},
+    )
+
+    interception = await contract.before_turn(context)
+
+    assert interception.proceed is True
+
+
+@pytest.mark.anyio
+async def test_simple_task_not_affected_by_pcm():
+    hints = {
+        "wants_factor": True,
+        "desired_tool_chain": ["query_emission_factors"],
+        "vehicle_type": "Passenger Car",
+        "vehicle_type_raw": "乘用车",
+        "pollutants": ["CO2"],
+    }
+    llm_payload = {
+        "tool_name": "query_emission_factors",
+        "parameter_snapshot": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": 1.0, "raw_text": "乘用车"},
+            "pollutants": {"value": ["CO2"], "source": "user", "confidence": 1.0, "raw_text": ["CO2"]},
+        },
+        "missing_required": [],
+        "needs_clarification": False,
+        "clarification_question": None,
+        "ambiguous_slots": [],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload=llm_payload)
+    ao = manager.create_ao("查 CO2 因子", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="查询乘用车CO2排放因子", session_id="clarification-session")
+    context = ContractContext(
+        user_message="查询乘用车CO2排放因子",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="查 CO2 因子",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+
+    assert interception.proceed is True
+    assert ao.metadata["collection_mode"] is False
 
 
 def test_snapshot_to_tool_args_maps_factor_snapshot():

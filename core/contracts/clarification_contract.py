@@ -220,6 +220,7 @@ class ClarificationContract(BaseContract):
             ao=current_ao,
             missing_required=missing_required,
             confirm_first_detected=confirm_first_detected,
+            is_resume=is_resume,
         )
         telemetry.collection_mode = collection_mode
         probe_optional_slot = None
@@ -850,7 +851,12 @@ class ClarificationContract(BaseContract):
         ao: Any,
         missing_required: List[str],
         confirm_first_detected: bool,
+        is_resume: bool,
     ) -> bool:
+        if is_resume:
+            if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
+                return False
+            return bool(ao.metadata.get("collection_mode"))
         if self._is_first_ao_turn(ao):
             return bool(missing_required or confirm_first_detected)
         if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
