@@ -242,12 +242,11 @@ class ClarificationContract(BaseContract):
                 probe_optional_slot = unfilled_optionals_without_default[0]
                 pending_decision = "probe_optional"
                 pending_slots = [probe_optional_slot]
-                question = self._build_question(
+                question = await self._build_probe_question(
                     tool_name=tool_name,
                     snapshot=snapshot,
-                    missing_slots=[probe_optional_slot],
-                    rejected_slots=[],
-                    llm_question=None,
+                    slot_name=probe_optional_slot,
+                    current_ao=current_ao,
                 )
             else:
                 should_proceed = True
@@ -704,6 +703,96 @@ class ClarificationContract(BaseContract):
         if tool_name == "calculate_micro_emission" and slot_name == "vehicle_type":
             return "请告诉我轨迹对应的车型，例如 Passenger Car、Transit Bus、Motorcycle。"
         return "我还需要补充一个关键参数后才能继续，请直接告诉我缺失的参数值。"
+
+    async def _build_probe_question(
+        self,
+        *,
+        tool_name: str,
+        snapshot: Dict[str, Dict[str, Any]],
+        slot_name: str,
+        current_ao: Any,
+    ) -> str:
+        llm_question = await self._run_probe_question_llm(
+            tool_name=tool_name,
+            snapshot=snapshot,
+            slot_name=slot_name,
+            current_ao=current_ao,
+        )
+        if llm_question:
+            return llm_question
+        slot_display_name = self._slot_display_name(slot_name)
+        valid_values_description = self._valid_values_description(slot_name)
+        return f"请指定{slot_display_name}（{valid_values_description}）。"
+
+    async def _run_probe_question_llm(
+        self,
+        *,
+        tool_name: str,
+        snapshot: Dict[str, Dict[str, Any]],
+        slot_name: str,
+        current_ao: Any,
+    ) -> Optional[str]:
+        if self.llm_client is None or not getattr(self.runtime_config, "enable_clarification_stage2_llm", True):
+            return None
+        prompt_payload = {
+            "tool_name": tool_name,
+            "slot_name": slot_name,
+            "slot_display_name": self._slot_display_name(slot_name),
+            "valid_values_description": self._valid_values_description(slot_name),
+            "current_snapshot": snapshot,
+            "current_ao_id": getattr(current_ao, "ao_id", None) if current_ao is not None else None,
+            "objective_text": getattr(current_ao, "objective_text", None) if current_ao is not None else None,
+        }
+        try:
+            response = await asyncio.wait_for(
+                self.llm_client.chat_json(
+                    messages=[{"role": "user", "content": yaml.safe_dump(prompt_payload, allow_unicode=True, sort_keys=False)}],
+                    system=(
+                        "你是交通排放分析的澄清问题生成器。"
+                        "请针对指定参数生成一句简洁自然的追问，不能引入额外参数，不能提供解释段落。"
+                        '输出 JSON: {"clarification_question": "..."}'
+                    ),
+                    temperature=0.0,
+                ),
+                timeout=float(getattr(self.runtime_config, "clarification_llm_timeout_sec", 5.0)),
+            )
+        except Exception as exc:
+            logger.warning("ClarificationContract probe-question LLM failed: %s", exc)
+            return None
+        question = str((response or {}).get("clarification_question") or "").strip()
+        return question or None
+
+    @staticmethod
+    def _slot_display_name(slot_name: str) -> str:
+        mapping = {
+            "vehicle_type": "车辆类型",
+            "pollutants": "污染物",
+            "pollutant": "污染物",
+            "model_year": "车型年份",
+            "season": "季节",
+            "road_type": "道路类型",
+            "meteorology": "气象条件",
+            "stability_class": "稳定度等级",
+        }
+        return mapping.get(slot_name, slot_name)
+
+    def _valid_values_description(self, slot_name: str) -> str:
+        if slot_name == "model_year":
+            return f"{YEAR_RANGE_MIN}-{YEAR_RANGE_MAX}"
+        if slot_name == "pollutants" or slot_name == "pollutant":
+            values = self.stage3_engine.get_candidates("pollutant")
+        else:
+            param_type = {
+                "vehicle_type": "vehicle_type",
+                "season": "season",
+                "road_type": "road_type",
+                "meteorology": "meteorology",
+                "stability_class": "stability_class",
+            }.get(slot_name)
+            values = self.stage3_engine.get_candidates(param_type) if param_type else []
+        if not values:
+            return "请提供合法值"
+        return " / ".join(str(item) for item in values[:6])
 
     def _persist_snapshot_state(
         self,
