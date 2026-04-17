@@ -45,6 +45,8 @@ class ClarificationTelemetry:
     collection_mode: bool
     pcm_trigger_reason: Optional[str]
     probe_optional_slot: Optional[str]
+    probe_turn_count: int
+    probe_abandoned: bool
     proceed_mode: Optional[str]
     ao_id: Optional[str]
     tool_name: Optional[str]
@@ -68,6 +70,8 @@ class ClarificationTelemetry:
             "collection_mode": self.collection_mode,
             "pcm_trigger_reason": self.pcm_trigger_reason,
             "probe_optional_slot": self.probe_optional_slot,
+            "probe_turn_count": self.probe_turn_count,
+            "probe_abandoned": self.probe_abandoned,
             "proceed_mode": self.proceed_mode,
             "ao_id": self.ao_id,
             "tool_name": self.tool_name,
@@ -170,6 +174,8 @@ class ClarificationContract(BaseContract):
             collection_mode=False,
             pcm_trigger_reason=None,
             probe_optional_slot=None,
+            probe_turn_count=0,
+            probe_abandoned=False,
             proceed_mode=None,
             ao_id=current_ao.ao_id if current_ao is not None else None,
             tool_name=tool_name,
@@ -259,14 +265,20 @@ class ClarificationContract(BaseContract):
             if unfilled_optionals_without_default:
                 probe_optional_slot = unfilled_optionals_without_default[0]
                 telemetry.probe_optional_slot = probe_optional_slot
-                pending_decision = "probe_optional"
-                pending_slots = [probe_optional_slot]
-                question = await self._build_probe_question(
-                    tool_name=tool_name,
-                    snapshot=snapshot,
-                    slot_name=probe_optional_slot,
-                    current_ao=current_ao,
-                )
+                probe_turn_count = self._next_probe_turn_count(pending_state, probe_optional_slot)
+                telemetry.probe_turn_count = probe_turn_count
+                if probe_turn_count >= 2:
+                    telemetry.probe_abandoned = True
+                    should_proceed = True
+                else:
+                    pending_decision = "probe_optional"
+                    pending_slots = [probe_optional_slot]
+                    question = await self._build_probe_question(
+                        tool_name=tool_name,
+                        snapshot=snapshot,
+                        slot_name=probe_optional_slot,
+                        current_ao=current_ao,
+                    )
             else:
                 should_proceed = True
 
@@ -283,6 +295,9 @@ class ClarificationContract(BaseContract):
             collection_mode=collection_mode,
             pcm_trigger_reason=pcm_trigger_reason,
             pending_decision=pending_decision,
+            probe_optional_slot=probe_optional_slot,
+            probe_turn_count=telemetry.probe_turn_count,
+            probe_abandoned=telemetry.probe_abandoned,
         )
 
         if not should_proceed:
@@ -829,6 +844,9 @@ class ClarificationContract(BaseContract):
         collection_mode: bool,
         pcm_trigger_reason: Optional[str],
         pending_decision: Optional[str],
+        probe_optional_slot: Optional[str],
+        probe_turn_count: int,
+        probe_abandoned: bool,
     ) -> None:
         if ao is None:
             return
@@ -848,6 +866,9 @@ class ClarificationContract(BaseContract):
             "confirm_first_detected": bool(confirm_first_detected),
             "pcm_trigger_reason": pcm_trigger_reason,
             "pending_decision": pending_decision,
+            "probe_optional_slot": probe_optional_slot,
+            "probe_turn_count": int(probe_turn_count or 0),
+            "probe_abandoned": bool(probe_abandoned),
         }
 
     @staticmethod
@@ -906,6 +927,20 @@ class ClarificationContract(BaseContract):
             if not isinstance(slot_payload, dict) or slot_payload.get("value") is None:
                 unfilled.append(slot_name)
         return unfilled
+
+    @staticmethod
+    def _next_probe_turn_count(
+        pending_state: Dict[str, Any],
+        slot_name: str,
+    ) -> int:
+        previous_slot = str(pending_state.get("probe_optional_slot") or "").strip()
+        if not previous_slot and list(pending_state.get("missing_slots") or []):
+            previous_slot = str(list(pending_state.get("missing_slots") or [None])[0] or "").strip()
+        previous_decision = str(pending_state.get("pending_decision") or "").strip()
+        previous_count = int(pending_state.get("probe_turn_count") or 0)
+        if previous_decision == "probe_optional" and previous_slot == slot_name:
+            return previous_count + 1
+        return 1
 
     def _inject_snapshot_into_context(
         self,
