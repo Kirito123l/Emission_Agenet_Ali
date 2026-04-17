@@ -51,6 +51,18 @@ def _make_contract(hints: dict, *, llm_payload=None, llm_error=None):
     return contract, manager, inner_router
 
 
+def test_confirm_first_detects_先帮我确认():
+    contract, _manager, _inner = _make_contract({})
+
+    assert contract._detect_confirm_first("我需要公交车CO2那类因子，先帮我确认参数") == "signal:先帮我确认"
+
+
+def test_confirm_first_detects_pattern_leading_sequence_marker():
+    contract, _manager, _inner = _make_contract({})
+
+    assert contract._detect_confirm_first("然后处理这个路网") == "pattern:leading_sequence_marker"
+
+
 @pytest.mark.anyio
 async def test_missing_factor_slots_short_circuits_with_question():
     hints = {
@@ -482,6 +494,106 @@ async def test_pcm_probes_unfilled_optionals_without_default():
     assert interception.proceed is False
     assert telemetry["collection_mode"] is True
     assert telemetry["probe_optional_slot"] == "model_year"
+
+
+@pytest.mark.anyio
+async def test_pcm_triggers_on_first_turn_required_met_but_no_default_optional_empty():
+    hints = {
+        "wants_factor": True,
+        "desired_tool_chain": ["query_emission_factors"],
+        "vehicle_type": "Transit Bus",
+        "vehicle_type_raw": "公交车",
+        "pollutants": ["CO2"],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload={})
+    ao = manager.create_ao("查公交车 CO2 因子", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="查公交车CO2因子", session_id="clarification-session")
+    context = ContractContext(
+        user_message="查公交车CO2因子",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="查公交车 CO2 因子",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert ao.metadata["collection_mode"] is True
+    assert telemetry["pcm_trigger_reason"] == "unfilled_optional_no_default_at_first_turn"
+    assert telemetry["probe_optional_slot"] == "model_year"
+
+
+@pytest.mark.anyio
+async def test_pcm_probe_abandons_after_max_turns():
+    hints = {
+        "desired_tool_chain": [],
+        "vehicle_type": "Transit Bus",
+        "vehicle_type_raw": "公交车",
+        "pollutants": ["CO2"],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload={})
+    ao = manager.create_ao("查公交车 CO2 因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["collection_mode"] = True
+    ao.metadata["pcm_trigger_reason"] = "unfilled_optional_no_default_at_first_turn"
+    ao.metadata["clarification_contract"] = {
+        "tool_name": "query_emission_factors",
+        "parameter_snapshot": {
+            "vehicle_type": {"value": "Transit Bus", "source": "user", "confidence": 1.0, "raw_text": "公交车"},
+            "pollutants": {"value": ["CO2"], "source": "user", "confidence": 1.0, "raw_text": ["CO2"]},
+            "model_year": {"value": None, "source": "missing", "confidence": None, "raw_text": None},
+        },
+        "pending": True,
+        "missing_slots": ["model_year"],
+        "pending_decision": "probe_optional",
+        "probe_optional_slot": "model_year",
+        "probe_turn_count": 1,
+        "followup_slots": ["model_year"],
+        "clarification_question": "请问车型年份",
+    }
+    state = TaskState(user_message="继续", session_id="clarification-session")
+    context = ContractContext(
+        user_message="继续",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={},
+    )
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["probe_optional_slot"] == "model_year"
+    assert telemetry["probe_turn_count"] == 2
+    assert telemetry["probe_abandoned"] is True
+
+
+def test_probe_turn_count_resets_when_target_slot_changes():
+    assert (
+        ClarificationContract._next_probe_turn_count(
+            {
+                "pending_decision": "probe_optional",
+                "probe_optional_slot": "model_year",
+                "probe_turn_count": 1,
+            },
+            "road_type",
+        )
+        == 1
+    )
 
 
 @pytest.mark.anyio
