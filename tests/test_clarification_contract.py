@@ -153,6 +153,7 @@ async def test_colloquial_vehicle_inferred_candidate_can_proceed():
         "wants_factor": True,
         "desired_tool_chain": ["query_emission_factors"],
         "pollutants": ["CO"],
+        "model_year": 2020,
     }
     llm_payload = {
         "tool_name": "query_emission_factors",
@@ -168,6 +169,12 @@ async def test_colloquial_vehicle_inferred_candidate_can_proceed():
                 "source": "user",
                 "confidence": 1.0,
                 "raw_text": ["CO"],
+            },
+            "model_year": {
+                "value": "2020",
+                "source": "user",
+                "confidence": 1.0,
+                "raw_text": "2020",
             },
         },
         "missing_required": [],
@@ -521,12 +528,14 @@ async def test_simple_task_not_affected_by_pcm():
         "vehicle_type": "Passenger Car",
         "vehicle_type_raw": "乘用车",
         "pollutants": ["CO2"],
+        "model_year": 2022,
     }
     llm_payload = {
         "tool_name": "query_emission_factors",
         "parameter_snapshot": {
             "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": 1.0, "raw_text": "乘用车"},
             "pollutants": {"value": ["CO2"], "source": "user", "confidence": 1.0, "raw_text": ["CO2"]},
+            "model_year": {"value": "2022", "source": "user", "confidence": 1.0, "raw_text": "2022"},
         },
         "missing_required": [],
         "needs_clarification": False,
@@ -535,9 +544,9 @@ async def test_simple_task_not_affected_by_pcm():
     }
     contract, manager, _inner = _make_contract(hints, llm_payload=llm_payload)
     ao = manager.create_ao("查 CO2 因子", AORelationship.INDEPENDENT, current_turn=1)
-    state = TaskState(user_message="查询乘用车CO2排放因子", session_id="clarification-session")
+    state = TaskState(user_message="查询2022年乘用车CO2排放因子", session_id="clarification-session")
     context = ContractContext(
-        user_message="查询乘用车CO2排放因子",
+        user_message="查询2022年乘用车CO2排放因子",
         file_path=None,
         trace={},
         state_snapshot=state,

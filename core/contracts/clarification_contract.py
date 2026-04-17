@@ -43,6 +43,7 @@ class ClarificationTelemetry:
     confirm_first_detected: bool
     confirm_first_trigger: Optional[str]
     collection_mode: bool
+    pcm_trigger_reason: Optional[str]
     probe_optional_slot: Optional[str]
     proceed_mode: Optional[str]
     ao_id: Optional[str]
@@ -65,6 +66,7 @@ class ClarificationTelemetry:
             "confirm_first_detected": self.confirm_first_detected,
             "confirm_first_trigger": self.confirm_first_trigger,
             "collection_mode": self.collection_mode,
+            "pcm_trigger_reason": self.pcm_trigger_reason,
             "probe_optional_slot": self.probe_optional_slot,
             "proceed_mode": self.proceed_mode,
             "ao_id": self.ao_id,
@@ -166,6 +168,7 @@ class ClarificationContract(BaseContract):
             confirm_first_detected=confirm_first_detected,
             confirm_first_trigger=confirm_first_trigger,
             collection_mode=False,
+            pcm_trigger_reason=None,
             probe_optional_slot=None,
             proceed_mode=None,
             ao_id=current_ao.ao_id if current_ao is not None else None,
@@ -221,13 +224,19 @@ class ClarificationContract(BaseContract):
         telemetry.stage3_rejected_slots = list(rejected_slots)
 
         missing_required = self._missing_slots(snapshot, active_required_slots)
-        collection_mode = self._resolve_collection_mode(
+        unfilled_optionals_without_default = self._get_unfilled_optionals_without_default(
+            snapshot,
+            tool_spec,
+        )
+        collection_mode, pcm_trigger_reason = self._resolve_collection_mode(
             ao=current_ao,
             missing_required=missing_required,
             confirm_first_detected=confirm_first_detected,
+            unfilled_optionals_without_default=unfilled_optionals_without_default,
             is_resume=is_resume,
         )
         telemetry.collection_mode = collection_mode
+        telemetry.pcm_trigger_reason = pcm_trigger_reason
         probe_optional_slot = None
         pending_decision: Optional[str] = None
         should_proceed = False
@@ -247,10 +256,6 @@ class ClarificationContract(BaseContract):
         elif not collection_mode:
             should_proceed = True
         else:
-            unfilled_optionals_without_default = self._get_unfilled_optionals_without_default(
-                snapshot,
-                tool_spec,
-            )
             if unfilled_optionals_without_default:
                 probe_optional_slot = unfilled_optionals_without_default[0]
                 telemetry.probe_optional_slot = probe_optional_slot
@@ -276,6 +281,7 @@ class ClarificationContract(BaseContract):
             followup_slots=list(tool_spec.get("clarification_followup_slots") or []),
             confirm_first_detected=confirm_first_detected,
             collection_mode=collection_mode,
+            pcm_trigger_reason=pcm_trigger_reason,
             pending_decision=pending_decision,
         )
 
@@ -821,6 +827,7 @@ class ClarificationContract(BaseContract):
         followup_slots: List[str],
         confirm_first_detected: bool,
         collection_mode: bool,
+        pcm_trigger_reason: Optional[str],
         pending_decision: Optional[str],
     ) -> None:
         if ao is None:
@@ -829,6 +836,7 @@ class ClarificationContract(BaseContract):
             ao.metadata = {}
         ao.metadata["parameter_snapshot"] = copy.deepcopy(snapshot)
         ao.metadata["collection_mode"] = bool(collection_mode)
+        ao.metadata["pcm_trigger_reason"] = pcm_trigger_reason
         ao.metadata["clarification_contract"] = {
             "tool_name": tool_name,
             "parameter_snapshot": copy.deepcopy(snapshot),
@@ -838,6 +846,7 @@ class ClarificationContract(BaseContract):
             "rejected_slots": list(rejected_slots),
             "followup_slots": list(followup_slots),
             "confirm_first_detected": bool(confirm_first_detected),
+            "pcm_trigger_reason": pcm_trigger_reason,
             "pending_decision": pending_decision,
         }
 
@@ -856,17 +865,28 @@ class ClarificationContract(BaseContract):
         ao: Any,
         missing_required: List[str],
         confirm_first_detected: bool,
+        unfilled_optionals_without_default: List[str],
         is_resume: bool,
-    ) -> bool:
+    ) -> tuple[bool, Optional[str]]:
         if is_resume:
             if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
-                return False
-            return bool(ao.metadata.get("collection_mode"))
+                return False, None
+            return bool(ao.metadata.get("collection_mode")), (
+                str(ao.metadata.get("pcm_trigger_reason") or "") or None
+            )
+        if confirm_first_detected:
+            return True, "confirm_first_signal"
         if self._is_first_ao_turn(ao):
-            return bool(missing_required or confirm_first_detected)
+            if missing_required:
+                return True, "missing_required_at_first_turn"
+            if unfilled_optionals_without_default:
+                return True, "unfilled_optional_no_default_at_first_turn"
+            return False, None
         if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
-            return False
-        return bool(ao.metadata.get("collection_mode"))
+            return False, None
+        return bool(ao.metadata.get("collection_mode")), (
+            str(ao.metadata.get("pcm_trigger_reason") or "") or None
+        )
 
     @staticmethod
     def _get_unfilled_optionals_without_default(
