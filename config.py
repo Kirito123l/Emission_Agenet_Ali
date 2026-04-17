@@ -53,6 +53,68 @@ class Config:
         self.enable_live_state_persistence = os.getenv("ENABLE_LIVE_STATE_PERSISTENCE", "true").lower() == "true"
         self.enable_conversation_fast_path = os.getenv("ENABLE_CONVERSATION_FAST_PATH", "true").lower() == "true"
         self.enable_layered_memory_context = os.getenv("ENABLE_LAYERED_MEMORY_CONTEXT", "true").lower() == "true"
+        self.enable_session_state_block = os.getenv("ENABLE_SESSION_STATE_BLOCK", "false").lower() == "true"
+        self.enable_ao_aware_memory = os.getenv("ENABLE_AO_AWARE_MEMORY", "true").lower() == "true"
+        self.enable_ao_classifier_rule_layer = (
+            os.getenv("ENABLE_AO_CLASSIFIER_RULE_LAYER", "true").lower() == "true"
+        )
+        self.enable_ao_classifier_llm_layer = (
+            os.getenv("ENABLE_AO_CLASSIFIER_LLM_LAYER", "true").lower() == "true"
+        )
+        self.ao_classifier_model = os.getenv("AO_CLASSIFIER_MODEL", "qwen-plus").strip() or "qwen-plus"
+        self.ao_classifier_confidence_threshold = float(
+            os.getenv("AO_CLASSIFIER_CONFIDENCE_THRESHOLD", "0.7")
+        )
+        self.ao_classifier_timeout_sec = float(
+            os.getenv("AO_CLASSIFIER_TIMEOUT_SEC", "5.0")
+        )
+        self.enable_ao_block_injection = (
+            os.getenv("ENABLE_AO_BLOCK_INJECTION", "true").lower() == "true"
+        )
+        self.enable_ao_persistent_facts = (
+            os.getenv("ENABLE_AO_PERSISTENT_FACTS", "true").lower() == "true"
+        )
+        self.enable_clarification_contract = (
+            os.getenv("ENABLE_CLARIFICATION_CONTRACT", "true").lower() == "true"
+        )
+        self.enable_clarification_stage2_llm = (
+            os.getenv("ENABLE_CLARIFICATION_STAGE2_LLM", "true").lower() == "true"
+        )
+        self.clarification_llm_model = (
+            os.getenv("CLARIFICATION_LLM_MODEL", "qwen-plus").strip() or "qwen-plus"
+        )
+        self.clarification_llm_timeout_sec = float(
+            os.getenv("CLARIFICATION_LLM_TIMEOUT_SEC", "5.0")
+        )
+        self.clarification_llm_confidence_threshold = float(
+            os.getenv("CLARIFICATION_LLM_CONFIDENCE_THRESHOLD", "0.7")
+        )
+        self.clarification_confirm_first_signals = tuple(
+            item.strip().lower()
+            for item in os.getenv(
+                "CLARIFICATION_CONFIRM_FIRST_SIGNALS",
+                (
+                    "先确认,先帮我确认,先看看,确认参数,确认一下,列一下参数,"
+                    "参数是什么,怎么设置,怎么算,需要什么,帮我算,"
+                    "confirm first,check first,let me confirm,what parameters,"
+                    "need to specify,how to set"
+                ),
+            ).split(",")
+            if item.strip()
+        )
+        self.clarification_confirm_first_patterns = tuple(
+            item.strip().lower()
+            for item in os.getenv(
+                "CLARIFICATION_CONFIRM_FIRST_PATTERNS",
+                "need_parameters_fuzzy,leading_sequence_marker,parameter_request",
+            ).split(",")
+            if item.strip()
+        )
+        self.enable_dependency_contract = (
+            os.getenv("ENABLE_DEPENDENCY_CONTRACT", "false").lower() == "true"
+        )
+        self.ao_block_token_budget = int(os.getenv("AO_BLOCK_TOKEN_BUDGET", "1200"))
+        self.enable_governed_router = os.getenv("ENABLE_GOVERNED_ROUTER", "true").lower() == "true"
         self.enable_llm_retry_backoff = os.getenv("ENABLE_LLM_RETRY_BACKOFF", "true").lower() == "true"
         self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
         self.contour_interp_resolution_m = float(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,7 @@ class ClarificationTelemetry:
     stage3_normalizations: List[Dict[str, Any]]
     final_decision: str
     confirm_first_detected: bool
+    confirm_first_trigger: Optional[str]
     collection_mode: bool
     probe_optional_slot: Optional[str]
     proceed_mode: Optional[str]
@@ -61,6 +63,7 @@ class ClarificationTelemetry:
             "stage3_normalizations": [dict(item) for item in self.stage3_normalizations],
             "final_decision": self.final_decision,
             "confirm_first_detected": self.confirm_first_detected,
+            "confirm_first_trigger": self.confirm_first_trigger,
             "collection_mode": self.collection_mode,
             "probe_optional_slot": self.probe_optional_slot,
             "proceed_mode": self.proceed_mode,
@@ -135,7 +138,8 @@ class ClarificationContract(BaseContract):
         ):
             return ContractInterception()
 
-        confirm_first_detected = bool(is_fresh and self._detect_confirm_first(context.effective_user_message))
+        confirm_first_trigger = self._detect_confirm_first(context.effective_user_message) if is_fresh else None
+        confirm_first_detected = bool(confirm_first_trigger)
         active_required_slots = list(tool_spec.get("required_slots") or [])
         pending_decision = str(pending_state.get("pending_decision") or "").strip()
         if is_resume and pending_state.get("pending") and pending_decision == "clarify_required":
@@ -160,6 +164,7 @@ class ClarificationContract(BaseContract):
             stage3_normalizations=[],
             final_decision="proceed",
             confirm_first_detected=confirm_first_detected,
+            confirm_first_trigger=confirm_first_trigger,
             collection_mode=False,
             probe_optional_slot=None,
             proceed_mode=None,
@@ -1010,9 +1015,65 @@ class ClarificationContract(BaseContract):
         turn_counter = int(getattr(self.inner_router.memory, "turn_counter", 0) or 0)
         return turn_counter + 1
 
-    def _detect_confirm_first(self, user_message: str) -> bool:
+    def _detect_confirm_first(self, user_message: str) -> Optional[str]:
         text = str(user_message or "").strip().lower()
         if not text:
-            return False
+            return None
         signals = tuple(getattr(self.runtime_config, "clarification_confirm_first_signals", ()) or ())
-        return any(signal in text for signal in signals)
+        for signal in signals:
+            if signal and signal in text:
+                return f"signal:{signal}"
+
+        patterns = set(getattr(self.runtime_config, "clarification_confirm_first_patterns", ()) or ())
+        if "need_parameters_fuzzy" in patterns and re.search(r"需要.{0,12}参数", text):
+            return "pattern:need_parameters_fuzzy"
+        if "leading_sequence_marker" in patterns and self._matches_leading_sequence_marker(text):
+            return "pattern:leading_sequence_marker"
+        if "parameter_request" in patterns and self._matches_parameter_request(text):
+            return "pattern:parameter_request"
+        return None
+
+    @staticmethod
+    def _matches_leading_sequence_marker(text: str) -> bool:
+        if not re.match(r"^\s*(先|再|然后|接着|之后|先把|先用)", text):
+            return False
+        request_terms = (
+            "帮",
+            "查",
+            "算",
+            "计算",
+            "处理",
+            "看看",
+            "看",
+            "确认",
+            "做",
+            "用",
+            "跑",
+            "分析",
+            "query",
+            "calculate",
+            "check",
+            "confirm",
+            "run",
+            "analyze",
+            "process",
+        )
+        return any(term in text for term in request_terms)
+
+    @staticmethod
+    def _matches_parameter_request(text: str) -> bool:
+        if "参数" not in text:
+            return False
+        request_terms = (
+            "需要",
+            "确认",
+            "怎么",
+            "哪些",
+            "什么",
+            "列",
+            "设置",
+            "填",
+            "帮",
+            "看",
+        )
+        return any(term in text for term in request_terms)
