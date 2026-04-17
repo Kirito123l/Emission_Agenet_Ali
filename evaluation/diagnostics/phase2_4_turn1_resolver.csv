@@ -1,0 +1,181 @@
+task_id,category,first_msg,expected_tool,resolver_outcome,hit_step,desired_chain_raw,wants_factor,file_task_type,has_因子,has_排放因子,has_排放,has_factor_en,has_emission_en,has_confirm_first,has_micro_keyword,has_macro_keyword
+e2e_simple_001,simple,查询2020年网约车的CO2排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_002,simple,查询2021年SUV冬季高速公路工况下的NOx和PM2.5排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_003,simple,请基于上传的轨迹文件计算出租车CO2和NOx排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_simple_004,simple,计算这个路段流量文件的CO2和NOx排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_simple_005,simple,MOVES 里 Passenger Car 和 Passenger Truck 的区别是什么？,query_knowledge,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_ambiguous_001,parameter_ambiguous,查询2020年家用车的CO2排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_002,parameter_ambiguous,计算这份中文轨迹文件里公交的NOx排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_ambiguous_003,parameter_ambiguous,请分析这份路网文件里重卡的CO2排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_ambiguous_004,parameter_ambiguous,查询高架路上公交车的氮氧化物排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_005,parameter_ambiguous,分析这个非标准列名路段文件的细颗粒物排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_001,multi_step,请先计算这个路网文件的CO2排放，再做扩散分析,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_002,multi_step,先算这份路网文件的NOx排放，再做扩散，然后找热点,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion;analyze_hotspots,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_003,multi_step,计算这个中文路网文件的CO2排放并在地图上展示,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;render_spatial_map,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_004,multi_step,先算这个非标准列名路网文件的CO2排放，再做扩散图,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_005,multi_step,帮我计算这份路网的NOx排放，做扩散，并渲染空间结果,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion;render_spatial_map,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_incomplete_001,incomplete,查询2020年CO2排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_002,incomplete,查询2020年乘用车排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_003,incomplete,帮我做扩散分析,-,calculate_dispersion,desired_chain,calculate_dispersion,false,no_file,false,false,false,false,false,false,false,false
+e2e_incomplete_004,incomplete,请直接做热点分析,-,analyze_hotspots,desired_chain,analyze_hotspots,false,no_file,false,false,false,false,false,false,false,false
+e2e_incomplete_005,incomplete,把结果画成地图,-,render_spatial_map,desired_chain,render_spatial_map,false,no_file,false,false,false,false,false,false,false,false
+e2e_constraint_001,constraint_violation,查询2020年摩托车在高速公路上的CO2排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_002,constraint_violation,请用这个路网文件计算摩托车在高速公路上的CO2排放,-,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_003,constraint_violation,查询2020年motorcycle在motorway上的NOx排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_004,constraint_violation,请计算这个文件里摩托车在expressway上的CO2排放,-,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_005,constraint_violation,请计算这个路网文件冬季条件下的NOx排放，再用urban_summer_day做扩散,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_simple_006,simple,用我刚上传的车辆轨迹文件计算2022年出租车在春季的CO2排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_simple_009,simple,查询2020年公交车在次干道的CO排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_010,simple,查一下2021年校车在支路的PM10排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_011,simple,查询2022年长途货运卡车在秋季主干道的NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_006,parameter_ambiguous,查一下2023年私家车在主干道的CO2排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_007,parameter_ambiguous,查询公交车在高架上的NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_008,parameter_ambiguous,计算这份轨迹文件里出租车夏天的CO排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_ambiguous_009,parameter_ambiguous,查询2021年校车在支路的氮氧化物排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_010,parameter_ambiguous,冬天高架上公交车的CO2排放因子是多少？,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_011,parameter_ambiguous,帮我算一下这个轨迹文件里家用车的CO2排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,true,false,false
+e2e_multistep_006,multi_step,这是我刚录的出租车轨迹，算一下NOx排放，然后做扩散模拟，再找出污染最严重的区域,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission;calculate_dispersion,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_008,multi_step,这个路网文件列名不太标准，帮我算CO2排放，然后做扩散,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,true,false,false
+e2e_multistep_009,multi_step,用这个城市路网算PM2.5排放，做urban_winter_night扩散，找出前10%高浓度区域，并在地图上标出热点和路段,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion;analyze_hotspots;render_spatial_map,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_010,multi_step,用这个路网算NOx排放，做扩散，再找热点,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion;analyze_hotspots,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_011,multi_step,计算路网的NOx和PM2.5排放，对NOx做扩散，对PM2.5画地图,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion;render_spatial_map,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_012,multi_step,把这个路网标为‘policy_A’，算CO2排放，做扩散，然后画图,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_013,multi_step,这是拥堵路段的出租车轨迹，算CO排放，用 calm_stable 气象做扩散,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission;calculate_dispersion,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_incomplete_006,incomplete,查一下CO2排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_007,incomplete,做一次NOx的扩散模拟,-,calculate_dispersion,desired_chain,calculate_dispersion,false,no_file,false,false,false,false,false,false,false,false
+e2e_incomplete_008,parameter_ambiguous,查家用车的NOx排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_009,simple,用这个文件算CO2排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_incomplete_010,incomplete,PM2.5的排放因子是多少？,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_011,incomplete,查一下 CO2 的排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_012,incomplete,帮我算排放,-,None,none,,false,no_file,false,false,true,false,false,true,false,false
+e2e_incomplete_013,incomplete,用这个文件算 NOx 排放,-,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_incomplete_014,incomplete,做一次 PM2.5 的扩散模拟,-,calculate_dispersion,desired_chain,calculate_dispersion,false,no_file,false,false,false,false,false,false,false,false
+e2e_incomplete_015,parameter_ambiguous,查家用车的 NOx 排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_incomplete_016,simple,用这个文件算 CO2 排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_incomplete_017,incomplete,用 urban_summer_day 做一次扩散,-,calculate_dispersion,desired_chain,calculate_dispersion,false,no_file,false,false,false,false,false,false,false,false
+e2e_incomplete_018,incomplete,查冬季的 CO2 排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_006,constraint_violation,查询2022年摩托车在高速公路的CO2排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_007,constraint_violation,计算这份路网冬季的NOx排放，并用urban_summer_day气象做扩散,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_008,constraint_violation,用我上传的夏季出租车轨迹算CO2排放，再用urban_winter_night做扩散,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission;calculate_dispersion,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_009,constraint_violation,这是我骑摩托车在高速上录的轨迹，算一下NOx排放,-,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_010,constraint_violation,查一下2023年摩托车在高速公路的PM2.5排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_011,constraint_violation,先算这个冬季路网的CO2排放，再用urban_summer_night做扩散分析,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_012,constraint_violation,这是我摩托车在高速上的轨迹，算NOx排放，做扩散，再找热点,-,calculate_micro_emission,desired_chain,calculate_micro_emission;calculate_dispersion;analyze_hotspots,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_013,parameter_ambiguous,查摩托车在高架上的CO排放因子,-,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_014,constraint_violation,用夏天录的出租车轨迹算PM2.5排放，再用urban_winter_night做扩散,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission;calculate_dispersion,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_simple_019,simple,我想看一下2022年皮卡走主干道时CO2因子数据,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_ambiguous_020,parameter_ambiguous,轻型客货车在城市道路跑的NOx排放因子多少？,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_021,simple,查询2021年轻型商用车在支路的PM2.5排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_022,parameter_ambiguous,面包车的CO2排放因子是多少,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_023,simple,城际客车2020年在高速上的二氧化碳因子帮我查一下,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_ambiguous_024,parameter_ambiguous,长途大巴的NOx排放有多少？,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_simple_025,simple,查询2022年垃圾车的PM2.5排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_026,parameter_ambiguous,环卫车排放的颗粒物有多少,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_simple_027,simple,中型货车跑次干道时，一氧化碳排放因子按2021年查,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_028,parameter_ambiguous,城配货车NOx排放因子查一下,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_029,simple,房车走快速路的2020年CO2因子给我看下,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_ambiguous_030,parameter_ambiguous,旅居车的排放因子帮我查一下,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_simple_031,simple,查询2022年半挂短途货车的NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_032,parameter_ambiguous,组合短途货车CO2排放多少,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_simple_033,simple,查询2021年乘用车的总碳氢化合物排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_ambiguous_034,parameter_ambiguous,轿车的总烃排放因子是多少,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_035,constraint_violation,用这个路网文件算THC排放，然后做扩散分析,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_simple_036,simple,"Query CO2 emission factors for a passenger car, model year 2022",query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,false,false,false,true,true,false,false,false
+e2e_simple_037,simple,Calculate NOx emissions for this road network file,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,false,false,true,false,false,false
+e2e_ambiguous_038,parameter_ambiguous,What's the emission factor for a heavy truck on the highway?,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,false,false,false,true,true,false,false,false
+e2e_ambiguous_039,parameter_ambiguous,How much PM2.5 does a city bus emit?,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_multistep_040,multi_step,"Calculate emissions from this file, then run dispersion analysis",calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,false,false,true,false,false,false
+e2e_multistep_041,multi_step,冬季路网先算CO2，再按urban_winter_day气象跑扩散看看,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_multistep_042,multi_step,算这个路网的NOx排放，用windy_neutral气象做扩散,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_043,multi_step,用这个轨迹文件算CO2排放，然后画个地图,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission;render_spatial_map,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_044,multi_step,查一下乘用车和公交车的NOx排放因子，帮我对比,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_multistep_045,multi_step,先查一下NOx相关的排放知识，再用这个文件算排放,query_knowledge,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_046,constraint_violation,查2023年摩托车的PM10排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_constraint_047,constraint_violation,夏季路网NOx排放算完后套urban_winter_day扩散，看看警告,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_constraint_048,constraint_violation,用这个路网文件算CO2排放，然后做扩散,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_multistep_049,multi_step,这个带geometry的6条路网，算NOx后继续扩散并筛热点,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion;analyze_hotspots,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_multistep_050,multi_step,带坐标路网算完CO2后直接出一张排放地图,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;render_spatial_map,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_incomplete_051,incomplete,帮我做一个排放分析,-,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_incomplete_052,incomplete,对比一下两个情景的排放差异,-,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_incomplete_053,incomplete,把扩散结果画成热力图,-,calculate_dispersion,desired_chain,calculate_dispersion,false,no_file,false,false,false,false,false,false,false,false
+e2e_incomplete_054,incomplete,用自定义气象参数做扩散,-,calculate_dispersion,desired_chain,calculate_dispersion,false,no_file,false,false,false,false,false,false,false,false
+e2e_clarification_101,multi_turn_clarification,帮我查一下排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_clarification_102,multi_turn_clarification,我需要公交车CO2那类因子，先帮我确认参数,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,true,false,false
+e2e_clarification_103,multi_turn_clarification,查一下PM2.5,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_clarification_104,multi_turn_clarification,帮我算一下这个路段的NOx,calculate_macro_emission,calculate_macro_emission,file_task_type,,false,macro_emission,false,false,false,false,false,true,false,false
+e2e_clarification_105,multi_turn_clarification,用这个文件做排放计算,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_clarification_106,multi_turn_clarification,算一下这个轨迹文件,calculate_micro_emission,calculate_micro_emission,file_task_type,,false,micro_emission,false,false,false,false,false,false,false,false
+e2e_clarification_107,multi_turn_clarification,我想知道因子数据,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_clarification_108,multi_turn_clarification,帮查车辆排放,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_clarification_109,multi_turn_clarification,查因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_clarification_110,multi_turn_clarification,需要一个排放查询,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_clarification_111,multi_turn_clarification,这个路网帮我看看,calculate_macro_emission,calculate_macro_emission,file_task_type,,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_clarification_112,multi_turn_clarification,轨迹文件跑一下,calculate_micro_emission,calculate_micro_emission,file_task_type,,false,micro_emission,false,false,false,false,false,false,false,false
+e2e_clarification_113,multi_turn_clarification,帮我查一下2021年的因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_clarification_114,multi_turn_clarification,排放因子要一个,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_clarification_115,multi_turn_clarification,先处理这个路网,calculate_macro_emission,calculate_macro_emission,file_task_type,,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_clarification_116,multi_turn_clarification,帮我做轨迹排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_clarification_117,multi_turn_clarification,查一下车的NOx,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_clarification_118,multi_turn_clarification,给我一个PM10排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_clarification_119,multi_turn_clarification,帮我分析这个带坐标路网,calculate_macro_emission,calculate_macro_emission,file_task_type,,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_clarification_120,multi_turn_clarification,我需要扩散结果,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_revision_121,user_revision,查2021年乘用车冬季NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_revision_122,user_revision,公交车CO2按2022年给一个因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_123,user_revision,摩托车CO按2020年查一版,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_revision_124,user_revision,查2021年皮卡主干道CO2因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_125,user_revision,查询2022年城际客车高速公路NOx因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_126,user_revision,轻型商用车PM2.5按2021年先查,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_revision_127,user_revision,查询2020年房车快速路CO2因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_128,user_revision,组合短途货车NOx按2022年先给结果,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_revision_129,user_revision,查询2023年公交车PM10因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_130,user_revision,查2021年乘用车秋季CO2因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_131,user_revision,用这个路网文件算NOx排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_revision_132,user_revision,用这个轨迹算乘用车NOx排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_revision_133,user_revision,这个路网冬季算CO2排放,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,true,false,false,false,false,false
+e2e_revision_134,user_revision,这个轨迹文件算PM2.5排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_revision_135,user_revision,带坐标路网算NOx并画地图,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;render_spatial_map,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_revision_136,user_revision,查2022年校车支路NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_revision_137,user_revision,查2020年组合长途货车CO排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_revision_138,user_revision,查2021年中型货车NOx因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_139,user_revision,查2022年乘用车CO2因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_revision_140,user_revision,先查公交车NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_141,ambiguous_colloquial,家里那种四门小车NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_142,ambiguous_colloquial,面包车2021年的CO2因子多少,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_143,ambiguous_colloquial,三蹦子的CO排放因子查一下,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_144,ambiguous_colloquial,大铁皮跑主干道NOx因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_145,ambiguous_colloquial,绿皮车PM2.5排放因子有吗,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_146,ambiguous_colloquial,蓝牌小货的CO2排放多少,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_colloquial_147,ambiguous_colloquial,黄牌大货NOx排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_148,ambiguous_colloquial,通勤大巴CO2因子查一下,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_149,ambiguous_colloquial,村巴的NOx排放因子多少,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_150,ambiguous_colloquial,短倒半挂CO排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_151,ambiguous_colloquial,长途半挂CO2排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_152,ambiguous_colloquial,扫街车PM10排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_153,ambiguous_colloquial,旅行房车NOx因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_154,ambiguous_colloquial,校巴CO2因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_155,ambiguous_colloquial,小面PM2.5排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_156,ambiguous_colloquial,代步摩的CO排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_colloquial_157,ambiguous_colloquial,城配小货NOx因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_158,ambiguous_colloquial,跨城大巴PM2.5因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_159,ambiguous_colloquial,私家四轮2022年的CO2因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_colloquial_160,ambiguous_colloquial,厢式小货主干道NOx因子,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_codeswitch_161,code_switch_typo,查 passenger car 的 NOx 排放银子,query_emission_factors,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_codeswitch_162,code_switch_typo,calculate 一下 CO2 emission for this file,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,false,false,true,false,false,false
+e2e_codeswitch_163,code_switch_typo,查 2020 年小汽车的排放,-,None,none,,false,no_file,false,false,true,false,false,false,false,false
+e2e_codeswitch_164,code_switch_typo,NOx factor for 公交车 pls,query_emission_factors,None,none,,false,no_file,false,false,false,true,false,false,false,false
+e2e_codeswitch_165,code_switch_typo,帮我 query 一下 CO₂ for school bus 2022,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_codeswitch_166,code_switch_typo,"用这个 file 算 PM2,5 emission",calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission,false,macro_emission,false,false,false,false,true,false,false,false
+e2e_codeswitch_167,code_switch_typo,查 motercycle 的 CO 排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_codeswitch_168,code_switch_typo,passenger truck 在主干道 NOx fctor,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_codeswitch_169,code_switch_typo,run dispersion after 算 NOx from this road net,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;calculate_dispersion,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_codeswitch_170,code_switch_typo,查CO emmision factor for bus,query_emission_factors,None,none,,false,no_file,false,false,false,true,false,false,false,false
+e2e_codeswitch_171,code_switch_typo,小汽车 PM25 因子 2021,query_emission_factors,None,none,,false,no_file,true,false,false,false,false,false,false,false
+e2e_codeswitch_172,code_switch_typo,计算这个轨迹的N0x排放,calculate_micro_emission,calculate_micro_emission,desired_chain,calculate_micro_emission,false,micro_emission,false,false,true,false,false,false,false,false
+e2e_codeswitch_173,code_switch_typo,query 2022 refuse truck PM10 排放因子,query_emission_factors,query_emission_factors,desired_chain,query_emission_factors,true,no_file,true,true,true,false,false,false,false,false
+e2e_codeswitch_174,code_switch_typo,这个路网 CO emission 然后 render map,calculate_macro_emission,calculate_macro_emission,desired_chain,calculate_macro_emission;render_spatial_map,false,macro_emission,false,false,false,false,true,false,false,false
+e2e_codeswitch_175,code_switch_typo,查 intercity bus 二氧化碳 factor,query_emission_factors,None,none,,false,no_file,false,false,false,true,false,false,false,false
+e2e_codeswitch_176,code_switch_typo,算一下这个file的THC排方,calculate_macro_emission,calculate_macro_emission,file_task_type,,false,macro_emission,false,false,false,false,false,false,false,false
+e2e_codeswitch_177,code_switch_typo,NOx for light commerical truck on 支路,query_emission_factors,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_codeswitch_178,code_switch_typo,查2023年 passenger car 的,-,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_codeswitch_179,code_switch_typo,calculate CO2 dispesion with urban summer day,-,None,none,,false,no_file,false,false,false,false,false,false,false,false
+e2e_codeswitch_180,code_switch_typo,帮我查一下PM two point five factor for 校车,query_emission_factors,None,none,,false,no_file,false,false,false,true,false,false,false,false
