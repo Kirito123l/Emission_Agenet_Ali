@@ -110,6 +110,15 @@ class Config:
             ).split(",")
             if item.strip()
         )
+        self.enable_ao_first_class_state = (
+            os.getenv("ENABLE_AO_FIRST_CLASS_STATE", "true").lower() == "true"
+        )
+        self.enable_llm_intent_resolution = (
+            os.getenv("ENABLE_LLM_INTENT_RESOLUTION", "true").lower() == "true"
+        )
+        self.enable_lifecycle_contract_alignment = (
+            os.getenv("ENABLE_LIFECYCLE_CONTRACT_ALIGNMENT", "true").lower() == "true"
+        )
         self.enable_dependency_contract = (
             os.getenv("ENABLE_DEPENDENCY_CONTRACT", "false").lower() == "true"
         )
