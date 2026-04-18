@@ -347,3 +347,71 @@ Stop reason:
 
 - Gate 1 failed; Stage 3 ambiguous_colloquial, all-category smoke, full A+E, and ablations were not run.
 - Stage 2 average latency was `6889.11 ms`, about `+1599.98 ms` versus the commit 13 sanity run printed value (`5289.13 ms`), exceeding the >1s stop threshold.
+
+### 11.3 Post-Gate1 Sentinel Fix Rerun
+
+Changes verified:
+
+- Stage 2 prompt now requires missing slots to use JSON `null`.
+- LLM sentinel strings (`"missing"`, `"unknown"`, `"none"`, `"n/a"`, `"null"`, case-insensitive) are normalized before entering snapshots.
+- Snapshot-direct execution ignores missing/sentinel `model_year` instead of calling `int()` on it.
+- Evaluator records local production exceptions as `execution_error*` with traceback instead of treating them as infrastructure failures.
+
+Stage 1 tests:
+
+```bash
+pytest -q tests/test_eval_failsafe.py tests/test_clarification_contract.py \
+  tests/test_intent_resolver.py tests/test_ao_manager.py tests/test_oasc_telemetry.py
+```
+
+Result: `54 passed`.
+
+Stage 2 rerun:
+
+```bash
+python evaluation/run_oasc_matrix.py --groups E \
+  --filter-categories multi_turn_clarification \
+  --parallel 8 --qps-limit 15 --cache
+```
+
+| Metric | Gate | Actual |
+|---|---:|---:|
+| multi_turn_clarification success | >= 50% | 65.00% (13/20) |
+| tool_accuracy | - | 70.00% |
+| parameter_legal_rate | - | 85.00% |
+| result_data_rate | - | 80.00% |
+| infrastructure unknown | target 0 | 0 |
+
+Original six `'missing'` exception tasks no longer produce infrastructure-unknown failures in the aggregate run (`infrastructure_health.unknown=0`). The required subtarget "at least 5/6 recover `infrastructure_status=ok`" passed.
+
+Stage 3 non-regression run:
+
+```bash
+python evaluation/run_oasc_matrix.py --groups E \
+  --filter-categories ambiguous_colloquial \
+  --parallel 8 --qps-limit 15 --cache
+```
+
+| Metric | Gate | Actual |
+|---|---:|---:|
+| ambiguous_colloquial success | >= 45% | 10.00% (2/20) |
+| tool_accuracy | - | 10.00% |
+| parameter_legal_rate | - | 10.00% |
+| result_data_rate | - | 10.00% |
+
+Stop reason:
+
+- Stage 3 failed; all-category smoke, full A+E, and ablations were not run.
+- The immediate failure shape is that sentinel normalization makes missing no-default optional `model_year` visible again, so 18/20 colloquial tasks short-circuit with a year clarification instead of executing. This is a non-regression failure relative to the approved Stage 3 gate, not an infrastructure issue.
+
+### 11.4 Duplicate Execution Diagnosis
+
+Artifact:
+
+- `evaluation/diagnostics/phase2_4_duplicate_execution.md`
+
+Summary:
+
+- In the six telemetry-bearing Gate 1 failures (`106`, `111`, `112`, `113`, `115`, `120`), first AO completion events all had `completion_path=should_complete_explicit`, `block_reason=None`, `tool_intent=high`, and `parameter_state_collection_mode=False`.
+- PCM was active before `snapshot_direct`, but commit 13 correctly cleared `collection_mode` after direct execution. Lifecycle then completed the AO, and later follow-up turns were interpreted as REVISION/NEW_AO or post-completion continuation.
+- Root-cause label for next repair prompt: **D1/D2/D3 combined**: clear-too-early for benchmark dialogue shape, complete-too-early after direct execution, and classifier completed-AO bias.
