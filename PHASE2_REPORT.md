@@ -296,3 +296,54 @@ Stop point:
 - Fix 1 local gate passed
 - Fix 2 local gate failed
 - Step 4.3 / Step 5 / Step 6 not run
+
+## 11. Phase 2.4 Progress
+
+### 11.1 First-Class State Sanity Observation
+
+| Run | multi_turn_clarification |
+|---|---:|
+| Phase 2.3 baseline `phase2_pcm_clarification_E` | 40.00% (8/20) |
+| Commit 13 first-class PCM smoke | 50.00% (10/20) |
+
+Interpretation used for design iteration:
+
+- `e2e_clarification_106` changed from fail to pass because the Phase 2.3 probe max-turn repair formed a closed loop only after PCM state moved from scattered metadata into first-class `ParameterState`.
+- `e2e_clarification_116` was excluded from the sanity comparison because the baseline failed with `invalid literal for int() with base 10: 'missing'` and recorded no classifier or clarification telemetry.
+- This is a positive side effect of first-class state, not treated as a regression.
+
+### 11.2 Gate 1 After LLM-Assisted Intent Resolution
+
+Command:
+
+```bash
+python evaluation/run_oasc_matrix.py --groups E \
+  --filter-categories multi_turn_clarification \
+  --parallel 8 --qps-limit 15 --cache
+```
+
+Artifact:
+
+- `evaluation/results/end2end_full_v5_oasc_E/end2end_metrics.json`
+- `PHASE2_4_GATE1_DIAGNOSIS.md`
+
+| Metric | Gate | Actual |
+|---|---:|---:|
+| multi_turn_clarification success | >= 50% | 40.00% (8/20) |
+| tool_accuracy | - | 45.00% |
+| parameter_legal_rate | - | 55.00% |
+| result_data_rate | - | 70.00% |
+
+Intent telemetry:
+
+| Distribution | Count |
+|---|---:|
+| tool_intent.confidence=high | 44 |
+| resolved_by rule:* | 42 |
+| resolved_by llm_slot_filler | 2 |
+| Stage 2 calls with parsed intent | 20/20 |
+
+Stop reason:
+
+- Gate 1 failed; Stage 3 ambiguous_colloquial, all-category smoke, full A+E, and ablations were not run.
+- Stage 2 average latency was `6889.11 ms`, about `+1599.98 ms` versus the commit 13 sanity run printed value (`5289.13 ms`), exceeding the >1s stop threshold.
