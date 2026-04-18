@@ -156,7 +156,7 @@ async def test_pcm_triggers_on_missing_required_first_turn():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert ao.metadata["collection_mode"] is True
+    assert ao.parameter_state.collection_mode is True
 
 
 @pytest.mark.anyio
@@ -311,7 +311,7 @@ async def test_confirm_first_promotes_defaulted_optional_slots_on_fresh_turn():
         "pollutants": ["CO2"],
     }
     contract, manager, _inner = _make_contract(hints, llm_payload={})
-    manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao = manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
     state = TaskState(user_message="我需要公交车CO2那类因子，先帮我确认参数", session_id="clarification-session")
     context = ContractContext(
         user_message="我需要公交车CO2那类因子，先帮我确认参数",
@@ -374,7 +374,7 @@ async def test_pcm_triggers_on_confirm_first():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert ao.metadata["collection_mode"] is True
+    assert ao.parameter_state.collection_mode is True
     assert interception.metadata["clarification"]["telemetry"]["confirm_first_detected"] is True
 
 
@@ -453,7 +453,7 @@ async def test_pcm_persists_across_turns_via_metadata():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert ao.metadata["collection_mode"] is True
+    assert ao.parameter_state.collection_mode is True
 
 
 @pytest.mark.anyio
@@ -466,7 +466,7 @@ async def test_pcm_probes_unfilled_optionals_without_default():
         "pollutants": ["CO2"],
     }
     contract, manager, _inner = _make_contract(hints, llm_payload={})
-    manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao = manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
     state = TaskState(user_message="我需要公交车CO2那类因子，先帮我确认参数", session_id="clarification-session")
     context = ContractContext(
         user_message="我需要公交车CO2那类因子，先帮我确认参数",
@@ -494,6 +494,8 @@ async def test_pcm_probes_unfilled_optionals_without_default():
     assert interception.proceed is False
     assert telemetry["collection_mode"] is True
     assert telemetry["probe_optional_slot"] == "model_year"
+    assert ao.parameter_state.collection_mode is True
+    assert ao.parameter_state.awaiting_slot == "model_year"
 
 
 @pytest.mark.anyio
@@ -532,7 +534,7 @@ async def test_pcm_triggers_on_first_turn_required_met_but_no_default_optional_e
 
     telemetry = interception.metadata["clarification"]["telemetry"]
     assert interception.proceed is False
-    assert ao.metadata["collection_mode"] is True
+    assert ao.parameter_state.collection_mode is True
     assert telemetry["pcm_trigger_reason"] == "unfilled_optional_no_default_at_first_turn"
     assert telemetry["probe_optional_slot"] == "model_year"
 
@@ -580,6 +582,7 @@ async def test_pcm_probe_abandons_after_max_turns():
     assert telemetry["probe_optional_slot"] == "model_year"
     assert telemetry["probe_turn_count"] == 2
     assert telemetry["probe_abandoned"] is True
+    assert ao.parameter_state.probe_abandoned is True
 
 
 def test_probe_turn_count_resets_when_target_slot_changes():
@@ -680,7 +683,30 @@ async def test_simple_task_not_affected_by_pcm():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is True
-    assert ao.metadata["collection_mode"] is False
+    assert ao.parameter_state.collection_mode is False
+
+
+def test_snapshot_direct_success_clears_first_class_collection_state():
+    reset_config()
+    config = get_config()
+    fact_memory = FactMemory(session_id="clarification-session")
+    manager = AOManager(fact_memory)
+    ao = manager.create_ao("确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.parameter_state.collection_mode = True
+    ao.parameter_state.awaiting_slot = "model_year"
+    ao.parameter_state.probe_turn_count = 1
+    ao.parameter_state.probe_abandoned = True
+
+    router = object.__new__(GovernedRouter)
+    router.runtime_config = config
+    router.ao_manager = manager
+
+    router._mark_parameter_collection_complete()
+
+    assert ao.parameter_state.collection_mode is False
+    assert ao.parameter_state.awaiting_slot is None
+    assert ao.parameter_state.probe_turn_count == 0
+    assert ao.parameter_state.probe_abandoned is False
 
 
 def test_snapshot_to_tool_args_maps_factor_snapshot():

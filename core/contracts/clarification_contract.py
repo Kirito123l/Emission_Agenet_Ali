@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from config import get_config
+from core.analytical_objective import IntentConfidence
 from core.ao_classifier import AOClassType
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.router import RouterResponse
@@ -375,7 +376,30 @@ class ClarificationContract(BaseContract):
         if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
             return {}
         payload = ao.metadata.get("clarification_contract")
-        return dict(payload) if isinstance(payload, dict) else {}
+        pending_state = dict(payload) if isinstance(payload, dict) else {}
+        if not self._first_class_state_enabled():
+            return pending_state
+
+        parameter_state = getattr(ao, "parameter_state", None)
+        tool_intent = getattr(ao, "tool_intent", None)
+        resolved_tool = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
+        if resolved_tool and not pending_state.get("tool_name"):
+            pending_state["tool_name"] = resolved_tool
+
+        awaiting_slot = str(getattr(parameter_state, "awaiting_slot", "") or "").strip()
+        if awaiting_slot and "missing_slots" not in pending_state:
+            pending_state["missing_slots"] = [awaiting_slot]
+        if awaiting_slot and "probe_optional_slot" not in pending_state:
+            pending_state["probe_optional_slot"] = awaiting_slot
+        if awaiting_slot and "pending" not in pending_state:
+            pending_state["pending"] = True
+        if parameter_state is not None:
+            pending_state.setdefault("probe_turn_count", int(getattr(parameter_state, "probe_turn_count", 0) or 0))
+            pending_state.setdefault("probe_abandoned", bool(getattr(parameter_state, "probe_abandoned", False)))
+            reason = str(getattr(parameter_state, "collection_mode_reason", "") or "").strip()
+            if reason and "pcm_trigger_reason" not in pending_state:
+                pending_state["pcm_trigger_reason"] = reason
+        return pending_state
 
     def _initial_snapshot(
         self,
@@ -850,6 +874,19 @@ class ClarificationContract(BaseContract):
     ) -> None:
         if ao is None:
             return
+        if self._first_class_state_enabled():
+            self._update_first_class_state(
+                ao=ao,
+                tool_name=tool_name,
+                snapshot=snapshot,
+                pending=pending,
+                missing_slots=missing_slots,
+                collection_mode=collection_mode,
+                pcm_trigger_reason=pcm_trigger_reason,
+                probe_optional_slot=probe_optional_slot,
+                probe_turn_count=probe_turn_count,
+                probe_abandoned=probe_abandoned,
+            )
         if not isinstance(ao.metadata, dict):
             ao.metadata = {}
         ao.metadata["parameter_snapshot"] = copy.deepcopy(snapshot)
@@ -871,6 +908,63 @@ class ClarificationContract(BaseContract):
             "probe_abandoned": bool(probe_abandoned),
         }
 
+    def _update_first_class_state(
+        self,
+        *,
+        ao: Any,
+        tool_name: str,
+        snapshot: Dict[str, Dict[str, Any]],
+        pending: bool,
+        missing_slots: List[str],
+        collection_mode: bool,
+        pcm_trigger_reason: Optional[str],
+        probe_optional_slot: Optional[str],
+        probe_turn_count: int,
+        probe_abandoned: bool,
+    ) -> None:
+        tool_intent = getattr(ao, "tool_intent", None)
+        if tool_intent is not None:
+            tool_intent.resolved_tool = tool_name
+            if getattr(tool_intent, "confidence", IntentConfidence.NONE) == IntentConfidence.NONE:
+                tool_intent.confidence = IntentConfidence.HIGH
+            if not getattr(tool_intent, "resolved_by", None):
+                tool_intent.resolved_by = "clarification_contract:legacy_resolver"
+            if not getattr(tool_intent, "evidence", None):
+                tool_intent.evidence = ["clarification_contract.tool_name"]
+            if getattr(tool_intent, "resolved_at_turn", None) is None:
+                tool_intent.resolved_at_turn = self._current_turn_index()
+
+        parameter_state = getattr(ao, "parameter_state", None)
+        if parameter_state is None:
+            return
+        parameter_state.collection_mode = bool(collection_mode)
+        parameter_state.collection_mode_reason = pcm_trigger_reason
+        awaiting_slot = str(probe_optional_slot or "").strip()
+        if not awaiting_slot and pending and missing_slots:
+            awaiting_slot = str(missing_slots[0] or "").strip()
+        parameter_state.awaiting_slot = awaiting_slot or None
+        parameter_state.probe_turn_count = int(probe_turn_count or 0)
+        parameter_state.probe_abandoned = bool(probe_abandoned)
+
+        required_slots = set()
+        optional_slots = set()
+        tool_spec = self._get_tool_spec(tool_name)
+        required_names = set(str(item) for item in list(tool_spec.get("required_slots") or []))
+        optional_names = set(str(item) for item in list(tool_spec.get("optional_slots") or []))
+        for slot_name, slot_payload in dict(snapshot or {}).items():
+            if not isinstance(slot_payload, dict):
+                continue
+            if slot_payload.get("source") in {"missing", "rejected"}:
+                continue
+            if slot_payload.get("value") in (None, "", []):
+                continue
+            if slot_name in required_names:
+                required_slots.add(str(slot_name))
+            if slot_name in optional_names:
+                optional_slots.add(str(slot_name))
+        parameter_state.required_filled = required_slots
+        parameter_state.optional_filled = optional_slots
+
     @staticmethod
     def _is_first_ao_turn(ao: Any) -> bool:
         if ao is None:
@@ -890,11 +984,7 @@ class ClarificationContract(BaseContract):
         is_resume: bool,
     ) -> tuple[bool, Optional[str]]:
         if is_resume:
-            if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
-                return False, None
-            return bool(ao.metadata.get("collection_mode")), (
-                str(ao.metadata.get("pcm_trigger_reason") or "") or None
-            )
+            return self._current_collection_mode(ao)
         if confirm_first_detected:
             return True, "confirm_first_signal"
         if self._is_first_ao_turn(ao):
@@ -903,6 +993,15 @@ class ClarificationContract(BaseContract):
             if unfilled_optionals_without_default:
                 return True, "unfilled_optional_no_default_at_first_turn"
             return False, None
+        return self._current_collection_mode(ao)
+
+    def _current_collection_mode(self, ao: Any) -> tuple[bool, Optional[str]]:
+        if ao is not None and self._first_class_state_enabled():
+            parameter_state = getattr(ao, "parameter_state", None)
+            if parameter_state is not None:
+                reason = str(getattr(parameter_state, "collection_mode_reason", "") or "").strip()
+                if getattr(parameter_state, "collection_mode", False) or reason:
+                    return bool(getattr(parameter_state, "collection_mode", False)), reason or None
         if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
             return False, None
         return bool(ao.metadata.get("collection_mode")), (
@@ -941,6 +1040,9 @@ class ClarificationContract(BaseContract):
         if previous_decision == "probe_optional" and previous_slot == slot_name:
             return previous_count + 1
         return 1
+
+    def _first_class_state_enabled(self) -> bool:
+        return bool(getattr(self.runtime_config, "enable_ao_first_class_state", True))
 
     def _inject_snapshot_into_context(
         self,
