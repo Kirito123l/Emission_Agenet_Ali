@@ -499,6 +499,79 @@ async def test_pcm_probes_unfilled_optionals_without_default():
 
 
 @pytest.mark.anyio
+async def test_llm_intent_hint_resolves_tool_when_fast_path_misses():
+    hints = {
+        "wants_factor": False,
+        "desired_tool_chain": [],
+    }
+    llm_payload = {
+        "slots": {
+            "vehicle_type": {
+                "value": "Transit Bus",
+                "source": "inferred",
+                "confidence": 0.95,
+                "raw_text": "公交车",
+            },
+            "pollutants": {
+                "value": ["CO2"],
+                "source": "user",
+                "confidence": 1.0,
+                "raw_text": "CO2",
+            },
+            "model_year": {
+                "value": None,
+                "source": "missing",
+                "confidence": None,
+                "raw_text": None,
+            },
+        },
+        "intent": {
+            "resolved_tool": "query_emission_factors",
+            "intent_confidence": "high",
+            "reasoning": "因子查询意图明确",
+        },
+        "missing_required": [],
+        "needs_clarification": False,
+        "clarification_question": None,
+        "ambiguous_slots": [],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload=llm_payload)
+    ao = manager.create_ao("确认公交车 CO2 因子参数", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="我需要公交车CO2那类因子，先帮我确认参数", session_id="clarification-session")
+    context = ContractContext(
+        user_message="我需要公交车CO2那类因子，先帮我确认参数",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="确认公交车 CO2 因子参数",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["tool_name"] == "query_emission_factors"
+    assert telemetry["llm_intent_parse_success"] is True
+    assert telemetry["tool_intent_confidence"] == "high"
+    assert telemetry["tool_intent_resolved_by"] == "llm_slot_filler"
+    assert telemetry["probe_optional_slot"] == "model_year"
+    assert ao.tool_intent.resolved_tool == "query_emission_factors"
+    assert ao.tool_intent.resolved_by == "llm_slot_filler"
+
+
+@pytest.mark.anyio
 async def test_pcm_triggers_on_first_turn_required_met_but_no_default_optional_empty():
     hints = {
         "wants_factor": True,

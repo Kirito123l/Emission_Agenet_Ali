@@ -15,6 +15,7 @@ from config import get_config
 from core.analytical_objective import IntentConfidence
 from core.ao_classifier import AOClassType
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
+from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
 from services.llm_client import get_llm_client
 from services.standardization_engine import StandardizationEngine
@@ -51,6 +52,10 @@ class ClarificationTelemetry:
     proceed_mode: Optional[str]
     ao_id: Optional[str]
     tool_name: Optional[str]
+    llm_intent_raw: Optional[Dict[str, Any]]
+    llm_intent_parse_success: bool
+    tool_intent_confidence: Optional[str]
+    tool_intent_resolved_by: Optional[str]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -76,6 +81,10 @@ class ClarificationTelemetry:
             "proceed_mode": self.proceed_mode,
             "ao_id": self.ao_id,
             "tool_name": self.tool_name,
+            "llm_intent_raw": dict(self.llm_intent_raw) if isinstance(self.llm_intent_raw, dict) else None,
+            "llm_intent_parse_success": self.llm_intent_parse_success,
+            "tool_intent_confidence": self.tool_intent_confidence,
+            "tool_intent_resolved_by": self.tool_intent_resolved_by,
         }
 
 
@@ -107,6 +116,7 @@ class ClarificationContract(BaseContract):
                 "agent",
                 model=getattr(self.runtime_config, "clarification_llm_model", None),
             )
+        self.intent_resolver = IntentResolver(inner_router, ao_manager)
 
     async def before_turn(self, context: ContractContext) -> ContractInterception:
         if not getattr(self.runtime_config, "enable_clarification_contract", True):
@@ -132,31 +142,11 @@ class ClarificationContract(BaseContract):
             return ContractInterception()
         await self._ensure_file_context(state, context.file_path)
 
-        tool_name = self._resolve_tool_name(
-            state=state,
-            current_ao=current_ao,
-            pending_state=pending_state,
-            classification=classification,
-        )
-        tool_spec = self._get_tool_spec(tool_name)
-        if not tool_spec or (
-            not tool_spec.get("required_slots")
-            and not (is_resume and tool_spec.get("clarification_followup_slots"))
-        ):
-            return ContractInterception()
-
         confirm_first_trigger = self._detect_confirm_first(context.effective_user_message) if is_fresh else None
         confirm_first_detected = bool(confirm_first_trigger)
-        active_required_slots = list(tool_spec.get("required_slots") or [])
-        pending_decision = str(pending_state.get("pending_decision") or "").strip()
-        if is_resume and pending_state.get("pending") and pending_decision == "clarify_required":
-            active_required_slots.extend(
-                slot_name
-                for slot_name in list(pending_state.get("missing_slots") or [])
-                if slot_name
-            )
-        active_required_slots = list(dict.fromkeys(active_required_slots))
 
+        tool_intent = self.intent_resolver.resolve_fast(state, current_ao)
+        tool_name = tool_intent.resolved_tool
         telemetry = ClarificationTelemetry(
             turn=self._current_turn_index(),
             triggered=True,
@@ -180,7 +170,63 @@ class ClarificationContract(BaseContract):
             proceed_mode=None,
             ao_id=current_ao.ao_id if current_ao is not None else None,
             tool_name=tool_name,
+            llm_intent_raw=None,
+            llm_intent_parse_success=False,
+            tool_intent_confidence=tool_intent.confidence.value,
+            tool_intent_resolved_by=tool_intent.resolved_by,
         )
+
+        prefetched_stage2_payload: Optional[Dict[str, Any]] = None
+        llm_question = None
+        if not tool_name:
+            if not self._stage2_available():
+                return ContractInterception()
+            telemetry.stage2_called = True
+            try:
+                started = time.perf_counter()
+                prefetched_stage2_payload = await self._run_stage2_llm(
+                    user_message=context.effective_user_message,
+                    state=state,
+                    current_ao=current_ao,
+                    tool_name=None,
+                    snapshot={},
+                    tool_spec=self._generic_tool_spec(),
+                    classification=classification,
+                )
+                telemetry.stage2_latency_ms = round((time.perf_counter() - started) * 1000, 2)
+                telemetry.stage2_missing_required = list(prefetched_stage2_payload.get("missing_required") or [])
+                llm_question = str(prefetched_stage2_payload.get("clarification_question") or "").strip() or None
+                telemetry.stage2_clarification_question = llm_question
+                llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(prefetched_stage2_payload)
+                telemetry.llm_intent_raw = llm_raw
+                telemetry.llm_intent_parse_success = parse_success
+                tool_intent = self.intent_resolver.resolve_with_llm_hint(state, current_ao, llm_hint)
+                self._persist_tool_intent(current_ao, tool_intent)
+                tool_name = tool_intent.resolved_tool
+                telemetry.tool_name = tool_name
+                telemetry.tool_intent_confidence = tool_intent.confidence.value
+                telemetry.tool_intent_resolved_by = tool_intent.resolved_by
+            except Exception as exc:
+                logger.warning("ClarificationContract Stage 2 intent resolution failed: %s", exc)
+                return ContractInterception()
+
+        self._persist_tool_intent(current_ao, tool_intent)
+        tool_spec = self._get_tool_spec(tool_name)
+        if not tool_spec or (
+            not tool_spec.get("required_slots")
+            and not (is_resume and tool_spec.get("clarification_followup_slots"))
+        ):
+            return ContractInterception()
+
+        active_required_slots = list(tool_spec.get("required_slots") or [])
+        pending_decision = str(pending_state.get("pending_decision") or "").strip()
+        if is_resume and pending_state.get("pending") and pending_decision == "clarify_required":
+            active_required_slots.extend(
+                slot_name
+                for slot_name in list(pending_state.get("missing_slots") or [])
+                if slot_name
+            )
+        active_required_slots = list(dict.fromkeys(active_required_slots))
 
         snapshot = self._initial_snapshot(
             tool_name=tool_name,
@@ -191,11 +237,15 @@ class ClarificationContract(BaseContract):
         telemetry.stage1_filled_slots = self._run_stage1(state, snapshot)
 
         missing_required_stage1 = self._missing_slots(snapshot, active_required_slots)
-        llm_question = None
+        if prefetched_stage2_payload is not None:
+            snapshot = self._merge_stage2_snapshot(
+                snapshot,
+                self._stage2_snapshot_payload(prefetched_stage2_payload),
+        )
         if (
-            missing_required_stage1
-            and getattr(self.runtime_config, "enable_clarification_stage2_llm", True)
-            and self.llm_client is not None
+            prefetched_stage2_payload is None
+            and missing_required_stage1
+            and self._stage2_available()
         ):
             telemetry.stage2_called = True
             try:
@@ -213,9 +263,16 @@ class ClarificationContract(BaseContract):
                 telemetry.stage2_missing_required = list(llm_payload.get("missing_required") or [])
                 llm_question = str(llm_payload.get("clarification_question") or "").strip() or None
                 telemetry.stage2_clarification_question = llm_question
-                snapshot = self._merge_stage2_snapshot(snapshot, llm_payload.get("parameter_snapshot") or {})
-                if llm_payload.get("tool_name"):
-                    tool_name = str(llm_payload.get("tool_name"))
+                llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(llm_payload)
+                telemetry.llm_intent_raw = llm_raw
+                telemetry.llm_intent_parse_success = parse_success
+                tool_intent = self.intent_resolver.resolve_with_llm_hint(state, current_ao, llm_hint)
+                self._persist_tool_intent(current_ao, tool_intent)
+                telemetry.tool_intent_confidence = tool_intent.confidence.value
+                telemetry.tool_intent_resolved_by = tool_intent.resolved_by
+                snapshot = self._merge_stage2_snapshot(snapshot, self._stage2_snapshot_payload(llm_payload))
+                if tool_intent.resolved_tool and tool_intent.resolved_tool != tool_name:
+                    tool_name = str(tool_intent.resolved_tool)
                     telemetry.tool_name = tool_name
                     tool_spec = self._get_tool_spec(tool_name) or tool_spec
             except Exception as exc:
@@ -553,7 +610,7 @@ class ClarificationContract(BaseContract):
         user_message: str,
         state: Any,
         current_ao: Any,
-        tool_name: str,
+        tool_name: Optional[str],
         snapshot: Dict[str, Dict[str, Any]],
         tool_spec: Dict[str, Any],
         classification: Any,
@@ -561,6 +618,7 @@ class ClarificationContract(BaseContract):
         prompt_payload = {
             "user_message": user_message,
             "tool_name": tool_name,
+            "available_tools": self._available_tool_intent_descriptions(),
             "file_context": {
                 "has_file": bool(getattr(state.file_context, "has_file", False)),
                 "task_type": getattr(state.file_context, "task_type", None),
@@ -589,16 +647,50 @@ class ClarificationContract(BaseContract):
     @staticmethod
     def _stage2_system_prompt() -> str:
         return (
-            "你是交通排放分析的参数补全器。根据用户消息、当前工具、已有参数快照和合法值列表，"
-            "输出一个完整 parameter_snapshot，而不是增量 patch。\n"
+            "你是交通排放分析的意图与参数补全器。根据用户消息、当前工具、已有参数快照、可用工具和合法值列表，"
+            "输出完整 slots/parameter_snapshot，而不是增量 patch。\n"
             "规则：\n"
             "1. 只在用户明确表达、文件上下文强支持、或常识映射极强时使用 source=inferred。\n"
             "2. 不要编造 model_year；用户没说就保持 missing。\n"
             "3. 对口语化车型/道路/季节/污染物，可以把 value 填成你判断的合法标准名，同时 raw_text 保留用户原词。\n"
             "4. 如果缺少必需槽位，needs_clarification=true，并生成一个简洁自然的问题。\n"
-            "5. 输出 JSON，包含: tool_name, parameter_snapshot, missing_required, needs_clarification, clarification_question, ambiguous_slots。\n"
-            "6. parameter_snapshot 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。"
+            "5. 同时判断工具意图，输出 intent: {resolved_tool, intent_confidence, reasoning}。\n"
+            "6. 可用工具: query_emission_factors=查询排放因子(factor/emission factor/排放因子/因子); "
+            "calculate_micro_emission=VSP逐秒微观排放; calculate_macro_emission=路段级宏观排放; query_knowledge=知识库检索。\n"
+            "7. 如果用户明确说先确认参数但未指定工具类别，intent_confidence=none；如果说“那类因子”等工具关键词，intent_confidence=high。\n"
+            "8. 输出 JSON，优先使用 {slots: {...}, intent: {...}, missing_required, needs_clarification, clarification_question, ambiguous_slots}；"
+            "兼容时也可输出 parameter_snapshot。\n"
+            "9. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。"
         )
+
+    @staticmethod
+    def _stage2_snapshot_payload(llm_payload: Dict[str, Any]) -> Dict[str, Any]:
+        if isinstance(llm_payload.get("slots"), dict):
+            return dict(llm_payload.get("slots") or {})
+        return dict(llm_payload.get("parameter_snapshot") or {})
+
+    @staticmethod
+    def _extract_llm_intent_hint(
+        llm_payload: Dict[str, Any],
+    ) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], bool]:
+        if not isinstance(llm_payload, dict):
+            return None, None, False
+        raw = llm_payload.get("intent")
+        if isinstance(raw, dict):
+            hint = {
+                "resolved_tool": raw.get("resolved_tool"),
+                "intent_confidence": raw.get("intent_confidence") or raw.get("confidence"),
+                "reasoning": raw.get("reasoning"),
+            }
+            return hint, dict(raw), True
+        if llm_payload.get("tool_name"):
+            raw_hint = {
+                "resolved_tool": llm_payload.get("tool_name"),
+                "intent_confidence": "high",
+                "reasoning": "legacy tool_name field",
+            }
+            return raw_hint, dict(raw_hint), True
+        return None, None, False
 
     def _merge_stage2_snapshot(
         self,
@@ -616,6 +708,48 @@ class ClarificationContract(BaseContract):
                 "raw_text": copy.deepcopy(slot_payload.get("raw_text")),
             }
         return merged
+
+    def _stage2_available(self) -> bool:
+        return (
+            bool(getattr(self.runtime_config, "enable_clarification_stage2_llm", True))
+            and self.llm_client is not None
+        )
+
+    def _generic_tool_spec(self) -> Dict[str, Any]:
+        slots: List[str] = []
+        for spec in self._load_tools_config().values():
+            if not isinstance(spec, dict):
+                continue
+            slots.extend(spec.get("required_slots") or [])
+            slots.extend(spec.get("optional_slots") or [])
+            slots.extend(spec.get("clarification_followup_slots") or [])
+        return {
+            "required_slots": [],
+            "optional_slots": list(dict.fromkeys(str(slot) for slot in slots if str(slot).strip())),
+            "defaults": {},
+            "clarification_followup_slots": [],
+        }
+
+    @staticmethod
+    def _available_tool_intent_descriptions() -> Dict[str, str]:
+        return {
+            "query_emission_factors": "查询排放因子；关键词包括 factor, emission factor, 排放因子, 因子",
+            "calculate_micro_emission": "VSP 逐秒微观排放计算；通常需要轨迹文件",
+            "calculate_macro_emission": "路段级宏观排放计算；通常需要路网/流量文件",
+            "query_knowledge": "知识库检索和政策/方法问答",
+        }
+
+    def _persist_tool_intent(self, ao: Any, tool_intent: Any) -> None:
+        if ao is None or not self._first_class_state_enabled():
+            return
+        target = getattr(ao, "tool_intent", None)
+        if target is None or tool_intent is None:
+            return
+        target.resolved_tool = getattr(tool_intent, "resolved_tool", None)
+        target.confidence = getattr(tool_intent, "confidence", IntentConfidence.NONE)
+        target.evidence = list(getattr(tool_intent, "evidence", []) or [])
+        target.resolved_at_turn = getattr(tool_intent, "resolved_at_turn", None)
+        target.resolved_by = getattr(tool_intent, "resolved_by", None)
 
     def _run_stage3(
         self,
