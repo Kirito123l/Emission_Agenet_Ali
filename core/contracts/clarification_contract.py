@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 TOOLS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "unified_mappings.yaml"
 YEAR_RANGE_MIN = 1995
 YEAR_RANGE_MAX = 2025
+_SENTINEL_VALUES = {"missing", "unknown", "none", "n/a", "null", ""}
 
 
 @dataclass
@@ -651,7 +652,7 @@ class ClarificationContract(BaseContract):
             "输出完整 slots/parameter_snapshot，而不是增量 patch。\n"
             "规则：\n"
             "1. 只在用户明确表达、文件上下文强支持、或常识映射极强时使用 source=inferred。\n"
-            "2. 不要编造 model_year；用户没说就保持 missing。\n"
+            "2. 不要编造 model_year；用户没说就输出 {value: null, source: \"missing\", confidence: 0.0}。\n"
             "3. 对口语化车型/道路/季节/污染物，可以把 value 填成你判断的合法标准名，同时 raw_text 保留用户原词。\n"
             "4. 如果缺少必需槽位，needs_clarification=true，并生成一个简洁自然的问题。\n"
             "5. 同时判断工具意图，输出 intent: {resolved_tool, intent_confidence, reasoning}。\n"
@@ -660,7 +661,9 @@ class ClarificationContract(BaseContract):
             "7. 如果用户明确说先确认参数但未指定工具类别，intent_confidence=none；如果说“那类因子”等工具关键词，intent_confidence=high。\n"
             "8. 输出 JSON，优先使用 {slots: {...}, intent: {...}, missing_required, needs_clarification, clarification_question, ambiguous_slots}；"
             "兼容时也可输出 parameter_snapshot。\n"
-            "9. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。"
+            "9. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。\n"
+            "10. 严禁将 value 设置为字符串 \"missing\"、\"unknown\"、\"none\"、\"n/a\"、\"null\" 或任何文本 placeholder；"
+            "value 必须是 null 或合法类型值。"
         )
 
     @staticmethod
@@ -701,13 +704,31 @@ class ClarificationContract(BaseContract):
         for slot_name, slot_payload in dict(llm_snapshot or {}).items():
             if not isinstance(slot_payload, dict):
                 continue
+            normalized_payload = self._normalize_missing_value(dict(slot_payload))
             merged[str(slot_name)] = {
-                "value": copy.deepcopy(slot_payload.get("value")),
-                "source": str(slot_payload.get("source") or "missing"),
-                "confidence": slot_payload.get("confidence"),
-                "raw_text": copy.deepcopy(slot_payload.get("raw_text")),
+                "value": copy.deepcopy(normalized_payload.get("value")),
+                "source": str(normalized_payload.get("source") or "missing"),
+                "confidence": normalized_payload.get("confidence"),
+                "raw_text": copy.deepcopy(normalized_payload.get("raw_text")),
             }
         return merged
+
+    @staticmethod
+    def _normalize_missing_value(payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(payload, dict):
+            return payload
+        normalized = dict(payload)
+        value = normalized.get("value")
+        source = str(normalized.get("source") or "").strip().lower()
+        if source == "missing":
+            normalized["value"] = None
+            normalized["source"] = "missing"
+            return normalized
+        if isinstance(value, str) and value.strip().lower() in _SENTINEL_VALUES:
+            normalized["value"] = None
+            if source != "rejected":
+                normalized["source"] = "missing"
+        return normalized
 
     def _stage2_available(self) -> bool:
         return (
@@ -859,6 +880,7 @@ class ClarificationContract(BaseContract):
             if not isinstance(slot_payload, dict):
                 missing.append(slot_name)
                 continue
+            slot_payload = ClarificationContract._normalize_missing_value(slot_payload)
             if slot_payload.get("source") == "rejected":
                 missing.append(slot_name)
                 continue

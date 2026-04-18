@@ -571,6 +571,48 @@ async def test_llm_intent_hint_resolves_tool_when_fast_path_misses():
     assert ao.tool_intent.resolved_by == "llm_slot_filler"
 
 
+def test_stage2_snapshot_normalizes_missing_sentinel_values():
+    contract, _manager, _inner = _make_contract({})
+
+    merged = contract._merge_stage2_snapshot(
+        {},
+        {
+            "model_year": {
+                "value": "Missing",
+                "source": "missing",
+                "confidence": 0.0,
+                "raw_text": None,
+            },
+            "season": {
+                "value": "UNKNOWN",
+                "source": "inferred",
+                "confidence": 0.4,
+                "raw_text": None,
+            },
+        },
+    )
+
+    assert merged["model_year"]["value"] is None
+    assert merged["model_year"]["source"] == "missing"
+    assert merged["season"]["value"] is None
+    assert merged["season"]["source"] == "missing"
+    assert contract._missing_slots(merged, ["model_year", "season"]) == ["model_year", "season"]
+
+
+def test_missing_slots_treats_sentinel_value_as_missing():
+    contract, _manager, _inner = _make_contract({})
+    snapshot = {
+        "model_year": {
+            "value": "n/a",
+            "source": "user",
+            "confidence": 1.0,
+            "raw_text": "n/a",
+        },
+    }
+
+    assert contract._missing_slots(snapshot, ["model_year"]) == ["model_year"]
+
+
 @pytest.mark.anyio
 async def test_pcm_triggers_on_first_turn_required_met_but_no_default_optional_empty():
     hints = {
@@ -817,3 +859,18 @@ def test_snapshot_to_tool_args_can_apply_factor_year_compat_default():
     assert args["vehicle_type"] == "Motorcycle"
     assert args["pollutants"] == ["CO"]
     assert args["model_year"] == 2020
+
+
+def test_snapshot_to_tool_args_ignores_missing_model_year_without_crashing():
+    snapshot = {
+        "vehicle_type": {"value": "Transit Bus", "source": "user"},
+        "pollutants": {"value": ["CO2"], "source": "user"},
+        "model_year": {"value": "missing", "source": "missing"},
+    }
+
+    args = GovernedRouter._snapshot_to_tool_args("query_emission_factors", snapshot)
+
+    assert args == {
+        "vehicle_type": "Transit Bus",
+        "pollutants": ["CO2"],
+    }

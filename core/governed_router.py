@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import time
 from typing import Any, Dict, Optional
@@ -16,6 +17,8 @@ from core.router import RouterResponse, UnifiedRouter
 from core.task_state import TaskStage, TaskState
 from core.tool_dependencies import get_tool_provides
 from services.config_loader import ConfigLoader
+
+logger = logging.getLogger(__name__)
 
 
 class GovernedRouter:
@@ -306,9 +309,22 @@ class GovernedRouter:
             payload = snapshot.get(slot_name)
             if not isinstance(payload, dict):
                 return None
-            if payload.get("source") == "rejected":
+            source = str(payload.get("source") or "").strip().lower()
+            value = payload.get("value")
+            if source in {"missing", "rejected"}:
                 return None
-            return payload.get("value")
+            if isinstance(value, str) and value.strip().lower() in {"missing", "unknown", "none", "n/a", "null", ""}:
+                return None
+            return value
+
+        def safe_int(value: Any, slot_name: str) -> Optional[int]:
+            if value is None:
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                logger.warning("Snapshot type coercion failed for %s=%r", slot_name, value)
+                return None
 
         args: Dict[str, Any] = {}
         if tool_name == "query_emission_factors":
@@ -317,12 +333,14 @@ class GovernedRouter:
             pollutants = as_list(read("pollutants"))
             if pollutants is not None:
                 args["pollutants"] = pollutants
-            if read("model_year") is not None:
-                args["model_year"] = int(read("model_year"))
+            model_year = safe_int(read("model_year"), "model_year")
+            if model_year is not None:
+                args["model_year"] = model_year
             elif allow_factor_year_default:
                 defaults = dict((ConfigLoader.load_mappings() or {}).get("defaults") or {})
-                if defaults.get("model_year") is not None:
-                    args["model_year"] = int(defaults.get("model_year"))
+                default_model_year = safe_int(defaults.get("model_year"), "model_year")
+                if default_model_year is not None:
+                    args["model_year"] = default_model_year
             if read("season") is not None:
                 args["season"] = read("season")
             if read("road_type") is not None:
@@ -334,8 +352,9 @@ class GovernedRouter:
             pollutants = as_list(read("pollutants"))
             if pollutants is not None:
                 args["pollutants"] = pollutants
-            if read("model_year") is not None:
-                args["model_year"] = int(read("model_year"))
+            model_year = safe_int(read("model_year"), "model_year")
+            if model_year is not None:
+                args["model_year"] = model_year
             if read("season") is not None:
                 args["season"] = read("season")
             return args
