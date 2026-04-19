@@ -1,0 +1,61 @@
+deliberative_signals:
+  - 先确认
+  - 先帮我确认
+  - 先看一下
+  - 先看看
+  - 先帮我看看
+  - 列一下参数
+  - 参数是什么
+  - 怎么设置
+  - 需要什么
+  - 确认参数
+  - 确认一下
+  - confirm first
+  - check first
+  - let me confirm
+  - what parameters
+  - need to specify
+  - how to set
+
+directive_verbs:
+  - 查
+  - 算
+  - 计算
+  - 给我
+  - 帮我查
+  - 帮我算
+  - 要
+  - calculate
+  - query
+  - get
+
+directive_patterns:
+  - 算一下
+  - 帮我查
+  - 帮我算
+  - 给我
+  - 查一下
+  - calculate
+  - query
+
+exploratory_signals:
+  - 看看能做什么
+  - 都有哪些
+  - 可以分析什么
+  - 能分析什么
+  - 帮我看看这个数据
+  - what can
+  - explore
+
+reversal_signals:
+  - 等等
+  - 再想想
+  - 换成
+  - 不对
+  - 改成
+  - 算了还是
+  - 重新
+  - wait
+  - actually
+  - change to
+  - instead

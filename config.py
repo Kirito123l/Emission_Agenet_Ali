@@ -119,6 +119,19 @@ class Config:
         self.enable_lifecycle_contract_alignment = (
             os.getenv("ENABLE_LIFECYCLE_CONTRACT_ALIGNMENT", "true").lower() == "true"
         )
+        self.enable_conversational_stance = (
+            os.getenv("ENABLE_CONVERSATIONAL_STANCE", "true").lower() == "true"
+        )
+        self.enable_stance_llm_resolution = (
+            os.getenv("ENABLE_STANCE_LLM_RESOLUTION", "true").lower() == "true"
+        )
+        self.enable_stance_reversal_detection = (
+            os.getenv("ENABLE_STANCE_REVERSAL_DETECTION", "true").lower() == "true"
+        )
+        self.stance_signals_path = os.getenv(
+            "STANCE_SIGNALS_PATH",
+            str(PROJECT_ROOT / "config" / "stance_signals.yaml"),
+        )
         self.enable_dependency_contract = (
             os.getenv("ENABLE_DEPENDENCY_CONTRACT", "false").lower() == "true"
         )
