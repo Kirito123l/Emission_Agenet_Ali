@@ -7,7 +7,7 @@ import pytest
 from config import get_config, reset_config
 from core.ao_classifier import AOClassification, AOClassType
 from core.ao_manager import AOManager
-from core.analytical_objective import AORelationship
+from core.analytical_objective import AORelationship, ConversationalStance, StanceConfidence
 from core.contracts.base import ContractContext
 from core.contracts.clarification_contract import ClarificationContract
 from core.governed_router import GovernedRouter
@@ -110,6 +110,65 @@ async def test_missing_factor_slots_short_circuits_with_question():
     assert "车辆类型" in interception.response.text
     assert interception.metadata["clarification"]["telemetry"]["final_decision"] == "clarify"
     assert interception.metadata["clarification"]["telemetry"]["stage2_called"] is True
+
+
+@pytest.mark.anyio
+async def test_stage2_stance_hint_updates_ao_and_telemetry():
+    hints = {
+        "wants_factor": True,
+        "desired_tool_chain": ["query_emission_factors"],
+        "pollutants": [],
+    }
+    llm_payload = {
+        "slots": {
+            "vehicle_type": {"value": None, "source": "missing", "confidence": 0.0, "raw_text": None},
+            "pollutants": {"value": None, "source": "missing", "confidence": 0.0, "raw_text": None},
+        },
+        "intent": {
+            "resolved_tool": "query_emission_factors",
+            "intent_confidence": "high",
+            "reasoning": "因子查询",
+        },
+        "stance": {"value": "deliberative", "confidence": "high", "reasoning": "先确认参数"},
+        "missing_required": ["vehicle_type", "pollutants"],
+        "needs_clarification": True,
+        "clarification_question": "请告诉我车辆类型和污染物。",
+        "ambiguous_slots": [],
+    }
+    contract, manager, _inner = _make_contract(hints, llm_payload=llm_payload)
+    ao = manager.create_ao("排放因子参数", AORelationship.INDEPENDENT, current_turn=1)
+    state = TaskState(user_message="排放因子参数", session_id="clarification-session")
+    context = ContractContext(
+        user_message="排放因子参数",
+        file_path=None,
+        trace={},
+        state_snapshot=state,
+        metadata={
+            "oasc": {
+                "classification": AOClassification(
+                    classification=AOClassType.NEW_AO,
+                    target_ao_id=None,
+                    reference_ao_id=None,
+                    new_objective_text="排放因子参数",
+                    confidence=1.0,
+                    reasoning="test",
+                    layer="rule",
+                )
+            }
+        },
+    )
+
+    interception = await contract.before_turn(context)
+    telemetry = interception.metadata["clarification"]["telemetry"]
+
+    assert ao.stance == ConversationalStance.DELIBERATIVE
+    assert ao.stance_confidence == StanceConfidence.HIGH
+    assert ao.stance_resolved_by == "llm_slot_filler"
+    assert ao.stance_history[-1] == (1, ConversationalStance.DELIBERATIVE)
+    assert telemetry["stance_value"] == "deliberative"
+    assert telemetry["stance_confidence"] == "high"
+    assert telemetry["stance_resolved_by"] == "llm_slot_filler"
+    assert telemetry["stance_llm_hint_parse_success"] is True
 
 
 @pytest.mark.anyio

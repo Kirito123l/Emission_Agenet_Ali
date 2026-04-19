@@ -14,6 +14,7 @@ from core.contracts import (
     OASCContract,
 )
 from core.router import RouterResponse, UnifiedRouter
+from core.stance_resolver import StanceResolution, StanceResolver
 from core.task_state import TaskStage, TaskState
 from core.tool_dependencies import get_tool_provides
 from services.config_loader import ConfigLoader
@@ -32,6 +33,7 @@ class GovernedRouter:
             memory_storage_dir=memory_storage_dir,
         )
         self.ao_manager = AOManager(self.inner_router.memory.fact_memory)
+        self.stance_resolver = StanceResolver(runtime_config=self.runtime_config)
         self.oasc_contract = OASCContract(
             inner_router=self.inner_router,
             ao_manager=self.ao_manager,
@@ -71,6 +73,10 @@ class GovernedRouter:
                 context.user_message_override = interception.user_message_override
             if interception.metadata:
                 context.metadata.update(interception.metadata)
+            if getattr(contract, "name", None) == "oasc":
+                stance_metadata = self._apply_stance_resolution(context)
+                if stance_metadata:
+                    context.metadata["stance"] = stance_metadata
             if not interception.proceed:
                 result = interception.response or RouterResponse(text="")
                 break
@@ -282,6 +288,63 @@ class GovernedRouter:
         parameter_state.probe_turn_count = 0
         parameter_state.probe_abandoned = False
 
+    def _apply_stance_resolution(self, context: ContractContext) -> Dict[str, Any]:
+        if not getattr(self.runtime_config, "enable_conversational_stance", True):
+            return {}
+        oasc_state = context.metadata.get("oasc") if isinstance(context.metadata.get("oasc"), dict) else {}
+        classification = oasc_state.get("classification")
+        if classification is None:
+            return {}
+        current_ao = self.ao_manager.get_current_ao()
+        if current_ao is None:
+            return {}
+        classification_value = str(getattr(getattr(classification, "classification", None), "value", "") or "")
+        turn = self._current_turn_index(pre_call=True)
+        if classification_value in {"new_ao", "revision"}:
+            fast = self.stance_resolver.resolve_fast(context.effective_user_message, current_ao)
+            resolution = self.stance_resolver.resolve_with_llm_hint(fast, None)
+            self._write_stance(current_ao, resolution, turn)
+            return {
+                "reversal_detected": False,
+                "stance": resolution.stance.value,
+                "resolved_by": resolution.resolved_by,
+                "evidence": list(resolution.evidence),
+            }
+        if classification_value == "continuation":
+            reversal = self.stance_resolver.detect_reversal(
+                context.effective_user_message,
+                current_ao.stance,
+            )
+            if reversal is None:
+                return {"reversal_detected": False}
+            evidence = self.stance_resolver.reversal_evidence(context.effective_user_message)
+            resolution = StanceResolution(
+                stance=reversal,
+                confidence=current_ao.stance_confidence,
+                evidence=[evidence or "user_reversal"],
+                resolved_by="user_reversal",
+            )
+            self._write_stance(current_ao, resolution, turn)
+            return {
+                "reversal_detected": True,
+                "stance": resolution.stance.value,
+                "resolved_by": resolution.resolved_by,
+                "evidence": list(resolution.evidence),
+            }
+        return {}
+
+    @staticmethod
+    def _write_stance(ao: Any, resolution: StanceResolution, turn: int) -> None:
+        ao.stance = resolution.stance
+        ao.stance_confidence = resolution.confidence
+        ao.stance_resolved_by = resolution.resolved_by
+        if not ao.stance_history or ao.stance_history[-1][1] != resolution.stance:
+            ao.stance_history.append((turn, resolution.stance))
+
+    def _current_turn_index(self, *, pre_call: bool = False) -> int:
+        turn_counter = int(getattr(self.inner_router.memory, "turn_counter", 0) or 0)
+        return turn_counter + 1 if pre_call else turn_counter
+
     @staticmethod
     def _snapshot_missing_value(snapshot: Dict[str, Any], slot_name: str) -> bool:
         payload = snapshot.get(slot_name)
@@ -405,6 +468,7 @@ class GovernedRouter:
     def restore_persisted_state(self, payload: Dict[str, Any]) -> None:
         self.inner_router.restore_persisted_state(payload)
         self.ao_manager = AOManager(self.inner_router.memory.fact_memory)
+        self.stance_resolver = StanceResolver(runtime_config=self.runtime_config)
         self.oasc_contract = OASCContract(
             inner_router=self.inner_router,
             ao_manager=self.ao_manager,

@@ -17,6 +17,7 @@ from core.ao_classifier import AOClassType
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
+from core.stance_resolver import StanceResolution, StanceResolver
 from services.llm_client import get_llm_client
 from services.standardization_engine import StandardizationEngine
 from tools.file_analyzer import FileAnalyzerTool
@@ -57,6 +58,13 @@ class ClarificationTelemetry:
     llm_intent_parse_success: bool
     tool_intent_confidence: Optional[str]
     tool_intent_resolved_by: Optional[str]
+    stance_value: Optional[str]
+    stance_confidence: Optional[str]
+    stance_resolved_by: Optional[str]
+    stance_evidence: List[str]
+    stance_reversal_detected: bool
+    stance_llm_hint_raw: Optional[Dict[str, Any]]
+    stance_llm_hint_parse_success: bool
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -86,6 +94,17 @@ class ClarificationTelemetry:
             "llm_intent_parse_success": self.llm_intent_parse_success,
             "tool_intent_confidence": self.tool_intent_confidence,
             "tool_intent_resolved_by": self.tool_intent_resolved_by,
+            "stance_value": self.stance_value,
+            "stance_confidence": self.stance_confidence,
+            "stance_resolved_by": self.stance_resolved_by,
+            "stance_evidence": list(self.stance_evidence),
+            "stance_reversal_detected": self.stance_reversal_detected,
+            "stance_llm_hint_raw": (
+                dict(self.stance_llm_hint_raw)
+                if isinstance(self.stance_llm_hint_raw, dict)
+                else None
+            ),
+            "stance_llm_hint_parse_success": self.stance_llm_hint_parse_success,
         }
 
 
@@ -118,6 +137,7 @@ class ClarificationContract(BaseContract):
                 model=getattr(self.runtime_config, "clarification_llm_model", None),
             )
         self.intent_resolver = IntentResolver(inner_router, ao_manager)
+        self.stance_resolver = StanceResolver(runtime_config=self.runtime_config)
 
     async def before_turn(self, context: ContractContext) -> ContractInterception:
         if not getattr(self.runtime_config, "enable_clarification_contract", True):
@@ -147,6 +167,7 @@ class ClarificationContract(BaseContract):
         confirm_first_detected = bool(confirm_first_trigger)
 
         tool_intent = self.intent_resolver.resolve_fast(state, current_ao)
+        stance_fast = self.stance_resolver.resolve_fast(context.effective_user_message, current_ao)
         tool_name = tool_intent.resolved_tool
         telemetry = ClarificationTelemetry(
             turn=self._current_turn_index(),
@@ -175,6 +196,17 @@ class ClarificationContract(BaseContract):
             llm_intent_parse_success=False,
             tool_intent_confidence=tool_intent.confidence.value,
             tool_intent_resolved_by=tool_intent.resolved_by,
+            stance_value=getattr(getattr(current_ao, "stance", None), "value", None),
+            stance_confidence=getattr(getattr(current_ao, "stance_confidence", None), "value", None),
+            stance_resolved_by=getattr(current_ao, "stance_resolved_by", None),
+            stance_evidence=[],
+            stance_reversal_detected=bool(
+                context.metadata.get("stance", {}).get("reversal_detected")
+                if isinstance(context.metadata.get("stance"), dict)
+                else False
+            ),
+            stance_llm_hint_raw=None,
+            stance_llm_hint_parse_success=False,
         )
 
         prefetched_stage2_payload: Optional[Dict[str, Any]] = None
@@ -201,6 +233,12 @@ class ClarificationContract(BaseContract):
                 llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(prefetched_stage2_payload)
                 telemetry.llm_intent_raw = llm_raw
                 telemetry.llm_intent_parse_success = parse_success
+                stance_hint, stance_raw, stance_parse_success = self._extract_llm_stance_hint(prefetched_stage2_payload)
+                telemetry.stance_llm_hint_raw = stance_raw
+                telemetry.stance_llm_hint_parse_success = stance_parse_success
+                stance_resolution = self.stance_resolver.resolve_with_llm_hint(stance_fast, stance_hint)
+                self._persist_stance(current_ao, stance_resolution)
+                self._apply_stance_telemetry(telemetry, stance_resolution)
                 tool_intent = self.intent_resolver.resolve_with_llm_hint(state, current_ao, llm_hint)
                 self._persist_tool_intent(current_ao, tool_intent)
                 tool_name = tool_intent.resolved_tool
@@ -267,6 +305,12 @@ class ClarificationContract(BaseContract):
                 llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(llm_payload)
                 telemetry.llm_intent_raw = llm_raw
                 telemetry.llm_intent_parse_success = parse_success
+                stance_hint, stance_raw, stance_parse_success = self._extract_llm_stance_hint(llm_payload)
+                telemetry.stance_llm_hint_raw = stance_raw
+                telemetry.stance_llm_hint_parse_success = stance_parse_success
+                stance_resolution = self.stance_resolver.resolve_with_llm_hint(stance_fast, stance_hint)
+                self._persist_stance(current_ao, stance_resolution)
+                self._apply_stance_telemetry(telemetry, stance_resolution)
                 tool_intent = self.intent_resolver.resolve_with_llm_hint(state, current_ao, llm_hint)
                 self._persist_tool_intent(current_ao, tool_intent)
                 telemetry.tool_intent_confidence = tool_intent.confidence.value
@@ -798,6 +842,26 @@ class ClarificationContract(BaseContract):
         target.evidence = list(getattr(tool_intent, "evidence", []) or [])
         target.resolved_at_turn = getattr(tool_intent, "resolved_at_turn", None)
         target.resolved_by = getattr(tool_intent, "resolved_by", None)
+
+    def _persist_stance(self, ao: Any, resolution: StanceResolution) -> None:
+        if ao is None or not getattr(self.runtime_config, "enable_conversational_stance", True):
+            return
+        ao.stance = resolution.stance
+        ao.stance_confidence = resolution.confidence
+        ao.stance_resolved_by = resolution.resolved_by
+        turn = self._current_turn_index()
+        if not ao.stance_history or ao.stance_history[-1][1] != resolution.stance:
+            ao.stance_history.append((turn, resolution.stance))
+
+    @staticmethod
+    def _apply_stance_telemetry(
+        telemetry: ClarificationTelemetry,
+        resolution: StanceResolution,
+    ) -> None:
+        telemetry.stance_value = resolution.stance.value
+        telemetry.stance_confidence = resolution.confidence.value
+        telemetry.stance_resolved_by = resolution.resolved_by
+        telemetry.stance_evidence = list(resolution.evidence)
 
     def _run_stage3(
         self,
