@@ -874,3 +874,36 @@ def test_snapshot_to_tool_args_ignores_missing_model_year_without_crashing():
         "vehicle_type": "Transit Bus",
         "pollutants": ["CO2"],
     }
+
+
+def test_stage2_prompt_requests_stance_schema():
+    prompt = ClarificationContract._stage2_system_prompt()
+
+    assert "stance" in prompt
+    assert "directive/deliberative/exploratory" in prompt
+
+
+def test_stage2_stance_hint_parses_top_level_stance():
+    hint, raw, parsed = ClarificationContract._extract_llm_stance_hint(
+        {
+            "slots": {},
+            "intent": {"resolved_tool": "query_emission_factors", "intent_confidence": "high"},
+            "stance": {"value": "deliberative", "confidence": "high", "reasoning": "先确认参数"},
+        }
+    )
+
+    assert parsed is True
+    assert raw == {"value": "deliberative", "confidence": "high", "reasoning": "先确认参数"}
+    assert hint == {"value": "deliberative", "confidence": "high", "reasoning": "先确认参数"}
+
+
+def test_stage2_stance_hint_missing_field_falls_back_to_directive():
+    hint, raw, parsed = ClarificationContract._extract_llm_stance_hint({"slots": {}, "intent": {}})
+
+    assert parsed is False
+    assert raw is None
+    assert hint == {
+        "value": "directive",
+        "confidence": "low",
+        "reasoning": "missing stance fallback",
+    }

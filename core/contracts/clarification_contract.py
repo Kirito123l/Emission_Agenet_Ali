@@ -659,10 +659,13 @@ class ClarificationContract(BaseContract):
             "6. 可用工具: query_emission_factors=查询排放因子(factor/emission factor/排放因子/因子); "
             "calculate_micro_emission=VSP逐秒微观排放; calculate_macro_emission=路段级宏观排放; query_knowledge=知识库检索。\n"
             "7. 如果用户明确说先确认参数但未指定工具类别，intent_confidence=none；如果说“那类因子”等工具关键词，intent_confidence=high。\n"
-            "8. 输出 JSON，优先使用 {slots: {...}, intent: {...}, missing_required, needs_clarification, clarification_question, ambiguous_slots}；"
+            "8. 同时判断用户的对话姿态 stance: {value, confidence, reasoning}。value 只能是 directive/deliberative/exploratory。\n"
+            "9. stance 判断原则: 含“先/确认/看看参数”等先讨论信号=deliberative；短消息+明确工具指向=directive；"
+            "询问可能性或宽泛探索=exploratory；不确定时输出 directive。\n"
+            "10. 输出 JSON，优先使用 {slots: {...}, intent: {...}, stance: {...}, missing_required, needs_clarification, clarification_question, ambiguous_slots}；"
             "兼容时也可输出 parameter_snapshot。\n"
-            "9. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。\n"
-            "10. 严禁将 value 设置为字符串 \"missing\"、\"unknown\"、\"none\"、\"n/a\"、\"null\" 或任何文本 placeholder；"
+            "11. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。\n"
+            "12. 严禁将 value 设置为字符串 \"missing\"、\"unknown\"、\"none\"、\"n/a\"、\"null\" 或任何文本 placeholder；"
             "value 必须是 null 或合法类型值。"
         )
 
@@ -694,6 +697,30 @@ class ClarificationContract(BaseContract):
             }
             return raw_hint, dict(raw_hint), True
         return None, None, False
+
+    @staticmethod
+    def _extract_llm_stance_hint(
+        llm_payload: Dict[str, Any],
+    ) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], bool]:
+        if not isinstance(llm_payload, dict):
+            return (
+                {"value": "directive", "confidence": "low", "reasoning": "missing stance fallback"},
+                None,
+                False,
+            )
+        raw = llm_payload.get("stance")
+        if isinstance(raw, dict):
+            hint = {
+                "value": raw.get("value") or raw.get("stance"),
+                "confidence": raw.get("confidence"),
+                "reasoning": raw.get("reasoning"),
+            }
+            return hint, dict(raw), True
+        return (
+            {"value": "directive", "confidence": "low", "reasoning": "missing stance fallback"},
+            None,
+            False,
+        )
 
     def _merge_stage2_snapshot(
         self,
