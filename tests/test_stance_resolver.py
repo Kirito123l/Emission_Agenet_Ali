@@ -102,3 +102,25 @@ def test_feature_flag_disabled_keeps_ao_stance_unknown():
     assert fast is None
     assert result.stance == ConversationalStance.UNKNOWN
     assert ao.stance == ConversationalStance.UNKNOWN
+
+
+def test_llm_resolution_flag_disabled_ignores_llm_hint():
+    resolver = _resolver(enable_stance_llm_resolution=False)
+
+    result = resolver.resolve_with_llm_hint(
+        resolver.resolve_fast("随便看看", None),
+        {"value": "directive", "confidence": "high"},
+    )
+
+    assert result.stance == ConversationalStance.DIRECTIVE
+    assert result.confidence == StanceConfidence.LOW
+    assert result.resolved_by == "default_directive"
+
+
+def test_reversal_detection_flag_disabled_returns_none():
+    result = _resolver(enable_stance_reversal_detection=False).detect_reversal(
+        "等等，换成SUV",
+        ConversationalStance.DIRECTIVE,
+    )
+
+    assert result is None
