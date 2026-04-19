@@ -2,11 +2,15 @@ from core.analytical_objective import (
     AORelationship,
     AOStatus,
     AnalyticalObjective,
+    ConversationalStance,
+    IncompatibleSessionError,
     IntentConfidence,
     ParameterState,
+    StanceConfidence,
     ToolIntent,
     ToolCallRecord,
 )
+import pytest
 
 
 def test_ao_state_transition_created_active_completed():
@@ -95,7 +99,7 @@ def test_tool_call_record_round_trip():
     assert restored == record
 
 
-def test_ao_from_old_dict_is_backward_compatible():
+def test_ao_from_phase24_dict_raises_incompatible_session_error():
     payload = {
         "ao_id": "AO#legacy",
         "session_id": "legacy-session",
@@ -114,11 +118,8 @@ def test_ao_from_old_dict_is_backward_compatible():
         ],
     }
 
-    restored = AnalyticalObjective.from_dict(payload)
-
-    assert restored.ao_id == "AO#legacy"
-    assert restored.status == AOStatus.COMPLETED
-    assert restored.tool_call_log[0].tool == "query_emission_factors"
+    with pytest.raises(IncompatibleSessionError, match="migrate_phase_2_4_to_2r"):
+        AnalyticalObjective.from_dict(payload)
 
 
 def test_ao_first_class_state_round_trip():
@@ -143,6 +144,10 @@ def test_ao_first_class_state_round_trip():
             collection_mode_reason="confirm_first_signal",
             probe_turn_count=1,
         ),
+        stance=ConversationalStance.DELIBERATIVE,
+        stance_confidence=StanceConfidence.HIGH,
+        stance_resolved_by="rule:deliberative_signal",
+        stance_history=[(1, ConversationalStance.DELIBERATIVE)],
     )
 
     restored = AnalyticalObjective.from_dict(ao.to_dict())
@@ -152,6 +157,10 @@ def test_ao_first_class_state_round_trip():
     assert restored.parameter_state.collection_mode is True
     assert restored.parameter_state.awaiting_slot == "model_year"
     assert restored.parameter_state.required_filled == {"vehicle_type", "pollutants"}
+    assert restored.stance == ConversationalStance.DELIBERATIVE
+    assert restored.stance_confidence == StanceConfidence.HIGH
+    assert restored.stance_resolved_by == "rule:deliberative_signal"
+    assert restored.stance_history == [(1, ConversationalStance.DELIBERATIVE)]
 
 
 def test_ao_from_metadata_migrates_first_class_state():
@@ -162,6 +171,10 @@ def test_ao_from_metadata_migrates_first_class_state():
             "objective_text": "查因子",
             "status": "active",
             "start_turn": 1,
+            "stance": "directive",
+            "stance_confidence": "low",
+            "stance_resolved_by": "migration:test_fixture",
+            "stance_history": [{"turn": 1, "stance": "directive"}],
             "metadata": {
                 "collection_mode": True,
                 "pcm_trigger_reason": "missing_required_at_first_turn",

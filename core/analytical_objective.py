@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 class AOStatus(Enum):
@@ -24,6 +24,23 @@ class IntentConfidence(Enum):
     HIGH = "high"
     LOW = "low"
     NONE = "none"
+
+
+class ConversationalStance(Enum):
+    DIRECTIVE = "directive"
+    DELIBERATIVE = "deliberative"
+    EXPLORATORY = "exploratory"
+    UNKNOWN = "unknown"
+
+
+class StanceConfidence(Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class IncompatibleSessionError(ValueError):
+    """Raised when persisted AO state predates the Phase 2R stance schema."""
 
 
 @dataclass
@@ -180,6 +197,10 @@ class AnalyticalObjective:
     constraint_violations: List[Dict[str, Any]] = field(default_factory=list)
     tool_intent: ToolIntent = field(default_factory=ToolIntent)
     parameter_state: ParameterState = field(default_factory=ParameterState)
+    stance: ConversationalStance = ConversationalStance.UNKNOWN
+    stance_confidence: StanceConfidence = StanceConfidence.LOW
+    stance_resolved_by: Optional[str] = None
+    stance_history: List[Tuple[int, ConversationalStance]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def has_produced_expected_artifacts(self) -> bool:
@@ -202,14 +223,30 @@ class AnalyticalObjective:
             "constraint_violations": [dict(item) for item in self.constraint_violations],
             "tool_intent": self.tool_intent.to_dict(),
             "parameter_state": self.parameter_state.to_dict(),
+            "stance": self.stance.value,
+            "stance_confidence": self.stance_confidence.value,
+            "stance_resolved_by": self.stance_resolved_by,
+            "stance_history": [
+                {"turn": int(turn or 0), "stance": stance.value}
+                for turn, stance in self.stance_history
+            ],
             "metadata": dict(self.metadata),
         }
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "AnalyticalObjective":
         payload = data if isinstance(data, dict) else {}
+        if "stance" not in payload:
+            ao_id = str(payload.get("ao_id") or "unknown")
+            raise IncompatibleSessionError(
+                "AnalyticalObjective payload is missing Phase 2R stance fields "
+                f"for {ao_id}. Run scripts/migrate_phase_2_4_to_2r.py on the "
+                "session file before loading it with Phase 2R."
+            )
         status_raw = str(payload.get("status") or AOStatus.CREATED.value)
         relationship_raw = str(payload.get("relationship") or AORelationship.INDEPENDENT.value)
+        stance_raw = str(payload.get("stance") or ConversationalStance.UNKNOWN.value)
+        stance_confidence_raw = str(payload.get("stance_confidence") or StanceConfidence.LOW.value)
         try:
             status = AOStatus(status_raw)
         except ValueError:
@@ -218,6 +255,14 @@ class AnalyticalObjective:
             relationship = AORelationship(relationship_raw)
         except ValueError:
             relationship = AORelationship.INDEPENDENT
+        try:
+            stance = ConversationalStance(stance_raw)
+        except ValueError:
+            stance = ConversationalStance.UNKNOWN
+        try:
+            stance_confidence = StanceConfidence(stance_confidence_raw)
+        except ValueError:
+            stance_confidence = StanceConfidence.LOW
         metadata = dict(payload.get("metadata") or {})
         tool_intent = ToolIntent.from_dict(payload.get("tool_intent"))
         parameter_state = ParameterState.from_dict(payload.get("parameter_state"))
@@ -254,8 +299,38 @@ class AnalyticalObjective:
             ],
             tool_intent=tool_intent,
             parameter_state=parameter_state,
+            stance=stance,
+            stance_confidence=stance_confidence,
+            stance_resolved_by=(
+                str(payload.get("stance_resolved_by")).strip()
+                if payload.get("stance_resolved_by") is not None
+                else None
+            ),
+            stance_history=cls._parse_stance_history(payload.get("stance_history")),
             metadata=metadata,
         )
+
+    @staticmethod
+    def _parse_stance_history(value: Any) -> List[Tuple[int, ConversationalStance]]:
+        history: List[Tuple[int, ConversationalStance]] = []
+        for item in list(value or []):
+            if isinstance(item, dict):
+                turn_raw = item.get("turn")
+                stance_raw = item.get("stance")
+            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                turn_raw, stance_raw = item[0], item[1]
+            else:
+                continue
+            try:
+                stance = ConversationalStance(str(stance_raw))
+            except ValueError:
+                stance = ConversationalStance.UNKNOWN
+            try:
+                turn = int(turn_raw or 0)
+            except (TypeError, ValueError):
+                turn = 0
+            history.append((turn, stance))
+        return history
 
     @staticmethod
     def _migrate_deprecated_metadata(
