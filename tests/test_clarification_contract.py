@@ -966,3 +966,22 @@ def test_stage2_stance_hint_missing_field_falls_back_to_directive():
         "confidence": "low",
         "reasoning": "missing stance fallback",
     }
+
+
+def test_stage2_stance_hint_missing_required_overrides_to_deliberative():
+    hint, raw, parsed = ClarificationContract._extract_llm_stance_hint(
+        {
+            "slots": {},
+            "intent": {},
+            "stance": {"value": "directive", "confidence": "high", "reasoning": "指令句"},
+            "missing_required": ["vehicle_type"],
+        }
+    )
+
+    assert parsed is True
+    assert raw == {"value": "directive", "confidence": "high", "reasoning": "指令句"}
+    assert hint == {
+        "value": "deliberative",
+        "confidence": "high",
+        "reasoning": "missing required slots",
+    }

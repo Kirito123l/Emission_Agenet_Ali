@@ -752,6 +752,17 @@ class ClarificationContract(BaseContract):
                 None,
                 False,
             )
+        if list(llm_payload.get("missing_required") or []):
+            raw = llm_payload.get("stance")
+            return (
+                {
+                    "value": "deliberative",
+                    "confidence": "high",
+                    "reasoning": "missing required slots",
+                },
+                dict(raw) if isinstance(raw, dict) else None,
+                isinstance(raw, dict),
+            )
         raw = llm_payload.get("stance")
         if isinstance(raw, dict):
             hint = {
