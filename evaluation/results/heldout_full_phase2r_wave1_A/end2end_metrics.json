@@ -1,0 +1,88 @@
+{
+  "task": "end2end",
+  "mode": "router",
+  "subset": "full",
+  "run_status": "completed",
+  "infrastructure_health": {
+    "ok": 75,
+    "transient_retried": 0,
+    "billing_failed": 0,
+    "network_failed": 0,
+    "permanent_error": 0,
+    "unknown": 0
+  },
+  "data_integrity": "clean",
+  "tasks": 75,
+  "completion_rate": 0.5467,
+  "tool_accuracy": 0.6667,
+  "parameter_legal_rate": 0.6933,
+  "result_data_rate": 0.7333,
+  "skipped_tasks": 0,
+  "by_category": {
+    "ambiguous_colloquial": {
+      "tasks": 10,
+      "success_rate": 0.3,
+      "tool_accuracy": 0.3
+    },
+    "code_switch_typo": {
+      "tasks": 8,
+      "success_rate": 0.625,
+      "tool_accuracy": 0.75
+    },
+    "constraint_violation": {
+      "tasks": 7,
+      "success_rate": 0.5714,
+      "tool_accuracy": 0.8571
+    },
+    "incomplete": {
+      "tasks": 5,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "multi_step": {
+      "tasks": 8,
+      "success_rate": 0.0,
+      "tool_accuracy": 0.5
+    },
+    "multi_turn_clarification": {
+      "tasks": 10,
+      "success_rate": 0.2,
+      "tool_accuracy": 0.2
+    },
+    "parameter_ambiguous": {
+      "tasks": 7,
+      "success_rate": 0.7143,
+      "tool_accuracy": 0.8571
+    },
+    "simple": {
+      "tasks": 12,
+      "success_rate": 0.8333,
+      "tool_accuracy": 0.9167
+    },
+    "user_revision": {
+      "tasks": 8,
+      "success_rate": 0.875,
+      "tool_accuracy": 0.875
+    }
+  },
+  "cache_stats": {
+    "hits": 8,
+    "misses": 77,
+    "hit_rate": 0.0941
+  },
+  "rate_limit_telemetry": {
+    "rate_limit_wait_ms_total": 0,
+    "cache_hits_total": 8
+  },
+  "clarification_contract_metrics": {
+    "trigger_count": 0,
+    "trigger_rate_over_new_revision_turns": 0.0,
+    "stage2_hit_rate": 0.0,
+    "stage2_avg_latency_ms": 0.0,
+    "stage3_rejection_rate": 0.0,
+    "short_circuit_rate": 0.0,
+    "proceed_rate": 0.0
+  },
+  "wall_clock_sec": 144.29,
+  "logs_path": "/home/kirito/Agent1/emission_agent/evaluation/results/heldout_full_phase2r_wave1_A/end2end_logs.jsonl"
+}

@@ -1,0 +1,83 @@
+{
+  "task": "end2end",
+  "mode": "router",
+  "subset": "smoke",
+  "run_status": "completed",
+  "infrastructure_health": {
+    "ok": 10,
+    "transient_retried": 0,
+    "billing_failed": 0,
+    "network_failed": 0,
+    "permanent_error": 0,
+    "unknown": 0
+  },
+  "data_integrity": "clean",
+  "tasks": 10,
+  "completion_rate": 0.5,
+  "tool_accuracy": 0.6,
+  "parameter_legal_rate": 0.6,
+  "result_data_rate": 0.5,
+  "skipped_tasks": 0,
+  "by_category": {
+    "ambiguous_colloquial": {
+      "tasks": 1,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "code_switch_typo": {
+      "tasks": 1,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "constraint_violation": {
+      "tasks": 1,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "incomplete": {
+      "tasks": 1,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "multi_step": {
+      "tasks": 1,
+      "success_rate": 0.0,
+      "tool_accuracy": 0.0
+    },
+    "multi_turn_clarification": {
+      "tasks": 2,
+      "success_rate": 0.0,
+      "tool_accuracy": 0.5
+    },
+    "simple": {
+      "tasks": 2,
+      "success_rate": 0.5,
+      "tool_accuracy": 0.5
+    },
+    "user_revision": {
+      "tasks": 1,
+      "success_rate": 0.0,
+      "tool_accuracy": 0.0
+    }
+  },
+  "cache_stats": {
+    "hits": 0,
+    "misses": 9,
+    "hit_rate": 0.0
+  },
+  "rate_limit_telemetry": {
+    "rate_limit_wait_ms_total": 0,
+    "cache_hits_total": 0
+  },
+  "clarification_contract_metrics": {
+    "trigger_count": 0,
+    "trigger_rate_over_new_revision_turns": 0.0,
+    "stage2_hit_rate": 0.0,
+    "stage2_avg_latency_ms": 0.0,
+    "stage3_rejection_rate": 0.0,
+    "short_circuit_rate": 0.0,
+    "proceed_rate": 0.0
+  },
+  "wall_clock_sec": 34.43,
+  "logs_path": "/home/kirito/Agent1/emission_agent/evaluation/results/heldout_smoke_phase2r_wave1_A/end2end_logs.jsonl"
+}
