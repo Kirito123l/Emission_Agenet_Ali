@@ -532,7 +532,7 @@ class HotspotAnalyzer:
         method: str,
         percentile: Optional[float],
         threshold_value: Optional[float],
-        unit: str,
+        unit: str = "μg/m³",
     ) -> str:
         """Adjust hotspot wording according to road network coverage quality."""
         level = coverage_assessment.get("level", "unknown") if isinstance(coverage_assessment, dict) else "unknown"

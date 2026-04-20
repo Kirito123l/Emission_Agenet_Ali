@@ -148,6 +148,15 @@ class ScenarioComparator:
         scenario_data = scenario_result.get("data", {})
         baseline_summary = baseline_data.get("summary", {})
         scenario_summary = scenario_data.get("summary", {})
+        baseline_query = baseline_data.get("query_info", {})
+        scenario_query = scenario_data.get("query_info", {})
+        unit = (
+            scenario_summary.get("unit")
+            or baseline_summary.get("unit")
+            or scenario_query.get("unit")
+            or baseline_query.get("unit")
+            or "μg/m³"
+        )
 
         metric_names = metrics or ["mean_concentration", "max_concentration"]
         metric_comparison: Dict[str, Dict[str, Any]] = {}

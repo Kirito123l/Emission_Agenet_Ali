@@ -137,7 +137,7 @@ async def test_transcript_explicit_new_task_skips_recovered_reentry_target():
     )
 
     first_state = TaskState.initialize(
-        user_message="帮我做扩散分析",
+        user_message="帮我画排放地图",
         file_path=None,
         memory_dict=router.memory.get_fact_memory(),
         session_id="test-session",
