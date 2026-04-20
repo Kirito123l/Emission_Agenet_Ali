@@ -1,0 +1,88 @@
+{
+  "task": "end2end",
+  "mode": "router",
+  "subset": "full",
+  "run_status": "completed",
+  "infrastructure_health": {
+    "ok": 180,
+    "transient_retried": 0,
+    "billing_failed": 0,
+    "network_failed": 0,
+    "permanent_error": 0,
+    "unknown": 0
+  },
+  "data_integrity": "clean",
+  "tasks": 180,
+  "completion_rate": 0.7,
+  "tool_accuracy": 0.7722,
+  "parameter_legal_rate": 0.7111,
+  "result_data_rate": 0.7611,
+  "skipped_tasks": 0,
+  "by_category": {
+    "ambiguous_colloquial": {
+      "tasks": 20,
+      "success_rate": 0.45,
+      "tool_accuracy": 0.7
+    },
+    "code_switch_typo": {
+      "tasks": 20,
+      "success_rate": 0.75,
+      "tool_accuracy": 0.8
+    },
+    "constraint_violation": {
+      "tasks": 17,
+      "success_rate": 0.7647,
+      "tool_accuracy": 0.7647
+    },
+    "incomplete": {
+      "tasks": 18,
+      "success_rate": 0.9444,
+      "tool_accuracy": 1.0
+    },
+    "multi_step": {
+      "tasks": 20,
+      "success_rate": 0.7,
+      "tool_accuracy": 0.75
+    },
+    "multi_turn_clarification": {
+      "tasks": 20,
+      "success_rate": 0.15,
+      "tool_accuracy": 0.15
+    },
+    "parameter_ambiguous": {
+      "tasks": 24,
+      "success_rate": 0.625,
+      "tool_accuracy": 0.8333
+    },
+    "simple": {
+      "tasks": 21,
+      "success_rate": 0.9524,
+      "tool_accuracy": 0.9524
+    },
+    "user_revision": {
+      "tasks": 20,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    }
+  },
+  "cache_stats": {
+    "hits": 34,
+    "misses": 155,
+    "hit_rate": 0.1799
+  },
+  "rate_limit_telemetry": {
+    "rate_limit_wait_ms_total": 0,
+    "cache_hits_total": 34
+  },
+  "clarification_contract_metrics": {
+    "trigger_count": 0,
+    "trigger_rate_over_new_revision_turns": 0.0,
+    "stage2_hit_rate": 0.0,
+    "stage2_avg_latency_ms": 0.0,
+    "stage3_rejection_rate": 0.0,
+    "short_circuit_rate": 0.0,
+    "proceed_rate": 0.0
+  },
+  "wall_clock_sec": 332.61,
+  "logs_path": "/home/kirito/Agent1/emission_agent/evaluation/results/wave2_main_full_A/end2end_logs.jsonl"
+}
