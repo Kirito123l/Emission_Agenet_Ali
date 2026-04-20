@@ -86,14 +86,14 @@ class DispersionTool(BaseTool):
             meteorology: preset name | "custom" | .sfc path
             wind_speed / wind_direction / stability_class / mixing_height for custom met
             roughness_height: 0.05 | 0.5 | 1.0
-            pollutant: currently only NOx
+            pollutant: primary pollutant to disperse; defaults to NOx
             _last_result: injected upstream previous tool result payload
         """
         try:
             emission_source = kwargs.get("emission_source", "last_result")
             meteorology = kwargs.get("meteorology", "urban_summer_day")
             roughness = float(kwargs.get("roughness_height", 0.5))
-            pollutant = kwargs.get("pollutant", "NOx")
+            pollutant = str(kwargs.get("pollutant") or "NOx")
             grid_resolution = float(kwargs.get("grid_resolution", 50))
             contour_resolution = float(
                 kwargs.get(
@@ -130,7 +130,7 @@ class DispersionTool(BaseTool):
             inferred_label = self._extract_scenario_label(emission_data)
             scenario_label = str(kwargs.get("scenario_label") or inferred_label or "baseline")
 
-            roads_gdf, emissions_df = self._adapter.adapt(emission_data)
+            roads_gdf, emissions_df = self._adapter.adapt(emission_data, pollutant=pollutant)
             if roads_gdf.empty:
                 return ToolResult(
                     success=False,

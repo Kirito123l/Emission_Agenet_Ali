@@ -155,7 +155,7 @@ tools:
         category: compute
   calculate_macro_emission:
     display_name: 宏观排放计算
-    description: Calculate road link emissions from traffic data (length + flow + speed). Use file_path for uploaded files.
+    description: Calculate road link emissions from traffic data (length + flow + speed). Use file_path for uploaded files. The resulting pollutants can be passed to calculate_dispersion individually, or run sequentially when the user asks to disperse all computed pollutants.
     parameters:
       file_path:
         required: false
@@ -426,7 +426,7 @@ tools:
         standardization: pollutant
         schema:
           type: string
-          description: Pollutant name. Currently only NOx.
+          description: "Pollutant name. Supported primary pollutants: NOx (default), CO, PM2.5, PM10, CO2, THC. Physical dispersion only; no chemical transformation, secondary formation, wet/dry deposition, or background concentration fields."
           default: NOx
       scenario_label:
         required: false
@@ -452,10 +452,10 @@ tools:
     action_variants:
       - action_id: run_dispersion
         display_name: 模拟污染物扩散浓度
-        description: 基于当前排放结果继续进行扩散分析。
+        description: 基于当前排放结果继续进行指定污染物扩散分析；如排放结果包含多个污染物，需要明确选择 NOx、CO2、CO、PM2.5、PM10 或 THC 等目标污染物。
         tool_name: calculate_dispersion
         arguments: {}
-        guidance_utterance: "“帮我做扩散分析” - 了解污染物如何在大气中扩散"
+        guidance_utterance: "“帮我做 CO2 扩散分析” 或 “对所有污染物逐个扩散” - 了解指定污染物如何在大气中扩散"
         required_task_types: []
         required_result_tokens: []
         requires_geometry_support: true
@@ -570,7 +570,7 @@ tools:
         standardization: pollutant
         schema:
           type: string
-          description: Which pollutant to visualize (e.g., CO2, NOx, PM2.5). If not specified, uses the first available.
+          description: Which pollutant to visualize (e.g., CO2, NOx, PM2.5). For dispersion maps, uses the most recent dispersion result by default; if specified, resolves the matching stored dispersion result for that pollutant.
       title:
         required: false
         standardization: null
@@ -625,7 +625,6 @@ tools:
         requires_spatial_result_token: null
         provided_conflicts:
           - map:emission
-          - map:any
         artifact_key: null
         alternative_action_ids:
           - run_dispersion
@@ -646,7 +645,6 @@ tools:
         requires_spatial_result_token: dispersion
         provided_conflicts:
           - map:dispersion
-          - map:any
         artifact_key: null
         alternative_action_ids:
           - run_hotspot_analysis
@@ -667,7 +665,6 @@ tools:
         requires_spatial_result_token: hotspot
         provided_conflicts:
           - map:hotspot
-          - map:any
         artifact_key: null
         alternative_action_ids:
           - compare_scenario

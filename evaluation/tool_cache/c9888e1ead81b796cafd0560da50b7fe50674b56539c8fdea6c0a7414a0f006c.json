@@ -1,0 +1,297 @@
+{
+  "tool_name": "calculate_macro_emission",
+  "file_path": "/home/kirito/Agent1/emission_agent/evaluation/file_tasks/data/macro_direct.csv",
+  "result": {
+    "success": true,
+    "data": {
+      "query_info": {
+        "model_year": 2020,
+        "pollutants": [
+          "NOx"
+        ],
+        "season": "夏季",
+        "links_count": 3
+      },
+      "results": [
+        {
+          "link_id": "A1",
+          "link_length_km": 0.82,
+          "traffic_flow_vph": 960.0,
+          "avg_speed_kph": 38.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 672.0
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 192.0
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 48.0
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 28.8
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 19.2
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "NOx": 0.0008
+            },
+            "Passenger Truck": {
+              "NOx": 0.0008
+            },
+            "Light Commercial Truck": {
+              "NOx": 0.0004
+            },
+            "Transit Bus": {
+              "NOx": 0.01
+            },
+            "Combination Long-haul Truck": {
+              "NOx": 0.0081
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "NOx": 0.0201
+          },
+          "emission_rates_g_per_veh_km": {
+            "NOx": 0.0255
+          }
+        },
+        {
+          "link_id": "A2",
+          "link_length_km": 1.15,
+          "traffic_flow_vph": 1240.0,
+          "avg_speed_kph": 46.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 868.0
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 248.0
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 62.0
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 37.2
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 24.8
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "NOx": 0.0011
+            },
+            "Passenger Truck": {
+              "NOx": 0.0013
+            },
+            "Light Commercial Truck": {
+              "NOx": 0.0006
+            },
+            "Transit Bus": {
+              "NOx": 0.015
+            },
+            "Combination Long-haul Truck": {
+              "NOx": 0.0121
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "NOx": 0.0301
+          },
+          "emission_rates_g_per_veh_km": {
+            "NOx": 0.0211
+          }
+        },
+        {
+          "link_id": "A3",
+          "link_length_km": 0.63,
+          "traffic_flow_vph": 870.0,
+          "avg_speed_kph": 31.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 609.0
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 174.0
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 43.5
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 26.1
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 17.4
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "NOx": 0.0006
+            },
+            "Passenger Truck": {
+              "NOx": 0.0007
+            },
+            "Light Commercial Truck": {
+              "NOx": 0.0003
+            },
+            "Transit Bus": {
+              "NOx": 0.0085
+            },
+            "Combination Long-haul Truck": {
+              "NOx": 0.0069
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "NOx": 0.0172
+          },
+          "emission_rates_g_per_veh_km": {
+            "NOx": 0.0313
+          }
+        }
+      ],
+      "summary": {
+        "total_links": 3,
+        "total_emissions_kg_per_hr": {
+          "NOx": 0.0674
+        }
+      },
+      "fleet_mix_fill": {
+        "strategy": "default_fleet_mix",
+        "filled_count": 3,
+        "filled_link_ids": [
+          "A1",
+          "A2",
+          "A3"
+        ],
+        "filled_row_indices": [
+          0,
+          1,
+          2
+        ],
+        "default_fleet_mix_used": {
+          "Passenger Car": 70.0,
+          "Passenger Truck": 20.0,
+          "Light Commercial Truck": 5.0,
+          "Transit Bus": 3.0,
+          "Combination Long-haul Truck": 2.0
+        }
+      },
+      "scenario_label": "baseline",
+      "defaults_used": {
+        "model_year": 2020,
+        "fleet_mix": {
+          "Passenger Car": 70.0,
+          "Passenger Truck": 20.0,
+          "Light Commercial Truck": 5.0,
+          "Transit Bus": 3.0,
+          "Combination Long-haul Truck": 2.0
+        }
+      },
+      "download_file": {
+        "path": "/home/kirito/Agent1/emission_agent/outputs/macro_direct_emission_results_20260420_102455.xlsx",
+        "filename": "macro_direct_emission_results_20260420_102455.xlsx"
+      }
+    },
+    "error": null,
+    "summary": "已完成宏观排放计算，共 3 个路段\n车型年份: 2020，季节: 夏季，污染物: NOx\n**总排放量:**\n  - NOx: 67.40 g/小时 (1.62 kg (1617.60 g)/天)\n**缺失车型分布处理:** 已对 3 个路段使用默认车队组成填补空白行\n**使用默认参数:** 车型年份=2020, 车队组成=系统默认\n**单位排放率 (平均):**\n  - NOx: 0.03 g/(veh·km)\n**路段统计 (NOx):**\n  - 单路段平均: 0.02 kg/h\n  - 单路段最高: 0.03 kg/h\n  - 单路段最低: 0.02 kg/h",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": null,
+    "message": "已完成宏观排放计算，共 3 个路段\n车型年份: 2020，季节: 夏季，污染物: NOx\n**总排放量:**\n  - NOx: 67.40 g/小时 (1.62 kg (1617.60 g)/天)\n**缺失车型分布处理:** 已对 3 个路段使用默认车队组成填补空白行\n**使用默认参数:** 车型年份=2020, 车队组成=系统默认\n**单位排放率 (平均):**\n  - NOx: 0.03 g/(veh·km)\n**路段统计 (NOx):**\n  - 单路段平均: 0.02 kg/h\n  - 单路段最高: 0.03 kg/h\n  - 单路段最低: 0.02 kg/h",
+    "_standardization_records": [
+      {
+        "param": "pollutants[NOx]",
+        "success": true,
+        "original": "NOx",
+        "normalized": "NOx",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "season",
+        "success": true,
+        "original": "夏季",
+        "normalized": "夏季",
+        "strategy": "exact",
+        "confidence": 1.0
+      }
+    ],
+    "_trace": {
+      "tool_name": "calculate_macro_emission",
+      "original_arguments": {
+        "pollutants": [
+          "NOx"
+        ],
+        "season": "夏季"
+      },
+      "standardization_enabled": true,
+      "file_path_context": "/home/kirito/Agent1/emission_agent/evaluation/file_tasks/data/macro_direct.csv",
+      "standardized_arguments": {
+        "pollutants": [
+          "NOx"
+        ],
+        "season": "夏季"
+      },
+      "standardization_records": [
+        {
+          "param": "pollutants[NOx]",
+          "success": true,
+          "original": "NOx",
+          "normalized": "NOx",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "season",
+          "success": true,
+          "original": "夏季",
+          "normalized": "夏季",
+          "strategy": "exact",
+          "confidence": 1.0
+        }
+      ],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": true,
+      "duration_ms": 3580.34
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

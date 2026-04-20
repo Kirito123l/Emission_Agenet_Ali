@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "active": false,
+  "skill": "ralplan",
+  "keyword": "$ralplan",
+  "phase": "complete",
+  "activated_at": "2026-04-11T03:11:43.341Z",
+  "updated_at": "2026-04-11T03:13:34.766Z",
+  "source": "keyword-detector",
+  "session_id": "019d7a86-ad66-7eb1-a27a-deab89d3a187",
+  "turn_id": "019d7a86-adb2-7502-954d-c53b7596908d",
+  "active_skills": [],
+  "initialized_mode": "ralplan",
+  "initialized_state_path": ".omx/state/sessions/019d7a86-ad66-7eb1-a27a-deab89d3a187/ralplan-state.json"
+}

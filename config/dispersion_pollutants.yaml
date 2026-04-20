@@ -1,0 +1,38 @@
+version: "1.0"
+
+pollutants:
+  NOx:
+    status: supported
+    default_unit: "μg/m³"
+    science_caveats:
+      - "Physical dispersion of primary NOx emissions only; NOx-NO2-O3 chemical transformation is not modeled."
+
+  CO:
+    status: supported
+    default_unit: "μg/m³"
+    science_caveats:
+      - "Physical dispersion of primary CO emissions only; background concentration fields are not included."
+
+  PM2.5:
+    status: supported
+    default_unit: "μg/m³"
+    science_caveats:
+      - "Physical dispersion of primary PM2.5 emissions only; secondary PM formation and wet/dry deposition are not modeled."
+
+  PM10:
+    status: supported
+    default_unit: "μg/m³"
+    science_caveats:
+      - "Physical dispersion of primary PM10 emissions only; size-dependent settling and wet/dry deposition are not modeled."
+
+  CO2:
+    status: experimental
+    default_unit: "μg/m³"
+    science_caveats:
+      - "Physical dispersion of incremental CO2 mass concentration only; background concentration and ppm conversion are not included."
+
+  THC:
+    status: experimental
+    default_unit: "μg/m³"
+    science_caveats:
+      - "Physical dispersion of aggregate THC emissions only; VOC speciation, reactivity, and chemical loss are not modeled."

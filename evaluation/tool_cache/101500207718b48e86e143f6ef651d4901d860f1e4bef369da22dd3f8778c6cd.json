@@ -1,0 +1,427 @@
+{
+  "tool_name": "query_emission_factors",
+  "file_path": null,
+  "result": {
+    "success": true,
+    "data": {
+      "vehicle_type": "Passenger Car",
+      "model_year": 2020,
+      "pollutants": {
+        "CO2": {
+          "curve": [
+            {
+              "speed_kph": 8.0,
+              "emission_rate": 534.9938
+            },
+            {
+              "speed_kph": 9.7,
+              "emission_rate": 460.4111
+            },
+            {
+              "speed_kph": 11.3,
+              "emission_rate": 407.1383
+            },
+            {
+              "speed_kph": 12.9,
+              "emission_rate": 367.1834
+            },
+            {
+              "speed_kph": 14.5,
+              "emission_rate": 336.6759
+            },
+            {
+              "speed_kph": 16.1,
+              "emission_rate": 313.5795
+            },
+            {
+              "speed_kph": 17.7,
+              "emission_rate": 294.6823
+            },
+            {
+              "speed_kph": 19.3,
+              "emission_rate": 278.9348
+            },
+            {
+              "speed_kph": 20.9,
+              "emission_rate": 265.6095
+            },
+            {
+              "speed_kph": 22.5,
+              "emission_rate": 254.1887
+            },
+            {
+              "speed_kph": 24.1,
+              "emission_rate": 244.2902
+            },
+            {
+              "speed_kph": 25.7,
+              "emission_rate": 235.1051
+            },
+            {
+              "speed_kph": 27.4,
+              "emission_rate": 225.6459
+            },
+            {
+              "speed_kph": 29.0,
+              "emission_rate": 217.2381
+            },
+            {
+              "speed_kph": 30.6,
+              "emission_rate": 209.7152
+            },
+            {
+              "speed_kph": 32.2,
+              "emission_rate": 202.9441
+            },
+            {
+              "speed_kph": 33.8,
+              "emission_rate": 197.023
+            },
+            {
+              "speed_kph": 35.4,
+              "emission_rate": 191.9364
+            },
+            {
+              "speed_kph": 37.0,
+              "emission_rate": 187.2904
+            },
+            {
+              "speed_kph": 38.6,
+              "emission_rate": 183.0322
+            },
+            {
+              "speed_kph": 40.2,
+              "emission_rate": 179.115
+            },
+            {
+              "speed_kph": 41.8,
+              "emission_rate": 175.4993
+            },
+            {
+              "speed_kph": 43.5,
+              "emission_rate": 172.1507
+            },
+            {
+              "speed_kph": 45.1,
+              "emission_rate": 169.0413
+            },
+            {
+              "speed_kph": 46.7,
+              "emission_rate": 166.147
+            },
+            {
+              "speed_kph": 48.3,
+              "emission_rate": 163.4453
+            },
+            {
+              "speed_kph": 49.9,
+              "emission_rate": 161.3854
+            },
+            {
+              "speed_kph": 51.5,
+              "emission_rate": 159.909
+            },
+            {
+              "speed_kph": 53.1,
+              "emission_rate": 158.5209
+            },
+            {
+              "speed_kph": 54.7,
+              "emission_rate": 157.2154
+            },
+            {
+              "speed_kph": 56.3,
+              "emission_rate": 155.9832
+            },
+            {
+              "speed_kph": 57.9,
+              "emission_rate": 154.8212
+            },
+            {
+              "speed_kph": 59.5,
+              "emission_rate": 153.7208
+            },
+            {
+              "speed_kph": 61.2,
+              "emission_rate": 152.6794
+            },
+            {
+              "speed_kph": 62.8,
+              "emission_rate": 151.6895
+            },
+            {
+              "speed_kph": 64.4,
+              "emission_rate": 150.75
+            },
+            {
+              "speed_kph": 66.0,
+              "emission_rate": 149.8571
+            },
+            {
+              "speed_kph": 67.6,
+              "emission_rate": 149.0064
+            },
+            {
+              "speed_kph": 69.2,
+              "emission_rate": 148.1949
+            },
+            {
+              "speed_kph": 70.8,
+              "emission_rate": 147.4194
+            },
+            {
+              "speed_kph": 72.4,
+              "emission_rate": 146.6794
+            },
+            {
+              "speed_kph": 74.0,
+              "emission_rate": 145.9729
+            },
+            {
+              "speed_kph": 75.6,
+              "emission_rate": 144.9656
+            },
+            {
+              "speed_kph": 77.2,
+              "emission_rate": 143.9534
+            },
+            {
+              "speed_kph": 78.9,
+              "emission_rate": 142.9804
+            },
+            {
+              "speed_kph": 80.5,
+              "emission_rate": 142.0477
+            },
+            {
+              "speed_kph": 82.1,
+              "emission_rate": 141.1504
+            },
+            {
+              "speed_kph": 83.7,
+              "emission_rate": 140.2886
+            },
+            {
+              "speed_kph": 85.3,
+              "emission_rate": 139.459
+            },
+            {
+              "speed_kph": 86.9,
+              "emission_rate": 138.6599
+            },
+            {
+              "speed_kph": 88.5,
+              "emission_rate": 137.8907
+            },
+            {
+              "speed_kph": 90.1,
+              "emission_rate": 137.1488
+            },
+            {
+              "speed_kph": 91.7,
+              "emission_rate": 136.4317
+            },
+            {
+              "speed_kph": 93.3,
+              "emission_rate": 135.7407
+            },
+            {
+              "speed_kph": 95.0,
+              "emission_rate": 135.2486
+            },
+            {
+              "speed_kph": 96.6,
+              "emission_rate": 135.4437
+            },
+            {
+              "speed_kph": 98.2,
+              "emission_rate": 135.6326
+            },
+            {
+              "speed_kph": 99.8,
+              "emission_rate": 135.8159
+            },
+            {
+              "speed_kph": 101.4,
+              "emission_rate": 135.993
+            },
+            {
+              "speed_kph": 103.0,
+              "emission_rate": 136.1651
+            },
+            {
+              "speed_kph": 104.6,
+              "emission_rate": 137.0897
+            },
+            {
+              "speed_kph": 106.2,
+              "emission_rate": 138.4835
+            },
+            {
+              "speed_kph": 107.8,
+              "emission_rate": 139.564
+            },
+            {
+              "speed_kph": 109.4,
+              "emission_rate": 140.4601
+            },
+            {
+              "speed_kph": 111.0,
+              "emission_rate": 141.3312
+            },
+            {
+              "speed_kph": 112.7,
+              "emission_rate": 142.1763
+            },
+            {
+              "speed_kph": 114.3,
+              "emission_rate": 142.9978
+            },
+            {
+              "speed_kph": 115.9,
+              "emission_rate": 143.7962
+            },
+            {
+              "speed_kph": 117.5,
+              "emission_rate": 144.5736
+            },
+            {
+              "speed_kph": 119.1,
+              "emission_rate": 146.0046
+            },
+            {
+              "speed_kph": 120.7,
+              "emission_rate": 150.0478
+            },
+            {
+              "speed_kph": 122.3,
+              "emission_rate": 153.9855
+            },
+            {
+              "speed_kph": 123.9,
+              "emission_rate": 151.9859
+            }
+          ],
+          "unit": "g/km",
+          "speed_range": {
+            "min_kph": 8.0,
+            "max_kph": 123.9
+          },
+          "data_points": 73
+        }
+      },
+      "metadata": {
+        "season": "夏季",
+        "road_type": "主干道"
+      }
+    },
+    "error": null,
+    "summary": "Found emission factors for 1 pollutants (CO2) for Passenger Car (2020). Season: 夏季, Road type: 主干道.",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": null,
+    "message": "Found emission factors for 1 pollutants (CO2) for Passenger Car (2020). Season: 夏季, Road type: 主干道.",
+    "_standardization_records": [
+      {
+        "param": "vehicle_type",
+        "success": true,
+        "original": "乘用车",
+        "normalized": "Passenger Car",
+        "strategy": "alias",
+        "confidence": 0.95
+      },
+      {
+        "param": "pollutants[CO2]",
+        "success": true,
+        "original": "CO2",
+        "normalized": "CO2",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "season",
+        "success": true,
+        "original": "夏季",
+        "normalized": "夏季",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "road_type",
+        "success": true,
+        "original": "主干道",
+        "normalized": "主干道",
+        "strategy": "exact",
+        "confidence": 1.0
+      }
+    ],
+    "_trace": {
+      "tool_name": "query_emission_factors",
+      "original_arguments": {
+        "vehicle_type": "乘用车",
+        "pollutants": [
+          "CO2"
+        ],
+        "model_year": 2020,
+        "season": "夏季",
+        "road_type": "主干道",
+        "return_curve": true
+      },
+      "standardization_enabled": true,
+      "file_path_context": null,
+      "standardized_arguments": {
+        "vehicle_type": "Passenger Car",
+        "pollutants": [
+          "CO2"
+        ],
+        "model_year": 2020,
+        "season": "夏季",
+        "road_type": "主干道",
+        "return_curve": true
+      },
+      "standardization_records": [
+        {
+          "param": "vehicle_type",
+          "success": true,
+          "original": "乘用车",
+          "normalized": "Passenger Car",
+          "strategy": "alias",
+          "confidence": 0.95
+        },
+        {
+          "param": "pollutants[CO2]",
+          "success": true,
+          "original": "CO2",
+          "normalized": "CO2",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "season",
+          "success": true,
+          "original": "夏季",
+          "normalized": "夏季",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "road_type",
+          "success": true,
+          "original": "主干道",
+          "normalized": "主干道",
+          "strategy": "exact",
+          "confidence": 1.0
+        }
+      ],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": false,
+      "duration_ms": 19444.74
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

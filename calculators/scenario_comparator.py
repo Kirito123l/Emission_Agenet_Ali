@@ -63,6 +63,15 @@ class ScenarioComparator:
         scenario_data = scenario_result.get("data", {})
         baseline_summary = baseline_data.get("summary", {})
         scenario_summary = scenario_data.get("summary", {})
+        baseline_query = baseline_data.get("query_info", {})
+        scenario_query = scenario_data.get("query_info", {})
+        unit = (
+            scenario_summary.get("unit")
+            or baseline_summary.get("unit")
+            or scenario_query.get("unit")
+            or baseline_query.get("unit")
+            or "μg/m³"
+        )
 
         baseline_totals = baseline_summary.get("total_emissions_kg_per_hr", {})
         scenario_totals = scenario_summary.get("total_emissions_kg_per_hr", {})
@@ -152,7 +161,7 @@ class ScenarioComparator:
                 "scenario": round(scenario_value, 6),
                 "delta": round(delta, 6),
                 "delta_pct": round(delta_pct, 1),
-                "unit": "μg/m³",
+                "unit": unit,
             }
 
         baseline_met = baseline_data.get("meteorology_used", {})
@@ -171,6 +180,8 @@ class ScenarioComparator:
             "comparison_type": "dispersion",
             "metrics": metric_comparison,
             "meteorology_changes": met_changes,
+            "pollutant": scenario_query.get("pollutant") or baseline_query.get("pollutant"),
+            "unit": unit,
             "baseline_label": baseline_data.get("scenario_label", "baseline"),
             "scenario_label": scenario_data.get("scenario_label", "scenario"),
         }
@@ -197,4 +208,3 @@ class ScenarioComparator:
             "baseline_area": float(baseline_summary.get("total_hotspot_area_m2", 0.0) or 0.0),
             "scenario_area": float(scenario_summary.get("total_hotspot_area_m2", 0.0) or 0.0),
         }
-

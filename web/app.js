@@ -2,6 +2,7 @@
 const API_BASE = '/api';
 let currentSessionId = null;
 let currentFile = null;
+let currentRouterMode = localStorage.getItem('router_mode') === 'naive' ? 'naive' : 'full';
 const USE_STREAMING = true;  // 是否使用流式输出
 const titledSessions = new Set();
 const sessionMetaById = new Map();
@@ -127,6 +128,7 @@ function logout() {
 document.addEventListener('DOMContentLoaded', () => {
     initAuthState();
     ensureLeafletStackingStyles();
+    initRouterMode();
 });
 
 // ==================== DOM元素 ====================
@@ -134,6 +136,7 @@ const messagesContainer = document.getElementById('messages-container');
 const messageInput = document.querySelector('#input-area textarea');
 const sendButton = document.querySelector('#input-area button[class*="bg-primary"]');
 const attachButton = document.querySelector('#input-area button[title="Attach file"]');
+const routerModeSelect = document.getElementById('router-mode-select');
 const newChatButton = document.querySelector('aside button[class*="bg-primary"]');
 const sessionListContainer = document.querySelector('aside .flex.flex-col.gap-1');
 
@@ -145,6 +148,19 @@ fileInput.style.display = 'none';
 document.body.appendChild(fileInput);
 
 const LEAFLET_STACK_FIX_STYLE_ID = 'leaflet-stacking-fix';
+
+function initRouterMode() {
+    if (!routerModeSelect) return;
+    routerModeSelect.value = currentRouterMode;
+    routerModeSelect.addEventListener('change', () => {
+        currentRouterMode = routerModeSelect.value === 'naive' ? 'naive' : 'full';
+        localStorage.setItem('router_mode', currentRouterMode);
+    });
+}
+
+function getCurrentRouterMode() {
+    return currentRouterMode === 'naive' ? 'naive' : 'full';
+}
 
 function ensureLeafletStackingStyles() {
     if (document.getElementById(LEAFLET_STACK_FIX_STYLE_ID)) {
@@ -665,6 +681,7 @@ async function sendMessage() {
         // 构建FormData
         const formData = new FormData();
         formData.append('message', message);
+        formData.append('mode', getCurrentRouterMode());
         if (currentSessionId) {
             formData.append('session_id', currentSessionId);
         }
@@ -676,7 +693,8 @@ async function sendMessage() {
         console.log('📦 FormData 内容:', {
             message: message,
             session_id: currentSessionId,
-            file: fileToSend?.name
+            file: fileToSend?.name,
+            mode: getCurrentRouterMode()
         });
 
         // 发送请求
@@ -748,6 +766,7 @@ async function sendMessageStream(message, file) {
         // 构建FormData
         const formData = new FormData();
         formData.append('message', message);
+        formData.append('mode', getCurrentRouterMode());
         if (currentSessionId) {
             formData.append('session_id', currentSessionId);
         }
@@ -2719,7 +2738,8 @@ function normalizeContourMapData(mapData) {
         return null;
     }
 
-    const pollutant = mapData.pollutant || mapData.query_info?.pollutant || 'NOx';
+    const pollutant = resolveMapPollutant(mapData);
+    const unit = resolveConcentrationUnit(mapData);
     const bbox = Array.isArray(contourBands.bbox_wgs84) ? contourBands.bbox_wgs84 : null;
     const stats = contourBands.stats || {};
     const interpResolution = Number(contourBands.interp_resolution_m || 10);
@@ -2758,7 +2778,7 @@ function normalizeContourMapData(mapData) {
                 stroke_color: 'rgba(255,255,255,0.15)',
                 stroke_width: 0.5,
                 legend_title: `${pollutant} Concentration`,
-                legend_unit: 'μg/m³',
+                legend_unit: unit,
                 resolution_info: `${Math.round(interpResolution)}m interpolation`,
             }
         }],
@@ -2770,11 +2790,19 @@ function normalizeContourMapData(mapData) {
             min_concentration: Number(stats.min_concentration || 0),
             max_concentration: Number(stats.max_concentration || 0),
             mean_concentration: Number(stats.mean_concentration || 0),
-            unit: 'μg/m³',
+            unit,
             n_receptors_used: Number(contourBands.n_receptors_used || 0),
             feature_count: features.length,
         }
     };
+}
+
+function resolveMapPollutant(mapData) {
+    return mapData?.pollutant || mapData?.query_info?.pollutant || 'NOx';
+}
+
+function resolveConcentrationUnit(mapData, style = {}) {
+    return style?.legend_unit || mapData?.summary?.unit || mapData?.query_info?.unit || mapData?.unit || 'μg/m³';
 }
 
 function normalizeRasterMapData(mapData) {
@@ -2801,7 +2829,8 @@ function normalizeRasterMapData(mapData) {
     }
 
     const resolution = Number(raster.resolution_m || 50);
-    const pollutant = mapData.pollutant || mapData.query_info?.pollutant || 'NOx';
+    const pollutant = resolveMapPollutant(mapData);
+    const unit = resolveConcentrationUnit(mapData);
     const values = [];
     const features = [];
     const lons = [];
@@ -2882,7 +2911,7 @@ function normalizeRasterMapData(mapData) {
                 opacity: 0.7,
                 stroke: false,
                 legend_title: `${pollutant} Concentration`,
-                legend_unit: 'μg/m³',
+                legend_unit: unit,
                 resolution_m: resolution,
             }
         }],
@@ -2891,9 +2920,9 @@ function normalizeRasterMapData(mapData) {
             total_cells: Number(stats.total_cells || 0),
             nonzero_cells: Number(stats.nonzero_cells || features.length),
             resolution_m: resolution,
-            mean_concentration: Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(4)),
-            max_concentration: Number(Math.max(...values).toFixed(4)),
-            unit: 'μg/m³',
+            mean_concentration: Number(Number(mapData.summary?.mean_concentration ?? (values.reduce((sum, value) => sum + value, 0) / values.length)).toFixed(4)),
+            max_concentration: Number(Number(mapData.summary?.max_concentration ?? Math.max(...values)).toFixed(4)),
+            unit,
         }
     };
 }
@@ -2975,17 +3004,25 @@ function normalizeHotspotMapData(mapData) {
         return null;
     }
 
+    const pollutant = resolveMapPollutant(mapData);
+    const unit = resolveConcentrationUnit(mapData);
     const contourMap = normalizeContourMapData({
         type: 'contour',
         title: mapData.title,
-        pollutant: mapData.pollutant || mapData.query_info?.pollutant || 'NOx',
+        pollutant,
+        unit,
+        summary: mapData.summary,
+        query_info: mapData.query_info,
         contour_bands: mapData.contour_bands,
         coverage_assessment: mapData.coverage_assessment,
     });
     const rasterMap = contourMap ? null : normalizeRasterMapData({
         type: 'raster',
         title: mapData.title,
-        pollutant: mapData.pollutant || mapData.query_info?.pollutant || 'NOx',
+        pollutant,
+        unit,
+        summary: mapData.summary,
+        query_info: mapData.query_info,
         raster_grid: mapData.raster_grid,
         coverage_assessment: mapData.coverage_assessment,
     });
@@ -3022,6 +3059,8 @@ function normalizeHotspotMapData(mapData) {
     return {
         type: 'hotspot',
         title: mapData.title || 'Pollution Hotspot Analysis',
+        pollutant,
+        unit,
         scenario_label: mapData.scenario_label || 'baseline',
         center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
         zoom: computeMapZoom(span || 0.05),
@@ -3383,7 +3422,7 @@ function initContourLeafletMap(mapData, mapId) {
 
     const style = layer.style || {};
     const nLevels = Number(style.n_levels || features.length || 1);
-    const unit = style.legend_unit || mapData.summary?.unit || 'μg/m³';
+    const unit = resolveConcentrationUnit(mapData, style);
 
     const contourLayer = L.geoJSON(layer.data, {
         style: (feature) => {
@@ -3445,7 +3484,7 @@ function initRasterLeafletMap(mapData, mapId) {
 
     const style = layer.style || {};
     const [minVal, maxVal] = style.value_range || [0, 1];
-    const unit = style.legend_unit || mapData.summary?.unit || 'μg/m³';
+    const unit = resolveConcentrationUnit(mapData, style);
 
     const rasterLayer = L.geoJSON(layer.data, {
         style: (feature) => {
@@ -3500,8 +3539,8 @@ function renderContourMap(mapData, msgContainer) {
     }
 
     const style = layer.style || {};
-    const pollutant = normalizedMapData.pollutant || 'NOx';
-    const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
+    const pollutant = resolveMapPollutant(normalizedMapData);
+    const unit = resolveConcentrationUnit(normalizedMapData, style);
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `contour-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const exportButton = renderMapExportButton('dispersion', normalizedMapData.scenario_label);
@@ -3546,7 +3585,7 @@ function renderContourMap(mapData, msgContainer) {
     }, 150);
 }
 
-function buildHotspotPopupHtml(hotspot) {
+function buildHotspotPopupHtml(hotspot, unit = 'μg/m³') {
     const roads = Array.isArray(hotspot?.contributing_roads)
         ? hotspot.contributing_roads.slice(0, 3)
         : [];
@@ -3594,13 +3633,13 @@ function buildHotspotPopupHtml(hotspot) {
                 <tr>
                     <td style="color:#888;padding:2px 6px;">峰值浓度</td>
                     <td style="padding:2px 6px;text-align:right;">
-                        <b>${fmtConc(hotspot?.max_conc)}</b> μg/m³
+                        <b>${fmtConc(hotspot?.max_conc)}</b> ${escapeHtml(unit)}
                     </td>
                 </tr>
                 <tr>
                     <td style="color:#888;padding:2px 6px;">均值浓度</td>
                     <td style="padding:2px 6px;text-align:right;">
-                        <b>${fmtConc(hotspot?.mean_conc)}</b> μg/m³
+                        <b>${fmtConc(hotspot?.mean_conc)}</b> ${escapeHtml(unit)}
                     </td>
                 </tr>
             </table>
@@ -3633,6 +3672,7 @@ function initHotspotLeafletMap(mapData, mapId) {
     const contourLayerData = layers.find((layer) => layer.id === 'concentration_contour');
     const rasterLayerData = layers.find((layer) => layer.id === 'concentration_raster');
     const hotspotLayerData = layers.find((layer) => layer.id === 'hotspot_areas');
+    const unit = resolveConcentrationUnit(mapData);
 
     let backgroundLayer = null;
     if (contourLayerData?.data?.features?.length) {
@@ -3654,11 +3694,12 @@ function initHotspotLeafletMap(mapData, mapId) {
             },
             onEachFeature: (feature, layer) => {
                 const props = feature.properties || {};
+                const contourUnit = resolveConcentrationUnit(mapData, contourStyle);
                 layer.bindPopup(`
                     <div style="min-width: 180px;">
                         <h3 style="font-weight: bold; margin: 0 0 8px 0;">${escapeHtml(String(props.label || 'Contour Band'))}</h3>
                         <div style="font-size: 13px; line-height: 1.6;">
-                            <div><strong>Range:</strong> ${formatConcentration(props.level_min || 0)} - ${formatConcentration(props.level_max || 0)} μg/m³</div>
+                            <div><strong>Range:</strong> ${formatConcentration(props.level_min || 0)} - ${formatConcentration(props.level_max || 0)} ${contourUnit}</div>
                         </div>
                     </div>
                 `);
@@ -3698,8 +3739,8 @@ function initHotspotLeafletMap(mapData, mapId) {
                     (hotspot) => Number(hotspot.hotspot_id) === Number(hotspotId) || Number(hotspot.rank) === Number(props.rank)
                 );
                 const popupHtml = hotspotDetail
-                    ? buildHotspotPopupHtml(hotspotDetail)
-                    : buildHotspotPopupHtml(props);
+                    ? buildHotspotPopupHtml(hotspotDetail, unit)
+                    : buildHotspotPopupHtml(props, unit);
 
                 layer.bindPopup(popupHtml, {
                     maxWidth: 280,
@@ -3777,8 +3818,8 @@ function renderRasterMap(mapData, msgContainer) {
 
     const style = layer.style || {};
     const [minVal, maxVal] = style.value_range || [0, 1];
-    const pollutant = normalizedMapData.pollutant || 'NOx';
-    const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
+    const pollutant = resolveMapPollutant(normalizedMapData);
+    const unit = resolveConcentrationUnit(normalizedMapData, style);
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `raster-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const exportButton = renderMapExportButton('dispersion', normalizedMapData.scenario_label);
@@ -3837,6 +3878,7 @@ function renderHotspotMap(mapData, msgContainer) {
     const coverageHtml = renderCoverageWarning(normalizedMapData.coverage_assessment);
     const mapId = `hotspot-map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const summary = normalizedMapData.summary || {};
+    const unit = resolveConcentrationUnit(normalizedMapData);
     const exportButton = renderMapExportButton('hotspot', normalizedMapData.scenario_label);
 
     const mapHtml = `
@@ -3849,7 +3891,7 @@ function renderHotspotMap(mapData, msgContainer) {
                 <div class="flex flex-col items-end gap-2 text-sm text-slate-500 dark:text-slate-400 text-right">
                     <div>热点面积 ${formatMapValue(summary.total_hotspot_area_m2 || 0)} m²</div>
                     <div>区域占比 ${formatMapValue(summary.area_fraction_pct || 0)}%</div>
-                    <div>最高浓度 ${formatMapValue(summary.max_concentration || 0)} μg/m³</div>
+                    <div>最高浓度 ${formatMapValue(summary.max_concentration || 0)} ${unit}</div>
                     ${exportButton}
                 </div>
             </div>
@@ -3894,7 +3936,8 @@ function normalizeConcentrationMapData(mapData) {
         return null;
     }
 
-    const pollutant = mapData.pollutant || mapData.query_info?.pollutant || 'NOx';
+    const pollutant = resolveMapPollutant(mapData);
+    const unit = resolveConcentrationUnit(mapData);
     const validReceptors = receptors
         .map((receptor, index) => {
             const lon = Number(receptor.lon);
@@ -3968,14 +4011,14 @@ function normalizeConcentrationMapData(mapData) {
                 value_range: [Math.min(...values), Math.max(...values)],
                 opacity: 0.85,
                 legend_title: `${pollutant} Concentration`,
-                legend_unit: mapData.summary?.unit || 'μg/m³'
+                legend_unit: unit
             }
         }],
         summary: {
             receptor_count: mapData.summary?.receptor_count ?? receptors.length,
             mean_concentration: mapData.summary?.mean_concentration ?? (values.reduce((sum, value) => sum + value, 0) / values.length),
             max_concentration: mapData.summary?.max_concentration ?? Math.max(...values),
-            unit: mapData.summary?.unit || 'μg/m³'
+            unit
         }
     };
 }
@@ -3996,9 +4039,9 @@ function renderConcentrationMap(mapData, msgContainer) {
     const valueRange = style.value_range || [0, 1];
     const minVal = Number(valueRange[0] || 0);
     const maxVal = Number(valueRange[1] || minVal);
-    const unit = style.legend_unit || normalizedMapData.summary?.unit || 'μg/m³';
+    const unit = resolveConcentrationUnit(normalizedMapData, style);
     const legendGradient = 'linear-gradient(to right, #ffffb2, #fecc5c, #fd8d3c, #f03b20, #bd0026)';
-    const pollutant = normalizedMapData.pollutant || 'NOx';
+    const pollutant = resolveMapPollutant(normalizedMapData);
 
     const mapHtml = `
         <div class="message-map-wrapper message-map-surface w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 mt-4" data-map-id="${mapId}">
@@ -4131,7 +4174,7 @@ function initConcentrationLeafletMap(mapData, mapId) {
     const valueRange = style.value_range || [0, 1];
     const minVal = Number(valueRange[0] || 0);
     const maxVal = Number(valueRange[1] || minVal);
-    const unit = style.legend_unit || mapData.summary?.unit || 'μg/m³';
+    const unit = resolveConcentrationUnit(mapData, style);
     const radius = Number(style.radius || 6);
     const opacity = Number(style.opacity || 0.85);
 

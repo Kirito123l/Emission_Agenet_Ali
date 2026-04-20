@@ -1,0 +1,260 @@
+{
+  "tool_name": "query_knowledge",
+  "file_path": null,
+  "result": {
+    "success": true,
+    "data": {
+      "query": "MOVES 里 Passenger Car 和 Passenger Truck 的区别是什么？",
+      "results": [
+        {
+          "id": "GB_18352_1_c9",
+          "content": "### 3.1 轻型汽车\n\n轻型汽车是指最大总质量不超过3.5t的 $\\mathbf{M}_1$ 类、 $\\mathbf{M}_2$ 类和 $\\mathbf{N}_1$ 类车辆。\n\n### 3.2 $\\mathbf{M}_1$ 、 $\\mathbf{M}_2$ 、 $\\mathbf{N}_1$ 类车辆\n\n按GB/T15089规定：\n\n$\\mathbf{M}_{1}$ 类车指至少有四个车轮，或有三个车轮且厂定最大总质量超过 $1\\mathrm{t}$ ，除驾驶员座位外，乘客座位不超过8个的载客车辆。\n\n$\\mathbf{M}_2$ 类车指至少有四个车轮，或有三个车轮且厂定最大总质量超过 $1\\mathrm{t}$ ，除驾驶员座位外，乘客座位超过8个，且厂定最大总质量不超过 $5\\mathrm{t}$ 的载客车辆。\n\n$\\mathbf{N}_{1}$ 类车指至少有四个车轮，或有三个车轮且厂定最大总质量超过 $1 \\mathrm{t}$ ，厂定最大总质量不超过 $3.5 \\mathrm{t}$ 的载货车辆。",
+          "score": 0.6590279936790466,
+          "metadata": {
+            "provenance": {
+              "doc_id": "5fa4046d2ad6d955ac18cfa630558f1e",
+              "doc_title": "轻型汽车污染物排放限值及测量方法",
+              "doc_code": "GB 18352.1",
+              "doc_category": "standard",
+              "jurisdiction": "CN",
+              "publish_year": 2001,
+              "raw_file_path": "data/raw/2001-轻型汽车污染物排放限值及测量方法（Ⅰ）-GB 18352.1.pdf",
+              "page_start": null,
+              "page_end": null,
+              "section_title": null
+            },
+            "business_filters": {
+              "standard_stage": "China_I",
+              "standard_substage": null,
+              "source_type": "Passenger Car",
+              "fuel_type": "gasoline",
+              "pollutants": null
+            },
+            "knowledge_context": {
+              "qtype": "TERM_EXPLAIN",
+              "content_type": "text",
+              "driving_cycle": null,
+              "method_context": null,
+              "scenario": null,
+              "keywords": []
+            },
+            "table_info": null
+          },
+          "source": "轻型汽车污染物排放限值及测量方法",
+          "rerank_score": 0.3667657001315373
+        },
+        {
+          "id": "GB_18352_3_2005_c15",
+          "content": "### 3.1 轻型汽车\n\n指最大总质量不超过 3500 kg 的 M₁ 类、M₂ 类和 N₁ 类汽车。\n\n### 3.2 M₁ 、M₂ 和 N₁ 类汽车\n\n按 GB/T15089—2001 规定：\n\nM₁ 类车指包括驾驶员座位在内，座位数不超过九座的载客汽车。\n\nM₂ 类车指包括驾驶员座位在内座位数超过九座，且最大设计总质量不超过 5000 kg 的载客汽车。\n\nN₁ 类车指最大设计总质量不超过 3500 kg 的载货汽车。",
+          "score": 0.6602140665054321,
+          "metadata": {
+            "provenance": {
+              "doc_id": "86d6f39f04ad53d8be7ccce659a20bc8",
+              "doc_title": "轻型汽车污染物排放限值及测量方法（中国Ⅲ、Ⅳ阶段）",
+              "doc_code": "GB 18352.3—2005",
+              "doc_category": "standard",
+              "jurisdiction": "CN",
+              "publish_year": 2005,
+              "raw_file_path": "data/raw/2005-轻型汽车污染物排放限值及测量方法（III、IV）-GB 18352.3.pdf",
+              "page_start": null,
+              "page_end": null,
+              "section_title": null
+            },
+            "business_filters": {
+              "standard_stage": "China_III",
+              "standard_substage": null,
+              "source_type": "Passenger Car",
+              "fuel_type": "gasoline",
+              "pollutants": null
+            },
+            "knowledge_context": {
+              "qtype": "TERM_EXPLAIN",
+              "content_type": "text",
+              "driving_cycle": null,
+              "method_context": null,
+              "scenario": null,
+              "keywords": []
+            },
+            "table_info": null
+          },
+          "source": "轻型汽车污染物排放限值及测量方法（中国Ⅲ、Ⅳ阶段）",
+          "rerank_score": 0.23287042172070935
+        },
+        {
+          "id": "GB18352_6_2016_c12",
+          "content": "\\(\\mathrm{M}_2\\) 类车指包括驾驶员座位在内座位数超过九座，且最大设计总质量不超过 \\(5000 \\mathrm{~kg}\\) 的载客汽车。\n\n\\(\\mathrm{N}_1\\) 类车指最大设计总质量不超过 \\(3500 \\mathrm{~kg}\\) 的载货汽车。\n\n\\(\\mathrm{N}_2\\) 类车指最大设计总质量超过 \\(3500 \\mathrm{~kg}\\)，但不超过 \\(12000 \\mathrm{~kg}\\) 的载货汽车。\n\n3.3 第一类车 vehicle of category I 包括驾驶员座位在内座位数不超过六座，且最大设计总质量不超过 \\(2500 \\mathrm{~kg}\\) 的 \\(\\mathrm{M}_1\\) 类汽车。\n\n3.4 第二类车 vehicle of category II 本标准适用范围内，除第一类车以外的其他所有汽车。\n\n3.5 混合动力电动汽车 hybrid electric vehicle, HEV 能够至少从下述两类车载储存的能量装置中获得动力的汽车： 可消耗的燃料； ——可再充电能/能量储存装置。\n\n3.6 两用燃料车 bi-fuel vehicle 既能燃用汽油又能燃用一种气体燃料，但不能同时燃用两种燃料的汽车。\n\n3.7 单一气体燃料车 mono-fuel gas vehicle",
+          "score": 0.6613439321517944,
+          "metadata": {
+            "provenance": {
+              "doc_id": "5aa715145396b292e1268e4db7b8b883",
+              "doc_title": "轻型汽车污染物排放限值及测量方法（中国第六阶段）",
+              "doc_code": "GB18352.6—2016",
+              "doc_category": "standard",
+              "jurisdiction": "CN",
+              "publish_year": 2016,
+              "raw_file_path": "data/raw/中国-国六排放标准.pdf",
+              "page_start": null,
+              "page_end": null,
+              "section_title": null
+            },
+            "business_filters": {
+              "standard_stage": "China_VI",
+              "standard_substage": null,
+              "source_type": "Passenger Car",
+              "fuel_type": "gasoline",
+              "pollutants": null
+            },
+            "knowledge_context": {
+              "qtype": "TERM_EXPLAIN",
+              "content_type": "text",
+              "driving_cycle": null,
+              "method_context": null,
+              "scenario": null,
+              "keywords": [
+                "M2类车",
+                "N1类车",
+                "N2类车",
+                "第一类车",
+                "第二类车",
+                "混合动力电动汽车",
+                "HEV",
+                "两用燃料车",
+                "单一气体燃料车"
+              ]
+            },
+            "table_info": null
+          },
+          "source": "轻型汽车污染物排放限值及测量方法（中国第六阶段）",
+          "rerank_score": 0.23270333337943147
+        },
+        {
+          "id": "GB_17691-2018_c21",
+          "content": "城市车辆 urban vehicles\n\n指主要在城市运行的公交车、邮政车和环卫车。\n\nM1、M2、M3、N1、N2、N3类车\n\n按GB/T15089规定：\n\n\\(\\mathbf{M}_1\\) 类车指包括驾驶座位在内，座位数不超过九座的载客车辆；\n\n\\(\\mathrm{M}_{2}\\) 类车指包括驾驶座位在内，座位数超过九座，且最大设计总质量不超过 \\(5000\\,\\mathrm{kg}\\) 的载客车辆；\n\n\\(\\mathbf{M}_3\\) 类车指包括驾驶座位在内，座位数超过九座，且最大设计总质量超过 \\(5000\\,\\mathrm{kg}\\) 的载客车辆，其中：\n\n——I 级：可载成员数（不包括驾驶员）多于 22 人，允许乘员站立，并且乘员可以自由走动；\n\n——II 级：可载成员数（不包括驾驶员）多于22人，允许乘员站立在过道和（或）提供不超过相当于两个双人座位站立面积；\n\n——III 级：可载成员数（不包括驾驶员）多于 22 人，不允许乘员站立；\n\nA级：可载成员数（不包括驾驶员）不多于22人，并允许乘员站立；\n\n—B级：可载成员数（不包括驾驶员）不多于22人，不允许乘员站立。\n\n\\(\\mathrm{N}_{1}\\) 类车指最大设计总质量不超过 \\(3500\\,\\mathrm{kg}\\) 的载货车辆；",
+          "score": 0.6487441062927246,
+          "metadata": {
+            "provenance": {
+              "doc_id": "e816ec2421cea289029a734440701c64",
+              "doc_title": "重型柴油车污染物排放限值及测量方法",
+              "doc_code": "GB 17691-2018",
+              "doc_category": "standard",
+              "jurisdiction": "CN",
+              "publish_year": 2021,
+              "raw_file_path": "data/raw/中国-国六-重型柴油车排放限值.pdf",
+              "page_start": null,
+              "page_end": null,
+              "section_title": null
+            },
+            "business_filters": {
+              "standard_stage": "China_VI",
+              "standard_substage": null,
+              "source_type": "Transit Bus, Refuse Truck, Single-Unit Short Haul Truck, Single-Unit Long Haul Truck, Combination Short Haul Truck, Combination Long Haul Truck",
+              "fuel_type": "diesel, cng",
+              "pollutants": null
+            },
+            "knowledge_context": {
+              "qtype": "TERM_EXPLAIN",
+              "content_type": "text",
+              "driving_cycle": null,
+              "method_context": null,
+              "scenario": "urban vehicles",
+              "keywords": [
+                "urban vehicles",
+                "Transit Bus",
+                "Refuse Truck",
+                "M1",
+                "M2",
+                "M3",
+                "N1",
+                "N2",
+                "N3",
+                "GB/T15089"
+              ]
+            },
+            "table_info": null
+          },
+          "source": "重型柴油车污染物排放限值及测量方法",
+          "rerank_score": 0.19746023882192956
+        },
+        {
+          "id": "GB_17691-2018_c22",
+          "content": "A级：可载成员数（不包括驾驶员）不多于22人，并允许乘员站立；\n\nB级：可载成员数（不包括驾驶员）不多于22人，不允许乘员站立。\n\nIII级：可载成员数（不包括驾驶员）多于22人，不允许乘员站立；\n\n，允许乘员站立在过道和（或）提供不超过相当于两个双人座位站立面积；\n\nN1类车指最大设计总质量不超过 kg的载货车辆；\n\n### 3.68 有效数据点 valid data\n\n当发动机的冷却液温度在 70°C 以上，或者当冷却液的温度在PEMS测试开始后，5分钟之内的变化小于 2°C （以先到为准，但不能晚于发动机启动后20分钟），至试验结束的所有测试数据点。",
+          "score": 0.6542273759841919,
+          "metadata": {
+            "provenance": {
+              "doc_id": "e816ec2421cea289029a734440701c64",
+              "doc_title": "重型柴油车污染物排放限值及测量方法",
+              "doc_code": "GB 17691-2018",
+              "doc_category": "standard",
+              "jurisdiction": "CN",
+              "publish_year": 2021,
+              "raw_file_path": "data/raw/中国-国六-重型柴油车排放限值.pdf",
+              "page_start": null,
+              "page_end": null,
+              "section_title": null
+            },
+            "business_filters": {
+              "standard_stage": "China_VI",
+              "standard_substage": null,
+              "source_type": "Transit Bus",
+              "fuel_type": "diesel, cng",
+              "pollutants": null
+            },
+            "knowledge_context": {
+              "qtype": "TERM_EXPLAIN",
+              "content_type": "text",
+              "driving_cycle": null,
+              "method_context": "PEMS",
+              "scenario": "engine cooling liquid temperature stabilization during PEMS testing",
+              "keywords": [
+                "有效数据点",
+                "valid data",
+                "冷却液温度",
+                "engine coolant temperature",
+                "PEMS测试",
+                "数据点有效性"
+              ]
+            },
+            "table_info": null
+          },
+          "source": "重型柴油车污染物排放限值及测量方法",
+          "rerank_score": 0.16767021362143844
+        }
+      ],
+      "answer": "### Passenger Car 与 Passenger Truck 的基本定义\n\n在 MOVES（Motor Vehicle Emissions Simulator）模型中，**Passenger Car**（乘用车）和 **Passenger Truck**（客运货车）的区别主要体现在车辆分类、用途以及设计标准上。前者以载客为主，后者则属于载客但具有货运特征或更高承载能力的车辆，其分类依据主要来自 GB/T15089 标准 [来源1]。\n\n---\n\n### 车辆类别划分：M₁ 与 M₂\n\n- **Passenger Car** 通常对应 **M₁ 类车辆**，指包括驾驶员座位在内，座位数不超过九座的载客汽车，且最大设计总质量不超过 3500 kg [来源2]。\n- **Passenger Truck** 一般指 **M₂ 类车辆**，即包括驾驶员座位在内，座位数超过九座，且最大设计总质量不超过 5000 kg 的载客汽车 [来源2][来源3]。\n\n⚠️ 注意：尽管两者都用于载客，但 **M₂ 类车因座位数多、总质量上限高**，被归为“大客车”或“客运货车”，常用于公交、长途客运等场景。\n\n---\n\n### 用途与功能差异\n\n- **Passenger Car**：主要用于个人或家庭出行，强调舒适性、燃油经济性和小型化，常见于城市通勤 [来源1]。\n- **Passenger Truck**：虽具备载客功能，但设计更偏向多功能性，可能兼有货物运输能力，例如厢式客车或带货舱的客运车，适用于企业班车、旅游包车等 [来源2][来源3]。\n\n---\n\n### 附加说明：相关车型对比\n\n- **N₁ 类车辆**：最大总质量不超过 3500 kg 的载货汽车，不属于载客类，但有时在实际应用中与轻型货车混淆 [来源1][来源2]。\n- **第二类车（Category II）**：除第一类车外的所有汽车，涵盖 M₂ 与部分 N₂ 车型，是 MOVES 中对非小型乘用车的统称 [来源3]。\n\n> 综上所述，在 MOVES 模型中，Passenger Car 与 Passenger Truck 的核心区别在于 **座位数、最大总质量限制及使用目的**。前者为小型载客汽车，后者为大型载客车辆，具备更强的载运能力。\n\n**参考文档**：\n1. 轻型汽车污染物排放限值及测量方法\n2. 轻型汽车污染物排放限值及测量方法（中国Ⅲ、Ⅳ阶段）\n3. 轻型汽车污染物排放限值及测量方法（中国第六阶段）\n4. 重型柴油车污染物排放限值及测量方法",
+      "sources": [
+        "轻型汽车污染物排放限值及测量方法",
+        "轻型汽车污染物排放限值及测量方法（中国Ⅲ、Ⅳ阶段）",
+        "轻型汽车污染物排放限值及测量方法（中国第六阶段）",
+        "重型柴油车污染物排放限值及测量方法"
+      ]
+    },
+    "error": null,
+    "summary": "### Passenger Car 与 Passenger Truck 的基本定义\n\n在 MOVES（Motor Vehicle Emissions Simulator）模型中，**Passenger Car**（乘用车）和 **Passenger Truck**（客运货车）的区别主要体现在车辆分类、用途以及设计标准上。前者以载客为主，后者则属于载客但具有货运特征或更高承载能力的车辆，其分类依据主要来自 GB/T15089 标准 [来源1]。\n\n---\n\n### 车辆类别划分：M₁ 与 M₂\n\n- **Passenger Car** 通常对应 **M₁ 类车辆**，指包括驾驶员座位在内，座位数不超过九座的载客汽车，且最大设计总质量不超过 3500 kg [来源2]。\n- **Passenger Truck** 一般指 **M₂ 类车辆**，即包括驾驶员座位在内，座位数超过九座，且最大设计总质量不超过 5000 kg 的载客汽车 [来源2][来源3]。\n\n⚠️ 注意：尽管两者都用于载客，但 **M₂ 类车因座位数多、总质量上限高**，被归为“大客车”或“客运货车”，常用于公交、长途客运等场景。\n\n---\n\n### 用途与功能差异\n\n- **Passenger Car**：主要用于个人或家庭出行，强调舒适性、燃油经济性和小型化，常见于城市通勤 [来源1]。\n- **Passenger Truck**：虽具备载客功能，但设计更偏向多功能性，可能兼有货物运输能力，例如厢式客车或带货舱的客运车，适用于企业班车、旅游包车等 [来源2][来源3]。\n\n---\n\n### 附加说明：相关车型对比\n\n- **N₁ 类车辆**：最大总质量不超过 3500 kg 的载货汽车，不属于载客类，但有时在实际应用中与轻型货车混淆 [来源1][来源2]。\n- **第二类车（Category II）**：除第一类车外的所有汽车，涵盖 M₂ 与部分 N₂ 车型，是 MOVES 中对非小型乘用车的统称 [来源3]。\n\n> 综上所述，在 MOVES 模型中，Passenger Car 与 Passenger Truck 的核心区别在于 **座位数、最大总质量限制及使用目的**。前者为小型载客汽车，后者为大型载客车辆，具备更强的载运能力。\n\n**参考文档**：\n1. 轻型汽车污染物排放限值及测量方法\n2. 轻型汽车污染物排放限值及测量方法（中国Ⅲ、Ⅳ阶段）\n3. 轻型汽车污染物排放限值及测量方法（中国第六阶段）\n4. 重型柴油车污染物排放限值及测量方法",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": null,
+    "message": "### Passenger Car 与 Passenger Truck 的基本定义\n\n在 MOVES（Motor Vehicle Emissions Simulator）模型中，**Passenger Car**（乘用车）和 **Passenger Truck**（客运货车）的区别主要体现在车辆分类、用途以及设计标准上。前者以载客为主，后者则属于载客但具有货运特征或更高承载能力的车辆，其分类依据主要来自 GB/T15089 标准 [来源1]。\n\n---\n\n### 车辆类别划分：M₁ 与 M₂\n\n- **Passenger Car** 通常对应 **M₁ 类车辆**，指包括驾驶员座位在内，座位数不超过九座的载客汽车，且最大设计总质量不超过 3500 kg [来源2]。\n- **Passenger Truck** 一般指 **M₂ 类车辆**，即包括驾驶员座位在内，座位数超过九座，且最大设计总质量不超过 5000 kg 的载客汽车 [来源2][来源3]。\n\n⚠️ 注意：尽管两者都用于载客，但 **M₂ 类车因座位数多、总质量上限高**，被归为“大客车”或“客运货车”，常用于公交、长途客运等场景。\n\n---\n\n### 用途与功能差异\n\n- **Passenger Car**：主要用于个人或家庭出行，强调舒适性、燃油经济性和小型化，常见于城市通勤 [来源1]。\n- **Passenger Truck**：虽具备载客功能，但设计更偏向多功能性，可能兼有货物运输能力，例如厢式客车或带货舱的客运车，适用于企业班车、旅游包车等 [来源2][来源3]。\n\n---\n\n### 附加说明：相关车型对比\n\n- **N₁ 类车辆**：最大总质量不超过 3500 kg 的载货汽车，不属于载客类，但有时在实际应用中与轻型货车混淆 [来源1][来源2]。\n- **第二类车（Category II）**：除第一类车外的所有汽车，涵盖 M₂ 与部分 N₂ 车型，是 MOVES 中对非小型乘用车的统称 [来源3]。\n\n> 综上所述，在 MOVES 模型中，Passenger Car 与 Passenger Truck 的核心区别在于 **座位数、最大总质量限制及使用目的**。前者为小型载客汽车，后者为大型载客车辆，具备更强的载运能力。\n\n**参考文档**：\n1. 轻型汽车污染物排放限值及测量方法\n2. 轻型汽车污染物排放限值及测量方法（中国Ⅲ、Ⅳ阶段）\n3. 轻型汽车污染物排放限值及测量方法（中国第六阶段）\n4. 重型柴油车污染物排放限值及测量方法",
+    "_standardization_records": [],
+    "_trace": {
+      "tool_name": "query_knowledge",
+      "original_arguments": {
+        "query": "MOVES 里 Passenger Car 和 Passenger Truck 的区别是什么？"
+      },
+      "standardization_enabled": true,
+      "file_path_context": null,
+      "standardized_arguments": {
+        "query": "MOVES 里 Passenger Car 和 Passenger Truck 的区别是什么？"
+      },
+      "standardization_records": [],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": false,
+      "duration_ms": 7235.38
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

@@ -25,13 +25,14 @@ class EmissionToDispersionAdapter:
     def adapt(
         macro_result: Dict[str, Any],
         geometry_source: Union[List[Dict], gpd.GeoDataFrame, None] = None,
+        pollutant: str = "NOx",
     ) -> Tuple[gpd.GeoDataFrame, pd.DataFrame]:
         """
         Transform macro emission result to dispersion inputs.
 
         Field mapping:
             macro_result.results[*].link_id -> NAME_1
-            macro_result.results[*].total_emissions_kg_per_hr.NOx -> nox
+            macro_result.results[*].total_emissions_kg_per_hr[pollutant] -> pollutant column
             macro_result.results[*].link_length_km -> length
             macro_result.results[*].geometry -> geometry
         """
@@ -43,7 +44,7 @@ class EmissionToDispersionAdapter:
             raise ValueError("macro_result.data.results is required")
 
         roads_gdf = EmissionToDispersionAdapter._extract_geometry(results, geometry_source)
-        emissions_df = EmissionToDispersionAdapter._build_emissions_df(results, "NOx")
+        emissions_df = EmissionToDispersionAdapter._build_emissions_df(results, pollutant)
         return roads_gdf, emissions_df
 
     @staticmethod
@@ -131,18 +132,36 @@ class EmissionToDispersionAdapter:
         Since macro emission gives a single time snapshot,
         we create a single-timestep emission with a synthetic data_time.
         """
-        pollutant_key = pollutant
+        pollutant_key = str(pollutant or "NOx")
+        pollutant_col = pollutant_key.lower()
+        missing_links = []
+        available_pollutants = set()
         rows = []
         for result in results:
             link_id = result.get("link_id")
             emissions = result.get("total_emissions_kg_per_hr", {})
+            if isinstance(emissions, dict):
+                available_pollutants.update(str(key) for key in emissions.keys())
+            else:
+                emissions = {}
+            if pollutant_key not in emissions:
+                missing_links.append(str(link_id))
+                emission_value = 0.0
+            else:
+                emission_value = emissions[pollutant_key]
             rows.append(
                 {
                     "NAME_1": str(link_id),
                     "data_time": pd.Timestamp(result.get("data_time", "2024-01-01 00:00:00")),
-                    pollutant.lower(): float(emissions.get(pollutant_key, 0.0)),
+                    pollutant_col: float(emission_value),
                     "length": float(result.get("link_length_km", 0.0)),
                 }
+            )
+        if missing_links:
+            available = ", ".join(sorted(available_pollutants)) or "none"
+            raise ValueError(
+                f"Emission results missing pollutant '{pollutant_key}' for "
+                f"{len(missing_links)} link(s). Available pollutants: {available}"
             )
         return pd.DataFrame(rows)
 

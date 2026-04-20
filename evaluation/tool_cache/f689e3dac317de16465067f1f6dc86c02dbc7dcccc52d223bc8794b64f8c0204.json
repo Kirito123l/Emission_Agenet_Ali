@@ -1,0 +1,427 @@
+{
+  "tool_name": "query_emission_factors",
+  "file_path": null,
+  "result": {
+    "success": true,
+    "data": {
+      "vehicle_type": "Motorcycle",
+      "model_year": 2020,
+      "pollutants": {
+        "NOx": {
+          "curve": [
+            {
+              "speed_kph": 8.0,
+              "emission_rate": 0.3616
+            },
+            {
+              "speed_kph": 9.7,
+              "emission_rate": 0.328
+            },
+            {
+              "speed_kph": 11.3,
+              "emission_rate": 0.304
+            },
+            {
+              "speed_kph": 12.9,
+              "emission_rate": 0.286
+            },
+            {
+              "speed_kph": 14.5,
+              "emission_rate": 0.271
+            },
+            {
+              "speed_kph": 16.1,
+              "emission_rate": 0.2567
+            },
+            {
+              "speed_kph": 17.7,
+              "emission_rate": 0.2449
+            },
+            {
+              "speed_kph": 19.3,
+              "emission_rate": 0.2352
+            },
+            {
+              "speed_kph": 20.9,
+              "emission_rate": 0.2269
+            },
+            {
+              "speed_kph": 22.5,
+              "emission_rate": 0.2198
+            },
+            {
+              "speed_kph": 24.1,
+              "emission_rate": 0.2137
+            },
+            {
+              "speed_kph": 25.7,
+              "emission_rate": 0.21
+            },
+            {
+              "speed_kph": 27.4,
+              "emission_rate": 0.2111
+            },
+            {
+              "speed_kph": 29.0,
+              "emission_rate": 0.212
+            },
+            {
+              "speed_kph": 30.6,
+              "emission_rate": 0.2128
+            },
+            {
+              "speed_kph": 32.2,
+              "emission_rate": 0.2136
+            },
+            {
+              "speed_kph": 33.8,
+              "emission_rate": 0.2176
+            },
+            {
+              "speed_kph": 35.4,
+              "emission_rate": 0.2259
+            },
+            {
+              "speed_kph": 37.0,
+              "emission_rate": 0.2335
+            },
+            {
+              "speed_kph": 38.6,
+              "emission_rate": 0.2405
+            },
+            {
+              "speed_kph": 40.2,
+              "emission_rate": 0.2469
+            },
+            {
+              "speed_kph": 41.8,
+              "emission_rate": 0.2529
+            },
+            {
+              "speed_kph": 43.5,
+              "emission_rate": 0.2584
+            },
+            {
+              "speed_kph": 45.1,
+              "emission_rate": 0.2635
+            },
+            {
+              "speed_kph": 46.7,
+              "emission_rate": 0.2682
+            },
+            {
+              "speed_kph": 48.3,
+              "emission_rate": 0.2726
+            },
+            {
+              "speed_kph": 49.9,
+              "emission_rate": 0.2798
+            },
+            {
+              "speed_kph": 51.5,
+              "emission_rate": 0.2895
+            },
+            {
+              "speed_kph": 53.1,
+              "emission_rate": 0.2985
+            },
+            {
+              "speed_kph": 54.7,
+              "emission_rate": 0.3071
+            },
+            {
+              "speed_kph": 56.3,
+              "emission_rate": 0.3151
+            },
+            {
+              "speed_kph": 57.9,
+              "emission_rate": 0.3227
+            },
+            {
+              "speed_kph": 59.5,
+              "emission_rate": 0.3299
+            },
+            {
+              "speed_kph": 61.2,
+              "emission_rate": 0.3367
+            },
+            {
+              "speed_kph": 62.8,
+              "emission_rate": 0.3432
+            },
+            {
+              "speed_kph": 64.4,
+              "emission_rate": 0.3493
+            },
+            {
+              "speed_kph": 66.0,
+              "emission_rate": 0.3551
+            },
+            {
+              "speed_kph": 67.6,
+              "emission_rate": 0.3607
+            },
+            {
+              "speed_kph": 69.2,
+              "emission_rate": 0.366
+            },
+            {
+              "speed_kph": 70.8,
+              "emission_rate": 0.3711
+            },
+            {
+              "speed_kph": 72.4,
+              "emission_rate": 0.3759
+            },
+            {
+              "speed_kph": 74.0,
+              "emission_rate": 0.3805
+            },
+            {
+              "speed_kph": 75.6,
+              "emission_rate": 0.3819
+            },
+            {
+              "speed_kph": 77.2,
+              "emission_rate": 0.3827
+            },
+            {
+              "speed_kph": 78.9,
+              "emission_rate": 0.3835
+            },
+            {
+              "speed_kph": 80.5,
+              "emission_rate": 0.3843
+            },
+            {
+              "speed_kph": 82.1,
+              "emission_rate": 0.385
+            },
+            {
+              "speed_kph": 83.7,
+              "emission_rate": 0.3857
+            },
+            {
+              "speed_kph": 85.3,
+              "emission_rate": 0.3864
+            },
+            {
+              "speed_kph": 86.9,
+              "emission_rate": 0.3871
+            },
+            {
+              "speed_kph": 88.5,
+              "emission_rate": 0.3877
+            },
+            {
+              "speed_kph": 90.1,
+              "emission_rate": 0.3883
+            },
+            {
+              "speed_kph": 91.7,
+              "emission_rate": 0.3889
+            },
+            {
+              "speed_kph": 93.3,
+              "emission_rate": 0.3895
+            },
+            {
+              "speed_kph": 95.0,
+              "emission_rate": 0.3907
+            },
+            {
+              "speed_kph": 96.6,
+              "emission_rate": 0.3944
+            },
+            {
+              "speed_kph": 98.2,
+              "emission_rate": 0.398
+            },
+            {
+              "speed_kph": 99.8,
+              "emission_rate": 0.4014
+            },
+            {
+              "speed_kph": 101.4,
+              "emission_rate": 0.4048
+            },
+            {
+              "speed_kph": 103.0,
+              "emission_rate": 0.408
+            },
+            {
+              "speed_kph": 104.6,
+              "emission_rate": 0.4096
+            },
+            {
+              "speed_kph": 106.2,
+              "emission_rate": 0.4102
+            },
+            {
+              "speed_kph": 107.8,
+              "emission_rate": 0.4078
+            },
+            {
+              "speed_kph": 109.4,
+              "emission_rate": 0.4039
+            },
+            {
+              "speed_kph": 111.0,
+              "emission_rate": 0.4001
+            },
+            {
+              "speed_kph": 112.7,
+              "emission_rate": 0.3965
+            },
+            {
+              "speed_kph": 114.3,
+              "emission_rate": 0.3929
+            },
+            {
+              "speed_kph": 115.9,
+              "emission_rate": 0.3894
+            },
+            {
+              "speed_kph": 117.5,
+              "emission_rate": 0.386
+            },
+            {
+              "speed_kph": 119.1,
+              "emission_rate": 0.3822
+            },
+            {
+              "speed_kph": 120.7,
+              "emission_rate": 0.3764
+            },
+            {
+              "speed_kph": 122.3,
+              "emission_rate": 0.3708
+            },
+            {
+              "speed_kph": 123.9,
+              "emission_rate": 0.3659
+            }
+          ],
+          "unit": "g/km",
+          "speed_range": {
+            "min_kph": 8.0,
+            "max_kph": 123.9
+          },
+          "data_points": 73
+        }
+      },
+      "metadata": {
+        "season": "夏季",
+        "road_type": "快速路"
+      }
+    },
+    "error": null,
+    "summary": "Found emission factors for 1 pollutants (NOx) for Motorcycle (2020). Season: 夏季, Road type: 快速路.",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": null,
+    "message": "Found emission factors for 1 pollutants (NOx) for Motorcycle (2020). Season: 夏季, Road type: 快速路.",
+    "_standardization_records": [
+      {
+        "param": "vehicle_type",
+        "success": true,
+        "original": "摩托车",
+        "normalized": "Motorcycle",
+        "strategy": "alias",
+        "confidence": 0.95
+      },
+      {
+        "param": "pollutants[NOx]",
+        "success": true,
+        "original": "NOx",
+        "normalized": "NOx",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "season",
+        "success": true,
+        "original": "夏季",
+        "normalized": "夏季",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "road_type",
+        "success": true,
+        "original": "快速路",
+        "normalized": "快速路",
+        "strategy": "exact",
+        "confidence": 1.0
+      }
+    ],
+    "_trace": {
+      "tool_name": "query_emission_factors",
+      "original_arguments": {
+        "vehicle_type": "摩托车",
+        "pollutants": [
+          "NOx"
+        ],
+        "model_year": 2020,
+        "season": "夏季",
+        "road_type": "快速路",
+        "return_curve": true
+      },
+      "standardization_enabled": true,
+      "file_path_context": null,
+      "standardized_arguments": {
+        "vehicle_type": "Motorcycle",
+        "pollutants": [
+          "NOx"
+        ],
+        "model_year": 2020,
+        "season": "夏季",
+        "road_type": "快速路",
+        "return_curve": true
+      },
+      "standardization_records": [
+        {
+          "param": "vehicle_type",
+          "success": true,
+          "original": "摩托车",
+          "normalized": "Motorcycle",
+          "strategy": "alias",
+          "confidence": 0.95
+        },
+        {
+          "param": "pollutants[NOx]",
+          "success": true,
+          "original": "NOx",
+          "normalized": "NOx",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "season",
+          "success": true,
+          "original": "夏季",
+          "normalized": "夏季",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "road_type",
+          "success": true,
+          "original": "快速路",
+          "normalized": "快速路",
+          "strategy": "exact",
+          "confidence": 1.0
+        }
+      ],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": false,
+      "duration_ms": 767.47
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

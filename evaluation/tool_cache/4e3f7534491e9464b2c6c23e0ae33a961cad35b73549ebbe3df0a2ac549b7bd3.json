@@ -1,0 +1,427 @@
+{
+  "tool_name": "query_emission_factors",
+  "file_path": null,
+  "result": {
+    "success": true,
+    "data": {
+      "vehicle_type": "Transit Bus",
+      "model_year": 2015,
+      "pollutants": {
+        "CO": {
+          "curve": [
+            {
+              "speed_kph": 8.0,
+              "emission_rate": 3.0516
+            },
+            {
+              "speed_kph": 9.7,
+              "emission_rate": 2.7593
+            },
+            {
+              "speed_kph": 11.3,
+              "emission_rate": 2.5505
+            },
+            {
+              "speed_kph": 12.9,
+              "emission_rate": 2.3939
+            },
+            {
+              "speed_kph": 14.5,
+              "emission_rate": 2.2721
+            },
+            {
+              "speed_kph": 16.1,
+              "emission_rate": 2.1747
+            },
+            {
+              "speed_kph": 17.7,
+              "emission_rate": 2.1011
+            },
+            {
+              "speed_kph": 19.3,
+              "emission_rate": 2.0531
+            },
+            {
+              "speed_kph": 20.9,
+              "emission_rate": 2.0124
+            },
+            {
+              "speed_kph": 22.5,
+              "emission_rate": 1.9775
+            },
+            {
+              "speed_kph": 24.1,
+              "emission_rate": 1.9473
+            },
+            {
+              "speed_kph": 25.7,
+              "emission_rate": 1.9234
+            },
+            {
+              "speed_kph": 27.4,
+              "emission_rate": 1.9059
+            },
+            {
+              "speed_kph": 29.0,
+              "emission_rate": 1.8903
+            },
+            {
+              "speed_kph": 30.6,
+              "emission_rate": 1.8764
+            },
+            {
+              "speed_kph": 32.2,
+              "emission_rate": 1.8638
+            },
+            {
+              "speed_kph": 33.8,
+              "emission_rate": 1.8502
+            },
+            {
+              "speed_kph": 35.4,
+              "emission_rate": 1.8292
+            },
+            {
+              "speed_kph": 37.0,
+              "emission_rate": 1.8099
+            },
+            {
+              "speed_kph": 38.6,
+              "emission_rate": 1.7923
+            },
+            {
+              "speed_kph": 40.2,
+              "emission_rate": 1.7702
+            },
+            {
+              "speed_kph": 41.8,
+              "emission_rate": 1.7441
+            },
+            {
+              "speed_kph": 43.5,
+              "emission_rate": 1.7199
+            },
+            {
+              "speed_kph": 45.1,
+              "emission_rate": 1.6975
+            },
+            {
+              "speed_kph": 46.7,
+              "emission_rate": 1.6766
+            },
+            {
+              "speed_kph": 48.3,
+              "emission_rate": 1.6571
+            },
+            {
+              "speed_kph": 49.9,
+              "emission_rate": 1.6388
+            },
+            {
+              "speed_kph": 51.5,
+              "emission_rate": 1.579
+            },
+            {
+              "speed_kph": 53.1,
+              "emission_rate": 1.4815
+            },
+            {
+              "speed_kph": 54.7,
+              "emission_rate": 1.3897
+            },
+            {
+              "speed_kph": 56.3,
+              "emission_rate": 1.339
+            },
+            {
+              "speed_kph": 57.9,
+              "emission_rate": 1.3143
+            },
+            {
+              "speed_kph": 59.5,
+              "emission_rate": 1.291
+            },
+            {
+              "speed_kph": 61.2,
+              "emission_rate": 1.2689
+            },
+            {
+              "speed_kph": 62.8,
+              "emission_rate": 1.2479
+            },
+            {
+              "speed_kph": 64.4,
+              "emission_rate": 1.228
+            },
+            {
+              "speed_kph": 66.0,
+              "emission_rate": 1.209
+            },
+            {
+              "speed_kph": 67.6,
+              "emission_rate": 1.191
+            },
+            {
+              "speed_kph": 69.2,
+              "emission_rate": 1.1738
+            },
+            {
+              "speed_kph": 70.8,
+              "emission_rate": 1.1573
+            },
+            {
+              "speed_kph": 72.4,
+              "emission_rate": 1.1352
+            },
+            {
+              "speed_kph": 74.0,
+              "emission_rate": 1.1076
+            },
+            {
+              "speed_kph": 75.6,
+              "emission_rate": 1.0812
+            },
+            {
+              "speed_kph": 77.2,
+              "emission_rate": 1.056
+            },
+            {
+              "speed_kph": 78.9,
+              "emission_rate": 1.0317
+            },
+            {
+              "speed_kph": 80.5,
+              "emission_rate": 1.0084
+            },
+            {
+              "speed_kph": 82.1,
+              "emission_rate": 0.9861
+            },
+            {
+              "speed_kph": 83.7,
+              "emission_rate": 0.9646
+            },
+            {
+              "speed_kph": 85.3,
+              "emission_rate": 0.9439
+            },
+            {
+              "speed_kph": 86.9,
+              "emission_rate": 0.9239
+            },
+            {
+              "speed_kph": 88.5,
+              "emission_rate": 0.9047
+            },
+            {
+              "speed_kph": 90.1,
+              "emission_rate": 0.8858
+            },
+            {
+              "speed_kph": 91.7,
+              "emission_rate": 0.8673
+            },
+            {
+              "speed_kph": 93.3,
+              "emission_rate": 0.8494
+            },
+            {
+              "speed_kph": 95.0,
+              "emission_rate": 0.8321
+            },
+            {
+              "speed_kph": 96.6,
+              "emission_rate": 0.8154
+            },
+            {
+              "speed_kph": 98.2,
+              "emission_rate": 0.8085
+            },
+            {
+              "speed_kph": 99.8,
+              "emission_rate": 0.8079
+            },
+            {
+              "speed_kph": 101.4,
+              "emission_rate": 0.8074
+            },
+            {
+              "speed_kph": 103.0,
+              "emission_rate": 0.8069
+            },
+            {
+              "speed_kph": 104.6,
+              "emission_rate": 0.8063
+            },
+            {
+              "speed_kph": 106.2,
+              "emission_rate": 0.8059
+            },
+            {
+              "speed_kph": 107.8,
+              "emission_rate": 0.8054
+            },
+            {
+              "speed_kph": 109.4,
+              "emission_rate": 0.8049
+            },
+            {
+              "speed_kph": 111.0,
+              "emission_rate": 0.8045
+            },
+            {
+              "speed_kph": 112.7,
+              "emission_rate": 0.804
+            },
+            {
+              "speed_kph": 114.3,
+              "emission_rate": 0.8036
+            },
+            {
+              "speed_kph": 115.9,
+              "emission_rate": 0.8032
+            },
+            {
+              "speed_kph": 117.5,
+              "emission_rate": 0.8044
+            },
+            {
+              "speed_kph": 119.1,
+              "emission_rate": 0.8122
+            },
+            {
+              "speed_kph": 120.7,
+              "emission_rate": 0.8197
+            },
+            {
+              "speed_kph": 122.3,
+              "emission_rate": 0.827
+            },
+            {
+              "speed_kph": 123.9,
+              "emission_rate": 0.8341
+            }
+          ],
+          "unit": "g/km",
+          "speed_range": {
+            "min_kph": 8.0,
+            "max_kph": 123.9
+          },
+          "data_points": 73
+        }
+      },
+      "metadata": {
+        "season": "夏季",
+        "road_type": "主干道"
+      }
+    },
+    "error": null,
+    "summary": "Found emission factors for 1 pollutants (CO) for Transit Bus (2015). Season: 夏季, Road type: 主干道.",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": null,
+    "message": "Found emission factors for 1 pollutants (CO) for Transit Bus (2015). Season: 夏季, Road type: 主干道.",
+    "_standardization_records": [
+      {
+        "param": "vehicle_type",
+        "success": true,
+        "original": "Transit Bus",
+        "normalized": "Transit Bus",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "pollutants[CO]",
+        "success": true,
+        "original": "CO",
+        "normalized": "CO",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "season",
+        "success": true,
+        "original": "夏季",
+        "normalized": "夏季",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "road_type",
+        "success": true,
+        "original": "主干道",
+        "normalized": "主干道",
+        "strategy": "exact",
+        "confidence": 1.0
+      }
+    ],
+    "_trace": {
+      "tool_name": "query_emission_factors",
+      "original_arguments": {
+        "vehicle_type": "Transit Bus",
+        "pollutants": [
+          "CO"
+        ],
+        "model_year": 2015,
+        "season": "夏季",
+        "road_type": "主干道",
+        "return_curve": true
+      },
+      "standardization_enabled": true,
+      "file_path_context": null,
+      "standardized_arguments": {
+        "vehicle_type": "Transit Bus",
+        "pollutants": [
+          "CO"
+        ],
+        "model_year": 2015,
+        "season": "夏季",
+        "road_type": "主干道",
+        "return_curve": true
+      },
+      "standardization_records": [
+        {
+          "param": "vehicle_type",
+          "success": true,
+          "original": "Transit Bus",
+          "normalized": "Transit Bus",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "pollutants[CO]",
+          "success": true,
+          "original": "CO",
+          "normalized": "CO",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "season",
+          "success": true,
+          "original": "夏季",
+          "normalized": "夏季",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "road_type",
+          "success": true,
+          "original": "主干道",
+          "normalized": "主干道",
+          "strategy": "exact",
+          "confidence": 1.0
+        }
+      ],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": false,
+      "duration_ms": 201.17
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

@@ -1,0 +1,6 @@
+steps:
+  - upload: /home/kirito/Agent1/emission_agent/test_data/1km_hd_irregular_changning_02.zip
+  - user: 请基于这个路网文件计算道路网络排放，污染物用 CO2 和 NOx。
+  - user: 请在风向270度、风速2.5m/s、中性稳定度D条件下做 NOx 扩散分析。
+  - user: CO2的呢？
+

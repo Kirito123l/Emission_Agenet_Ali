@@ -337,7 +337,7 @@ class TestRouterSpatialDataSave:
         tool_call = ToolCall(
             id="call-dispersion",
             name="calculate_dispersion",
-            arguments={"meteorology": "urban_summer_day"},
+            arguments={"meteorology": "urban_summer_day", "pollutant": "NOx"},
         )
         llm_response = LLMResponse(content="calling dispersion tool", tool_calls=[tool_call])
         executor_result = {
@@ -352,7 +352,7 @@ class TestRouterSpatialDataSave:
         )
 
         with caplog.at_level("INFO"):
-            await router.chat("用 urban_summer_day 计算扩散", trace={})
+            await router.chat("用 urban_summer_day 计算 NOx 扩散", trace={})
 
         execute_kwargs = router.executor.execute.await_args.kwargs
         assert execute_kwargs["arguments"]["_last_result"] == {

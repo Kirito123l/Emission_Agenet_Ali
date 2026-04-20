@@ -218,6 +218,25 @@ class TestHotspotToolExecute:
         assert "raster_grid" in result.map_data
 
     @pytest.mark.anyio
+    async def test_map_data_preserves_dispersion_pollutant_and_unit(self, tool):
+        dispersion_data = deepcopy(MOCK_DISPERSION_DATA)
+        dispersion_data["query_info"] = {"pollutant": "CO2", "unit": "ppm"}
+        dispersion_data["summary"]["unit"] = "ppm"
+
+        result = await tool.execute(
+            _last_result={"success": True, "data": dispersion_data},
+            method="threshold",
+            threshold_value=5.0,
+        )
+
+        assert result.success is True
+        assert result.data["pollutant"] == "CO2"
+        assert result.data["summary"]["unit"] == "ppm"
+        assert result.map_data["pollutant"] == "CO2"
+        assert result.map_data["unit"] == "ppm"
+        assert "ppm" in result.summary
+
+    @pytest.mark.anyio
     async def test_summary_contains_hotspot_descriptions(self, tool):
         result = await tool.execute(
             _last_result={"success": True, "data": deepcopy(MOCK_DISPERSION_DATA)},

@@ -1,0 +1,597 @@
+{
+  "tool_name": "query_emission_factors",
+  "file_path": null,
+  "result": {
+    "success": true,
+    "data": {
+      "query_summary": {
+        "vehicle_type": "Combination Long-haul Truck",
+        "pollutant": "NOx",
+        "model_year": 2018,
+        "season": "夏季",
+        "road_type": "高速公路"
+      },
+      "speed_curve": [
+        {
+          "speed_mph": 5,
+          "speed_kph": 8.0,
+          "emission_rate": 3.9151,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 6,
+          "speed_kph": 9.7,
+          "emission_rate": 3.3595,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 7,
+          "speed_kph": 11.3,
+          "emission_rate": 3.0224,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 8,
+          "speed_kph": 12.9,
+          "emission_rate": 2.7696,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 9,
+          "speed_kph": 14.5,
+          "emission_rate": 2.573,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 10,
+          "speed_kph": 16.1,
+          "emission_rate": 2.4157,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 11,
+          "speed_kph": 17.7,
+          "emission_rate": 2.287,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 12,
+          "speed_kph": 19.3,
+          "emission_rate": 2.1993,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 13,
+          "speed_kph": 20.9,
+          "emission_rate": 2.1295,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 14,
+          "speed_kph": 22.5,
+          "emission_rate": 2.0698,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 15,
+          "speed_kph": 24.1,
+          "emission_rate": 2.0179,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 16,
+          "speed_kph": 25.7,
+          "emission_rate": 1.9601,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 17,
+          "speed_kph": 27.4,
+          "emission_rate": 1.8914,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 18,
+          "speed_kph": 29.0,
+          "emission_rate": 1.8304,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 19,
+          "speed_kph": 30.6,
+          "emission_rate": 1.7758,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 20,
+          "speed_kph": 32.2,
+          "emission_rate": 1.7278,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 21,
+          "speed_kph": 33.8,
+          "emission_rate": 1.6853,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 22,
+          "speed_kph": 35.4,
+          "emission_rate": 1.6466,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 23,
+          "speed_kph": 37.0,
+          "emission_rate": 1.6113,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 24,
+          "speed_kph": 38.6,
+          "emission_rate": 1.5789,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 25,
+          "speed_kph": 40.2,
+          "emission_rate": 1.5491,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 26,
+          "speed_kph": 41.8,
+          "emission_rate": 1.5264,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 27,
+          "speed_kph": 43.5,
+          "emission_rate": 1.5121,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 28,
+          "speed_kph": 45.1,
+          "emission_rate": 1.4988,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 29,
+          "speed_kph": 46.7,
+          "emission_rate": 1.4865,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 30,
+          "speed_kph": 48.3,
+          "emission_rate": 1.475,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 31,
+          "speed_kph": 49.9,
+          "emission_rate": 1.4642,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 32,
+          "speed_kph": 51.5,
+          "emission_rate": 1.4542,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 33,
+          "speed_kph": 53.1,
+          "emission_rate": 1.4028,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 34,
+          "speed_kph": 54.7,
+          "emission_rate": 1.3139,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 35,
+          "speed_kph": 56.3,
+          "emission_rate": 1.2791,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 36,
+          "speed_kph": 57.9,
+          "emission_rate": 1.2667,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 37,
+          "speed_kph": 59.5,
+          "emission_rate": 1.255,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 38,
+          "speed_kph": 61.2,
+          "emission_rate": 1.2439,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 39,
+          "speed_kph": 62.8,
+          "emission_rate": 1.2334,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 40,
+          "speed_kph": 64.4,
+          "emission_rate": 1.2234,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 41,
+          "speed_kph": 66.0,
+          "emission_rate": 1.2138,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 42,
+          "speed_kph": 67.6,
+          "emission_rate": 1.2048,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 43,
+          "speed_kph": 69.2,
+          "emission_rate": 1.1961,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 44,
+          "speed_kph": 70.8,
+          "emission_rate": 1.1879,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 45,
+          "speed_kph": 72.4,
+          "emission_rate": 1.18,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 46,
+          "speed_kph": 74.0,
+          "emission_rate": 1.1724,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 47,
+          "speed_kph": 75.6,
+          "emission_rate": 1.1652,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 48,
+          "speed_kph": 77.2,
+          "emission_rate": 1.154,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 49,
+          "speed_kph": 78.9,
+          "emission_rate": 1.1426,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 50,
+          "speed_kph": 80.5,
+          "emission_rate": 1.1318,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 51,
+          "speed_kph": 82.1,
+          "emission_rate": 1.1214,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 52,
+          "speed_kph": 83.7,
+          "emission_rate": 1.1114,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 53,
+          "speed_kph": 85.3,
+          "emission_rate": 1.1018,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 54,
+          "speed_kph": 86.9,
+          "emission_rate": 1.0925,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 55,
+          "speed_kph": 88.5,
+          "emission_rate": 1.0851,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 56,
+          "speed_kph": 90.1,
+          "emission_rate": 1.0784,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 57,
+          "speed_kph": 91.7,
+          "emission_rate": 1.072,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 58,
+          "speed_kph": 93.3,
+          "emission_rate": 1.0657,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 59,
+          "speed_kph": 95.0,
+          "emission_rate": 1.0597,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 60,
+          "speed_kph": 96.6,
+          "emission_rate": 1.0656,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 61,
+          "speed_kph": 98.2,
+          "emission_rate": 1.079,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 62,
+          "speed_kph": 99.8,
+          "emission_rate": 1.0919,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 63,
+          "speed_kph": 101.4,
+          "emission_rate": 1.1045,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 64,
+          "speed_kph": 103.0,
+          "emission_rate": 1.1166,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 65,
+          "speed_kph": 104.6,
+          "emission_rate": 1.1284,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 66,
+          "speed_kph": 106.2,
+          "emission_rate": 1.1398,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 67,
+          "speed_kph": 107.8,
+          "emission_rate": 1.1509,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 68,
+          "speed_kph": 109.4,
+          "emission_rate": 1.1617,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 69,
+          "speed_kph": 111.0,
+          "emission_rate": 1.1721,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 70,
+          "speed_kph": 112.7,
+          "emission_rate": 1.1822,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 71,
+          "speed_kph": 114.3,
+          "emission_rate": 1.1921,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 72,
+          "speed_kph": 115.9,
+          "emission_rate": 1.2034,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 73,
+          "speed_kph": 117.5,
+          "emission_rate": 1.2183,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 74,
+          "speed_kph": 119.1,
+          "emission_rate": 1.2328,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 75,
+          "speed_kph": 120.7,
+          "emission_rate": 1.247,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 76,
+          "speed_kph": 122.3,
+          "emission_rate": 1.2607,
+          "unit": "g/mile"
+        },
+        {
+          "speed_mph": 77,
+          "speed_kph": 123.9,
+          "emission_rate": 1.2633,
+          "unit": "g/mile"
+        }
+      ],
+      "typical_values": [
+        {
+          "label": "25 mph (40.2 kph)",
+          "speed_mph": 25,
+          "speed_kph": 40.2,
+          "emission_rate": 1.5491,
+          "unit": "g/mile"
+        },
+        {
+          "label": "50 mph (80.5 kph)",
+          "speed_mph": 50,
+          "speed_kph": 80.5,
+          "emission_rate": 1.1318,
+          "unit": "g/mile"
+        },
+        {
+          "label": "70 mph (112.7 kph)",
+          "speed_mph": 70,
+          "speed_kph": 112.7,
+          "emission_rate": 1.1822,
+          "unit": "g/mile"
+        }
+      ],
+      "speed_range": {
+        "min_mph": 5,
+        "max_mph": 77,
+        "min_kph": 8.0,
+        "max_kph": 123.9
+      },
+      "data_points": 73,
+      "unit": "g/mile",
+      "data_source": "MOVES (Atlanta)"
+    },
+    "error": null,
+    "summary": "Found NOx emission factors for Combination Long-haul Truck (2018) with 73 speed points. Season: 夏季, Road type: 高速公路.",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": {
+      "path": "/home/kirito/Agent1/emission_agent/outputs/emission_factors_Combination_Long-haul_Truck_NOx_2018_20260419_213725.xlsx",
+      "filename": "emission_factors_Combination_Long-haul_Truck_NOx_2018_20260419_213725.xlsx"
+    },
+    "message": "Found NOx emission factors for Combination Long-haul Truck (2018) with 73 speed points. Season: 夏季, Road type: 高速公路.",
+    "_standardization_records": [
+      {
+        "param": "vehicle_type",
+        "success": true,
+        "original": "重型货车",
+        "normalized": "Combination Long-haul Truck",
+        "strategy": "alias",
+        "confidence": 0.95
+      },
+      {
+        "param": "pollutants[NOx]",
+        "success": true,
+        "original": "NOx",
+        "normalized": "NOx",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "season",
+        "success": true,
+        "original": "夏季",
+        "normalized": "夏季",
+        "strategy": "exact",
+        "confidence": 1.0
+      },
+      {
+        "param": "road_type",
+        "success": true,
+        "original": "高速公路",
+        "normalized": "高速公路",
+        "strategy": "exact",
+        "confidence": 1.0
+      }
+    ],
+    "_trace": {
+      "tool_name": "query_emission_factors",
+      "original_arguments": {
+        "vehicle_type": "重型货车",
+        "pollutants": [
+          "NOx"
+        ],
+        "model_year": 2018,
+        "season": "夏季",
+        "road_type": "高速公路"
+      },
+      "standardization_enabled": true,
+      "file_path_context": null,
+      "standardized_arguments": {
+        "vehicle_type": "Combination Long-haul Truck",
+        "pollutants": [
+          "NOx"
+        ],
+        "model_year": 2018,
+        "season": "夏季",
+        "road_type": "高速公路"
+      },
+      "standardization_records": [
+        {
+          "param": "vehicle_type",
+          "success": true,
+          "original": "重型货车",
+          "normalized": "Combination Long-haul Truck",
+          "strategy": "alias",
+          "confidence": 0.95
+        },
+        {
+          "param": "pollutants[NOx]",
+          "success": true,
+          "original": "NOx",
+          "normalized": "NOx",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "season",
+          "success": true,
+          "original": "夏季",
+          "normalized": "夏季",
+          "strategy": "exact",
+          "confidence": 1.0
+        },
+        {
+          "param": "road_type",
+          "success": true,
+          "original": "高速公路",
+          "normalized": "高速公路",
+          "strategy": "exact",
+          "confidence": 1.0
+        }
+      ],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": false,
+      "duration_ms": 178.8
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

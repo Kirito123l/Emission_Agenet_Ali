@@ -2,7 +2,6 @@
 import os
 import json
 import re
-import tempfile
 import pandas as pd
 import logging
 import sys
@@ -38,6 +37,16 @@ from .response_utils import (
 
 from .session import SessionRegistry
 from services.llm_client import LLMClientService
+from services.chat_session_service import (
+    TEMP_DIR,
+    ChatSessionService,
+    UnsupportedRouterMode,
+    UploadedFileInput,
+    build_router_user_message,
+    build_session_title_source,
+    normalize_router_mode,
+    sanitize_uploaded_filename,
+)
 
 
 def get_user_id(request: Request) -> str:
@@ -81,29 +90,10 @@ if not logger.handlers:
 
 router = APIRouter()
 
-# 临时文件目录
-TEMP_DIR = Path(tempfile.gettempdir()) / "emission_agent"
-TEMP_DIR.mkdir(exist_ok=True)
-
 LEGACY_UPLOADED_FILE_RE = re.compile(
     r"(?P<content>.*?)(?:\n\n文件已上传，路径:\s*(?P<file_path>.+?)\n请使用 input_file 参数处理此文件。\s*)$",
     re.S,
 )
-
-
-def sanitize_uploaded_filename(filename: Optional[str]) -> Optional[str]:
-    if not filename:
-        return None
-    return Path(str(filename).strip()).name or None
-
-
-def build_session_title_source(message: str, uploaded_file_name: Optional[str]) -> str:
-    clean_message = (message or "").strip()
-    if clean_message:
-        return clean_message
-    if uploaded_file_name:
-        return f"上传文件：{uploaded_file_name}"
-    return "新对话"
 
 
 def normalize_user_history_message(message: Dict[str, Any]) -> Dict[str, Any]:
@@ -222,7 +212,8 @@ async def chat(
     request: Request,
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None)
+    file: Optional[UploadFile] = File(None),
+    mode: Optional[str] = Form(None),
 ):
     """
     发送消息并获取回复
@@ -230,124 +221,41 @@ async def chat(
     支持：
     - 纯文本消息
     - 带Excel文件的消息（用于轨迹计算或路段计算）
+    - `mode=full|naive|governed_v2`
     """
-    logger.info(f"Chat request: message={message[:80]!r}, session={session_id}, file={file.filename if file else None}")
+    try:
+        router_mode = normalize_router_mode(mode or request.query_params.get("mode"))
+    except UnsupportedRouterMode as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    logger.info(
+        "Chat request: message=%r, session=%s, file=%s, mode=%s",
+        message[:80],
+        session_id,
+        file.filename if file else None,
+        router_mode,
+    )
 
     try:
-        original_message = message
-        # 获取或创建会话
         user_id = get_user_id(request)
         mgr = SessionRegistry.get(user_id)
-        session = mgr.get_or_create_session(session_id)
 
-        # 处理上传的文件
-        input_file_path = None
-        output_file_path = None
-        uploaded_file_name = None
-        uploaded_file_size = None
-        message_with_file = original_message
-
+        upload = None
         if file:
-            # 保存上传的文件
-            suffix = Path(file.filename).suffix
-            input_file_path = TEMP_DIR / f"{session.session_id}_input{suffix}"
-            with open(input_file_path, "wb") as f:
-                content = await file.read()
-                uploaded_file_size = len(content)
-                f.write(content)
-            uploaded_file_name = sanitize_uploaded_filename(file.filename) or input_file_path.name
+            upload = UploadedFileInput(filename=file.filename, content=await file.read())
 
-            # 准备输出文件路径
-            output_file_path = TEMP_DIR / f"{session.session_id}_output.xlsx"
-
-            # 在消息中添加文件信息 - 使用明确的格式让Agent识别
-            message_with_file = f"{original_message}\n\n文件已上传，路径: {str(input_file_path)}\n请使用 input_file 参数处理此文件。"
-
-        # 调用Router处理消息
-        logger.info(f"调用Router处理消息...")
-        result = await session.chat(message_with_file, input_file_path)
-        logger.info(f"Router回复: {result['text'][:100] if result['text'] else 'None'}...")
-
-        # 更新会话信息
-        session.message_count += 1
-        session.updated_at = datetime.now().isoformat()
-        mgr.update_session_title(
-            session.session_id,
-            build_session_title_source(original_message, uploaded_file_name),
+        logger.info("调用Router处理消息: mode=%s", router_mode)
+        service = ChatSessionService(mgr, user_id=user_id)
+        turn = await service.process_turn(
+            message=message,
+            session_id=session_id,
+            upload=upload,
+            mode=router_mode,
         )
-
-        # 从RouterResponse提取数据
-        reply_text = result.get("text", "")
-        chart_data = result.get("chart_data")
-        table_data = result.get("table_data")
-        map_data = result.get("map_data")
-        trace = result.get("trace")
-        trace_friendly = result.get("trace_friendly")
-        assistant_message_id = uuid.uuid4().hex[:12]
-        download_file = normalize_download_file(
-            result.get("download_file"),
-            session.session_id,
-            assistant_message_id,
-            user_id
-        )
-
-        logger.debug(f"download_file={bool(download_file)}, map_data={bool(map_data)}")
-
-        # 确定数据类型
-        data_type = None
-        if chart_data:
-            data_type = "chart"
-        elif table_data and map_data:
-            data_type = "table_and_map"
-        elif table_data:
-            data_type = "table"
-        elif map_data:
-            data_type = "map"
-
-        # 将下载信息绑定到表格数据，确保历史消息也能渲染下载按钮
-        table_data = attach_download_to_table_data(table_data, download_file)
-
-        # 如果有下载文件，更新session
-        if download_file:
-            session.last_result_file = download_file
-
-        # 构建响应
-        response = ChatResponse(
-            reply=clean_reply_text(reply_text),
-            session_id=session.session_id,
-            success=True,
-            data_type=data_type,
-            chart_data=chart_data,
-            table_data=table_data,
-            map_data=map_data,
-            file_id=session.session_id if download_file else None,
-            download_file=download_file,
-            message_id=assistant_message_id,
-            trace=trace,
-            trace_friendly=trace_friendly,
-        )
-
-        # 保存对话历史到Session
-        session.save_turn(
-            user_input=original_message,
-            assistant_response=reply_text,
-            file_name=uploaded_file_name,
-            file_path=str(input_file_path) if input_file_path else None,
-            file_size=uploaded_file_size,
-            chart_data=chart_data,
-            table_data=table_data,
-            map_data=map_data,
-            data_type=data_type,
-            file_id=session.session_id if download_file else None,  # 添加 file_id
-            download_file=download_file,
-            message_id=assistant_message_id,
-            trace_friendly=trace_friendly,
-        )
-
-        mgr.save_session()
+        logger.info("Router回复: %s...", turn.raw_reply[:100] if turn.raw_reply else "None")
 
         logger.info(f"=== 请求处理完成 ===")
-        return response
+        return ChatResponse(**turn.to_api_response())
 
     except Exception as e:
         logger.error(f"处理请求时出错: {str(e)}", exc_info=True)
@@ -364,7 +272,8 @@ async def chat_stream(
     request: Request,
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None)
+    file: Optional[UploadFile] = File(None),
+    mode: Optional[str] = Form(None),
 ):
     """
     流式聊天接口 - 实时返回响应
@@ -373,13 +282,17 @@ async def chat_stream(
     - 实时状态更新
     - 逐步文本输出
     - 图表和表格数据
+    - `mode=full|naive|governed_v2`
     """
     user_id = get_user_id(request)
     mgr = SessionRegistry.get(user_id)
+    try:
+        router_mode = normalize_router_mode(mode or request.query_params.get("mode"))
+    except UnsupportedRouterMode as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     async def generate():
         try:
-            original_message = message
             # 1. 发送"思考中"状态
             yield json.dumps({
                 "type": "status",
@@ -387,38 +300,14 @@ async def chat_stream(
             }, ensure_ascii=False) + "\n"
             await asyncio.sleep(0.1)
 
-            # 2. 获取或创建会话
-            session = mgr.get_or_create_session(session_id)
-
-            # 3. 处理上传的文件
-            input_file_path = None
-            output_file_path = None
-            uploaded_file_name = None
-            uploaded_file_size = None
-
+            upload = None
             if file:
                 yield json.dumps({
                     "type": "status",
                     "content": "正在处理上传的文件..."
                 }, ensure_ascii=False) + "\n"
                 await asyncio.sleep(0.1)
-
-                # 保存上传的文件
-                suffix = Path(file.filename).suffix
-                input_file_path = TEMP_DIR / f"{session.session_id}_input{suffix}"
-                with open(input_file_path, "wb") as f:
-                    content = await file.read()
-                    uploaded_file_size = len(content)
-                    f.write(content)
-                uploaded_file_name = sanitize_uploaded_filename(file.filename) or input_file_path.name
-
-                # 准备输出文件路径
-                output_file_path = TEMP_DIR / f"{session.session_id}_output.xlsx"
-
-                # 在消息中添加文件信息
-                message_with_file = f"{original_message}\n\n文件已上传，路径: {str(input_file_path)}\n请使用 input_file 参数处理此文件。"
-            else:
-                message_with_file = original_message
+                upload = UploadedFileInput(filename=file.filename, content=await file.read())
 
             # 4. Planning阶段
             yield json.dumps({
@@ -429,19 +318,26 @@ async def chat_stream(
 
             # 5. 调用Router处理（带心跳保活）
             heartbeat_msg = json.dumps({"type": "heartbeat"}, ensure_ascii=False) + "\n"
-            chat_task = asyncio.create_task(session.chat(message_with_file, input_file_path))
+            service = ChatSessionService(mgr, user_id=user_id)
+            chat_task = asyncio.create_task(
+                service.process_turn(
+                    message=message,
+                    session_id=session_id,
+                    upload=upload,
+                    mode=router_mode,
+                )
+            )
             while not chat_task.done():
                 try:
-                    result = await asyncio.wait_for(asyncio.shield(chat_task), timeout=15)
+                    turn = await asyncio.wait_for(asyncio.shield(chat_task), timeout=15)
                     break
                 except asyncio.TimeoutError:
                     yield heartbeat_msg
             else:
-                result = chat_task.result()
+                turn = chat_task.result()
 
             # 6. 流式输出最终文本
-            reply_text = result.get("text", "")
-            reply_text_clean = clean_reply_text(reply_text)
+            reply_text_clean = turn.reply
             chunk_size = 20  # 每次发送20个字符
 
             for i in range(0, len(reply_text_clean), chunk_size):
@@ -453,19 +349,15 @@ async def chat_stream(
                 await asyncio.sleep(0.05)  # 模拟打字效果
 
             # 7. 处理图表/表格/地图数据（从RouterResponse直接获取）
-            chart_data = result.get("chart_data")
-            table_data = result.get("table_data")
-            map_data = result.get("map_data")
-            trace_friendly = result.get("trace_friendly")
-            assistant_message_id = uuid.uuid4().hex[:12]
-            download_file = normalize_download_file(
-                result.get("download_file"),
-                session.session_id,
-                assistant_message_id,
-                user_id
+            chart_data = turn.chart_data
+            table_data = turn.table_data
+            map_data = turn.map_data
+            logger.debug(
+                "stream: download_file=%s, table_data=%s, map_data=%s",
+                bool(turn.download_file),
+                bool(table_data),
+                bool(map_data),
             )
-
-            logger.debug(f"stream: download_file={bool(download_file)}, table_data={bool(table_data)}, map_data={bool(map_data)}")
 
             # 确定数据类型（优先级：chart > table > map）
             data_type = None
@@ -480,10 +372,11 @@ async def chat_stream(
             if table_data:
                 if not data_type:  # 如果没有图表，设置 data_type 为 table
                     data_type = "table"
-                table_data = attach_download_to_table_data(table_data, download_file)
                 yield json.dumps({
                     "type": "table",
-                    "content": table_data
+                    "content": table_data,
+                    "download_file": turn.download_file,
+                    "file_id": turn.file_id,
                 }, ensure_ascii=False) + "\n"
 
             # 发送地图数据
@@ -497,45 +390,16 @@ async def chat_stream(
                     "content": map_data
                 }, ensure_ascii=False) + "\n"
 
-            # 如果有下载文件，更新session
-            if download_file:
-                session.last_result_file = download_file
-
-            # 8. 更新会话信息
-            session.message_count += 1
-            session.updated_at = datetime.now().isoformat()
-            mgr.update_session_title(
-                session.session_id,
-                build_session_title_source(original_message, uploaded_file_name),
-            )
-
-            # 9. 保存对话历史
-            session.save_turn(
-                user_input=original_message,
-                assistant_response=reply_text,
-                file_name=uploaded_file_name,
-                file_path=str(input_file_path) if input_file_path else None,
-                file_size=uploaded_file_size,
-                chart_data=chart_data,
-                table_data=table_data,
-                map_data=map_data,
-                data_type=data_type,
-                file_id=session.session_id if download_file else None,  # 添加 file_id
-                download_file=download_file,
-                message_id=assistant_message_id,
-                trace_friendly=trace_friendly,
-            )
-            mgr.save_session()
-
             # 10. 发送完成信号
             yield json.dumps({
                 "type": "done",
-                "session_id": session.session_id,
-                "file_id": session.session_id if download_file else None,
-                "download_file": download_file,
+                "session_id": turn.session_id,
+                "mode": router_mode,
+                "file_id": turn.file_id,
+                "download_file": turn.download_file,
                 "map_data": map_data,
-                "message_id": assistant_message_id,
-                "trace_friendly": trace_friendly,
+                "message_id": turn.message_id,
+                "trace_friendly": turn.trace_friendly,
             }, ensure_ascii=False) + "\n"
 
         except Exception as e:

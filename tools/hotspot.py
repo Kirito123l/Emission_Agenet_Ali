@@ -59,6 +59,10 @@ class HotspotTool(BaseTool):
                 or dispersion_data.get("scenario_label")
                 or "baseline"
             )
+            query_info = dispersion_data.get("query_info", {})
+            pollutant = str(query_info.get("pollutant") or dispersion_data.get("pollutant") or "NOx")
+            dispersion_summary = dispersion_data.get("summary", {})
+            unit = str(dispersion_summary.get("unit") or query_info.get("unit") or "μg/m³")
             road_contributions = dispersion_data.get("road_contributions")
             coverage_assessment = dispersion_data.get("coverage_assessment")
             method = str(kwargs.get("method", "percentile"))
@@ -78,6 +82,7 @@ class HotspotTool(BaseTool):
                 min_hotspot_area_m2=min_hotspot_area_m2,
                 max_hotspots=max_hotspots,
                 source_attribution=source_attribution,
+                unit=unit,
             )
             if result.get("status") != "success":
                 return ToolResult(
@@ -100,6 +105,7 @@ class HotspotTool(BaseTool):
                 analysis_data["query_info"] = dispersion_data["query_info"]
             if "meteorology_used" in dispersion_data:
                 analysis_data["meteorology_used"] = dispersion_data["meteorology_used"]
+            analysis_data["pollutant"] = pollutant
             analysis_data["scenario_label"] = scenario_label
 
             summary = self._build_summary(analysis_data)
@@ -148,11 +154,12 @@ class HotspotTool(BaseTool):
 
         parts.append(f"识别出 {count} 个热点区域。")
         summary = data.get("summary", {})
+        unit = str(summary.get("unit") or data.get("query_info", {}).get("unit") or "μg/m³")
         parts.append(
             f"热点总面积: {float(summary.get('total_hotspot_area_m2', 0.0)):.0f} m²，"
             f"占总区域 {float(summary.get('area_fraction_pct', 0.0)):.1f}%"
         )
-        parts.append(f"最高浓度: {float(summary.get('max_concentration', 0.0)):.4f} μg/m³")
+        parts.append(f"最高浓度: {float(summary.get('max_concentration', 0.0)):.4f} {unit}")
 
         for hotspot in data.get("hotspots", [])[:3]:
             roads = hotspot.get("contributing_roads", [])
@@ -164,7 +171,7 @@ class HotspotTool(BaseTool):
                     f"({float(top_road.get('contribution_pct', 0.0)):.1f}%)"
                 )
             parts.append(
-                f"热点 #{int(hotspot.get('rank', 0))}: 最大浓度 {float(hotspot.get('max_conc', 0.0)):.4f} μg/m³, "
+                f"热点 #{int(hotspot.get('rank', 0))}: 最大浓度 {float(hotspot.get('max_conc', 0.0)):.4f} {unit}, "
                 f"面积 {float(hotspot.get('area_m2', 0.0)):.0f} m²{road_desc}"
             )
 
@@ -172,10 +179,16 @@ class HotspotTool(BaseTool):
 
     def _build_map_data(self, data: Dict[str, Any], dispersion_data: Dict[str, Any]) -> Dict[str, Any]:
         """Build map payload for hotspot rendering and later frontend layering."""
+        query_info = data.get("query_info", {})
+        summary = data.get("summary", {})
+        pollutant = str(data.get("pollutant") or query_info.get("pollutant") or dispersion_data.get("pollutant") or "NOx")
+        unit = str(summary.get("unit") or query_info.get("unit") or "μg/m³")
         map_data = {
             "type": "hotspot",
+            "pollutant": pollutant,
+            "unit": unit,
             "hotspots": data.get("hotspots", []),
-            "summary": data.get("summary", {}),
+            "summary": summary,
             "interpretation": data.get("interpretation", ""),
             "scenario_label": str(data.get("scenario_label") or dispersion_data.get("scenario_label") or "baseline"),
         }

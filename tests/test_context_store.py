@@ -36,17 +36,25 @@ def make_emission_result(label: str = "baseline") -> dict:
     }
 
 
-def make_dispersion_result(label: str = "baseline") -> dict:
+def make_dispersion_result(
+    label: str = "baseline",
+    *,
+    pollutant: str = "NOx",
+    mean_concentration: float = 1.2,
+    max_concentration: float = 4.5,
+    unit: str = "μg/m³",
+) -> dict:
     return {
         "success": True,
         "summary": "Dispersion completed for 15 receptors",
         "data": {
             "scenario_label": label,
-            "query_info": {"pollutant": "NOx"},
+            "query_info": {"pollutant": pollutant, "unit": unit},
             "summary": {
                 "receptor_count": 15,
-                "mean_concentration": 1.2,
-                "max_concentration": 4.5,
+                "mean_concentration": mean_concentration,
+                "max_concentration": max_concentration,
+                "unit": unit,
             },
             "raster_grid": {
                 "rows": 3,
@@ -157,6 +165,34 @@ class TestToolDependencyResolution:
 
         data = store.get_result_for_tool("render_spatial_map", layer_type="contour")
         assert data == dispersion
+
+    def test_dispersion_results_coexist_by_pollutant_and_default_to_latest(self):
+        store = SessionContextStore()
+        nox = make_dispersion_result(pollutant="NOx", mean_concentration=1.2)
+        co2 = make_dispersion_result(pollutant="CO2", mean_concentration=9.8)
+        store.store_result("calculate_dispersion", nox)
+        store.store_result("calculate_dispersion", co2)
+
+        assert store.get_by_type("dispersion", pollutant="NOx").data == nox
+        assert store.get_by_type("dispersion", pollutant="CO2").data == co2
+        assert store.get_result_for_tool("render_spatial_map", layer_type="dispersion") == co2
+
+    def test_render_and_hotspot_resolve_explicit_dispersion_pollutant(self):
+        store = SessionContextStore()
+        nox = make_dispersion_result(pollutant="NOx", mean_concentration=1.2)
+        co2 = make_dispersion_result(pollutant="CO2", mean_concentration=9.8)
+        store.store_result("calculate_dispersion", nox)
+        store.store_result("calculate_dispersion", co2)
+
+        render_nox = store.get_result_for_tool(
+            "render_spatial_map",
+            layer_type="dispersion",
+            pollutant="NOx",
+        )
+        hotspot_co2 = store.get_result_for_tool("analyze_hotspots", pollutant="CO2")
+
+        assert render_nox == nox
+        assert hotspot_co2 == co2
 
     def test_render_hotspot_gets_hotspot(self):
         store = SessionContextStore()

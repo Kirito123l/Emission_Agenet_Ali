@@ -1,0 +1,509 @@
+{
+  "run_timestamp": "2026-04-13T14:42:48+08:00",
+  "dataset_path": "/home/kirito/Agent1/emission_agent/test_data/1km_hd_irregular_changning_02.zip",
+  "dataset_status": "exists_and_used",
+  "runner_mode": "run_code.py replay mode with --debug and --json-log",
+  "raw_trace_files": [
+    "docs/audits/cli_regression_scenario_1_2.jsonl",
+    "docs/audits/cli_regression_scenario_1_2_continue_all.jsonl",
+    "docs/audits/cli_regression_scenario_3.jsonl",
+    "docs/audits/cli_regression_scenario_4.jsonl",
+    "docs/audits/cli_regression_scenario_4_with_start.jsonl",
+    "docs/audits/cli_regression_scenario_4_explicit_meteo.jsonl",
+    "docs/audits/cli_regression_scenario_5.jsonl",
+    "docs/audits/cli_regression_scenario_5_continue.jsonl"
+  ],
+  "scenarios": [
+    {
+      "id": "scenario_1",
+      "name": "basic emission then generic dispersion clarification",
+      "script_path_or_mode": "tests/cli_flows/regression_scenario_1_2.yaml",
+      "status": "failed",
+      "turns": [
+        {
+          "user_input": "请基于这个路网文件计算道路网络排放，使用默认污染物即可。",
+          "assistant_excerpt": "已完成道路网络排放计算；总排放量 CO2 3.24 吨/小时，NOx 684.80 克/小时。",
+          "tool_calls": [
+            {
+              "name": "calculate_macro_emission",
+              "arguments": {
+                "file_path": "/tmp/emission_agent/d504b211_input.zip"
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "table:calculate_macro_emission",
+            "download"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "table",
+              "artifact_type": "calculate_macro_emission",
+              "rows": 125,
+              "columns": 4
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE",
+            "payload_types": [
+              "table",
+              "download"
+            ],
+            "detected_intents_available": true
+          },
+          "passed_checks": [
+            "file upload registered",
+            "macro emission executed",
+            "CO2 and NOx present in emission text"
+          ],
+          "failed_checks": []
+        },
+        {
+          "user_input": "请继续做大气扩散分析。",
+          "assistant_excerpt": "扩散气象条件 — 当前默认配置；直接说“开始”使用以上默认配置。",
+          "tool_calls": [],
+          "artifact_types": [],
+          "artifact_summaries": [],
+          "debug_summary": {
+            "trace_final_stage": "DONE",
+            "payload_types": []
+          },
+          "passed_checks": [
+            "did not silently default to NOx"
+          ],
+          "failed_checks": [
+            "did not ask expected pollutant clarification first",
+            "asked meteorology confirmation before pollutant selection"
+          ]
+        }
+      ],
+      "overall_findings": [
+        "Generic dispersion request did not silently default to NOx.",
+        "Expected pollutant clarification was delayed behind meteorology confirmation."
+      ],
+      "recommended_action": "Ensure multi-pollutant emission context triggers pollutant selection before meteorology confirmation."
+    },
+    {
+      "id": "scenario_2",
+      "name": "clarification answer equals 全部",
+      "script_path_or_mode": "tests/cli_flows/regression_scenario_1_2.yaml plus tests/cli_flows/regression_scenario_1_2_continue_all.txt",
+      "status": "failed",
+      "turns": [
+        {
+          "user_input": "全部",
+          "assistant_excerpt": "上一轮排放结果包含：CO2、NOx。当前可直接做物理扩散分析的污染物有：CO2、NOx。您要看全部，还是先看某一个？",
+          "tool_calls": [],
+          "artifact_types": [],
+          "artifact_summaries": [],
+          "debug_summary": {
+            "trace_final_stage": "NEEDS_CLARIFICATION",
+            "payload_types": [],
+            "selected_tools": [
+              "calculate_dispersion, calculate_dispersion"
+            ]
+          },
+          "passed_checks": [
+            "eligible pollutants surfaced as CO2 and NOx"
+          ],
+          "failed_checks": [
+            "全部 did not execute multi-pollutant dispersion",
+            "no calculate_dispersion tool call executed",
+            "clarification text repeated"
+          ]
+        },
+        {
+          "user_input": "全部",
+          "assistant_excerpt": "上一轮排放结果包含：CO2、NOx。当前可直接做物理扩散分析的污染物有：CO2、NOx。您要看全部，还是先看某一个？",
+          "tool_calls": [],
+          "artifact_types": [],
+          "artifact_summaries": [],
+          "debug_summary": {
+            "trace_final_stage": "NEEDS_CLARIFICATION",
+            "payload_types": []
+          },
+          "passed_checks": [],
+          "failed_checks": [
+            "loop reproduced on second 全部"
+          ]
+        }
+      ],
+      "overall_findings": [
+        "The high-priority 全部 loop remains reproducible."
+      ],
+      "recommended_action": "Teach the pending clarification resolver to treat 全部 as an all-eligible-pollutants answer."
+    },
+    {
+      "id": "scenario_3",
+      "name": "follow-up pollutant switch preserves scenario",
+      "script_path_or_mode": "tests/cli_flows/regression_scenario_3.yaml",
+      "status": "passed",
+      "turns": [
+        {
+          "user_input": "请在风向270度、风速2.5m/s、中性稳定度D条件下做 NOx 扩散分析。",
+          "assistant_excerpt": "已完成 NOx 扩散分析；风向 270°，风速 2.5 m/s，大气稳定度 N1。",
+          "tool_calls": [
+            {
+              "name": "calculate_dispersion",
+              "arguments": {
+                "emission_source": "last_result",
+                "meteorology": "custom",
+                "wind_direction": 270,
+                "wind_speed": 2.5,
+                "stability_class": "N1",
+                "pollutant": "NOx"
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "map:contour:NOx"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "map",
+              "artifact_type": "contour",
+              "pollutant": "NOx",
+              "avg": 1.9551771012499672,
+              "max": 6.619590106330369
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE",
+            "payload_types": [
+              "map:contour"
+            ]
+          },
+          "passed_checks": [
+            "NOx dispersion executed",
+            "custom wind direction and speed applied"
+          ],
+          "failed_checks": []
+        },
+        {
+          "user_input": "CO2的呢？",
+          "assistant_excerpt": "已完成 CO2 扩散分析；与 NOx 分析保持一致：风向 270°，风速 2.5 m/s，大气稳定度 N1。",
+          "tool_calls": [
+            {
+              "name": "calculate_dispersion",
+              "arguments": {
+                "pollutant": "CO2",
+                "wind_speed": 2.5,
+                "wind_direction": 270,
+                "stability_class": "N1",
+                "mixing_height": 800,
+                "roughness_height": 0.5,
+                "grid_resolution": 50
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "map:contour:CO2"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "map",
+              "artifact_type": "contour",
+              "pollutant": "CO2",
+              "avg": 9268.9677,
+              "max": 31360.4128
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE",
+            "payload_types": [
+              "map:contour"
+            ]
+          },
+          "passed_checks": [
+            "pollutant changed from NOx to CO2",
+            "wind direction inherited",
+            "wind speed inherited",
+            "stability class inherited",
+            "scenario did not silently change"
+          ],
+          "failed_checks": []
+        }
+      ],
+      "overall_findings": [
+        "Follow-up pollutant switch preserved scenario parameters."
+      ],
+      "recommended_action": "Keep this as a regression test."
+    },
+    {
+      "id": "scenario_4",
+      "name": "hotspot follow-up binds to correct pollutant",
+      "script_path_or_mode": "tests/cli_flows/regression_scenario_4_explicit_meteo.yaml",
+      "status": "passed_with_caveat",
+      "turns": [
+        {
+          "user_input": "请在风向270度、风速2.5m/s、中性稳定度D条件下做 NOx 扩散分析。",
+          "assistant_excerpt": "已完成 NOx 扩散分析；风向 270°，风速 2.5 m/s，大气稳定度 N1。",
+          "tool_calls": [
+            {
+              "name": "calculate_dispersion",
+              "arguments": {
+                "pollutant": "NOx",
+                "wind_direction": 270,
+                "wind_speed": 2.5,
+                "stability_class": "N1"
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "map:contour:NOx"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "map",
+              "artifact_type": "contour",
+              "pollutant": "NOx"
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE"
+          },
+          "passed_checks": [
+            "NOx dispersion created before CO2"
+          ],
+          "failed_checks": []
+        },
+        {
+          "user_input": "请在相同气象条件下做 CO2 扩散分析。",
+          "assistant_excerpt": "已完成 CO2 扩散分析；使用与 NOx 相同的气象条件。",
+          "tool_calls": [
+            {
+              "name": "calculate_dispersion",
+              "arguments": {
+                "pollutant": "CO2",
+                "wind_speed": 2.5,
+                "wind_direction": 270,
+                "stability_class": "N1",
+                "mixing_height": 1500,
+                "roughness_height": 0.5,
+                "grid_resolution": 50
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "map:contour:CO2"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "map",
+              "artifact_type": "contour",
+              "pollutant": "CO2"
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE"
+          },
+          "passed_checks": [
+            "CO2 dispersion created after NOx"
+          ],
+          "failed_checks": []
+        },
+        {
+          "user_input": "CO2的热点呢？",
+          "assistant_excerpt": "已识别出 CO2 浓度最高的 5% 区域（共 6 个热点）。",
+          "tool_calls": [
+            {
+              "name": "analyze_hotspots",
+              "arguments": {
+                "pollutant": "CO2",
+                "method": "percentile",
+                "percentile": 5
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "map:hotspot:CO2"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "map",
+              "artifact_type": "hotspot",
+              "pollutant": "CO2",
+              "hotspots": 6
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE",
+            "payload_types": [
+              "map:hotspot"
+            ]
+          },
+          "passed_checks": [
+            "hotspot tool called with pollutant CO2",
+            "hotspot artifact pollutant is CO2",
+            "did not bind to stale NOx"
+          ],
+          "failed_checks": []
+        }
+      ],
+      "overall_findings": [
+        "Hotspot binding passed when both NOx and CO2 dispersion contexts existed.",
+        "Default-meteorology variants did not fully set up this scenario because they stopped at confirmation gates."
+      ],
+      "recommended_action": "Keep explicit-meteorology variant as a regression test and separately fix the default meteorology confirmation flow."
+    },
+    {
+      "id": "scenario_5",
+      "name": "unsupported or skipped pollutant handling",
+      "script_path_or_mode": "tests/cli_flows/regression_scenario_5.yaml plus tests/cli_flows/regression_scenario_5_continue.txt",
+      "status": "partially_failed",
+      "turns": [
+        {
+          "user_input": "请基于这个路网文件计算 CO2、NOx、SO2 的道路网络排放。",
+          "assistant_excerpt": "已完成道路网络排放计算；CO2、NOx、SO2 totals were reported.",
+          "tool_calls": [
+            {
+              "name": "calculate_macro_emission",
+              "arguments": {
+                "pollutants": [
+                  "CO2",
+                  "NOx",
+                  "SO2"
+                ]
+              },
+              "success": true
+            }
+          ],
+          "artifact_types": [
+            "table:calculate_macro_emission",
+            "download"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "table",
+              "artifact_type": "calculate_macro_emission",
+              "rows": 125
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE"
+          },
+          "passed_checks": [
+            "emission with unsupported candidate SO2 produced a result"
+          ],
+          "failed_checks": []
+        },
+        {
+          "user_input": "开始",
+          "assistant_excerpt": "上一轮排放结果包含：CO2、NOx、SO2。当前可直接做物理扩散分析的污染物有：CO2、NOx。暂不自动分析：SO2。",
+          "tool_calls": [],
+          "artifact_types": [],
+          "artifact_summaries": [],
+          "debug_summary": {
+            "trace_final_stage": "NEEDS_CLARIFICATION"
+          },
+          "passed_checks": [
+            "eligible subset explained",
+            "SO2 skipped explicitly"
+          ],
+          "failed_checks": [
+            "confirmation still did not execute"
+          ]
+        },
+        {
+          "user_input": "全部",
+          "assistant_excerpt": "Same CO2/NOx eligible and SO2 skipped clarification repeated.",
+          "tool_calls": [],
+          "artifact_types": [],
+          "artifact_summaries": [],
+          "debug_summary": {
+            "trace_final_stage": "NEEDS_CLARIFICATION"
+          },
+          "passed_checks": [
+            "SO2 still not silently dropped"
+          ],
+          "failed_checks": [
+            "全部 loop repeated"
+          ]
+        },
+        {
+          "user_input": "对所有已计算污染物逐个扩散，包括 CO2、NOx、SO2。",
+          "assistant_excerpt": "Assistant claimed CO2 and NOx dispersion completed and noted SO2 unsupported.",
+          "tool_calls": [
+            {
+              "name": "calculate_dispersion",
+              "arguments": {
+                "pollutant": "CO2",
+                "meteorology": "urban_summer_day"
+              },
+              "success": true,
+              "observed_summary_pollutant": "CO2"
+            },
+            {
+              "name": "calculate_dispersion",
+              "arguments": {
+                "pollutant": "NOx",
+                "meteorology": "urban_summer_day"
+              },
+              "success": true,
+              "observed_summary_pollutant": "CO2"
+            }
+          ],
+          "artifact_types": [
+            "map:contour:CO2",
+            "map:contour:CO2"
+          ],
+          "artifact_summaries": [
+            {
+              "kind": "map",
+              "artifact_type": "contour",
+              "pollutant": "CO2"
+            },
+            {
+              "kind": "map",
+              "artifact_type": "contour",
+              "pollutant": "CO2"
+            }
+          ],
+          "debug_summary": {
+            "trace_final_stage": "DONE",
+            "payload_types": [
+              "map:contour",
+              "map:contour"
+            ]
+          },
+          "passed_checks": [
+            "SO2 unsupported status explained",
+            "two dispersion calls attempted"
+          ],
+          "failed_checks": [
+            "NOx requested call produced CO2 summary/artifact",
+            "frontend artifacts represented CO2 twice",
+            "assistant text claimed NOx result despite artifact mismatch"
+          ]
+        }
+      ],
+      "overall_findings": [
+        "Unsupported SO2 is explained clearly.",
+        "All-pollutant expansion has a serious pollutant/result mismatch."
+      ],
+      "recommended_action": "Add an assertion that each expanded dispersion call returns and records an artifact matching its requested pollutant."
+    }
+  ],
+  "overall_status": "failed",
+  "key_failures": [
+    "Generic dispersion asks meteorology confirmation before pollutant selection.",
+    "全部 repeats pollutant clarification and does not execute all eligible pollutants.",
+    "Default meteorology confirmation with 开始 can lead into pollutant clarification instead of execution.",
+    "All-pollutant expansion with CO2/NOx/SO2 produced CO2 artifacts twice while claiming CO2 and NOx results."
+  ],
+  "key_successes": [
+    "run_code.py replay mode exercised real shared chat/session path.",
+    "Exact requested zip upload worked.",
+    "Emission computation produced table/download artifacts.",
+    "CO2 follow-up inherited NOx scenario parameters in explicit-meteorology flow.",
+    "CO2 hotspot follow-up bound to CO2 when CO2 dispersion context existed.",
+    "Unsupported SO2 was stated explicitly and was not silently dropped."
+  ],
+  "suggested_next_step": "Fix dispersion clarification resolution first: consume 全部 as all eligible pollutants, preserve meteorology and pollutant pending state together, then verify per-pollutant artifact identity in expanded dispersion calls."
+}
+

@@ -1,0 +1,462 @@
+{
+  "tool_name": "calculate_macro_emission",
+  "file_path": "/home/kirito/Agent1/emission_agent/test_data/test_6links.xlsx",
+  "result": {
+    "success": true,
+    "data": {
+      "query_info": {
+        "model_year": 2020,
+        "pollutants": [
+          "THC"
+        ],
+        "season": "夏季",
+        "links_count": 6
+      },
+      "results": [
+        {
+          "link_id": "38625",
+          "link_length_km": 0.34,
+          "traffic_flow_vph": 528.0,
+          "avg_speed_kph": 57.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 369.6
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 105.6
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 26.4
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 15.84
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 10.56
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "THC": 0.0001
+            },
+            "Passenger Truck": {
+              "THC": 0.0
+            },
+            "Light Commercial Truck": {
+              "THC": 0.0
+            },
+            "Transit Bus": {
+              "THC": 0.0005
+            },
+            "Combination Long-haul Truck": {
+              "THC": 0.0001
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "THC": 0.0008
+          },
+          "emission_rates_g_per_veh_km": {
+            "THC": 0.0044
+          },
+          "geometry": "LINESTRING (121.43233489990234 31.218877792358388, 121.43154907226564 31.218513488769524, 121.43149566650389 31.21848106384278, 121.4309768676758 31.218152999877915, 121.4303970336914 31.217706680297848, 121.42987060546876 31.217252731323242, 121.42975616455078 31.217145919799812, 121.42969512939453 31.217090606689442, 121.42959594726562 31.216962814331055)"
+        },
+        {
+          "link_id": "6903",
+          "link_length_km": 1.02,
+          "traffic_flow_vph": 1620.0,
+          "avg_speed_kph": 40.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 1134.0
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 324.0
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 81.0
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 48.6
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 32.4
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "THC": 0.0008
+            },
+            "Passenger Truck": {
+              "THC": 0.0004
+            },
+            "Light Commercial Truck": {
+              "THC": 0.0002
+            },
+            "Transit Bus": {
+              "THC": 0.007
+            },
+            "Combination Long-haul Truck": {
+              "THC": 0.0019
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "THC": 0.0104
+          },
+          "emission_rates_g_per_veh_km": {
+            "THC": 0.0063
+          },
+          "geometry": "LINESTRING (121.4806137084961 31.23857688903808, 121.48045349121094 31.238542556762695, 121.47972869873048 31.238368988037106, 121.4788818359375 31.23813819885253, 121.478271484375 31.23795318603515, 121.47760772705078 31.237731933593757, 121.4773941040039 31.237653732299812, 121.47712707519533 31.237552642822262, 121.47679138183592 31.237415313720696, 121.47618103027345 31.23716163635253, 121.47537231445311 31.23686408996582, 121.47505950927734 31.236749649047855, 121.4742889404297 31.236551284790046, 121.47389221191408 31.236457824707028, 121.47351837158203 31.236364364624027, 121.47289276123048 31.23621559143066, 121.47227478027342 31.236066818237305, 121.47193145751953 31.235990524291992, 121.47074890136719 31.23572731018067, 121.47049713134766 31.235683441162106)"
+        },
+        {
+          "link_id": "642",
+          "link_length_km": 0.47,
+          "traffic_flow_vph": 1533.0,
+          "avg_speed_kph": 63.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 1073.1
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 306.6
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 76.65
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 45.99
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 30.66
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "THC": 0.0002
+            },
+            "Passenger Truck": {
+              "THC": 0.0001
+            },
+            "Light Commercial Truck": {
+              "THC": 0.0
+            },
+            "Transit Bus": {
+              "THC": 0.0019
+            },
+            "Combination Long-haul Truck": {
+              "THC": 0.0005
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "THC": 0.0029
+          },
+          "emission_rates_g_per_veh_km": {
+            "THC": 0.004
+          },
+          "geometry": "LINESTRING (121.45748901367188 31.263038635253903, 121.45730590820312 31.263008117675778, 121.45709228515625 31.26299858093261, 121.45689392089845 31.263011932373047, 121.45661926269531 31.263057708740234, 121.45632934570312 31.26305961608886, 121.45610809326173 31.262985229492177, 121.45596313476561 31.26283836364746, 121.4559097290039 31.26272392272949, 121.45591735839842 31.262544631958015, 121.4559860229492 31.26241111755372, 121.45610046386719 31.262313842773438, 121.45633697509766 31.26222991943359, 121.45671081542969 31.262161254882812, 121.45694732666016 31.26212120056152, 121.45718383789062 31.262048721313477, 121.45734405517578 31.26196861267091, 121.45760345458986 31.261777877807614, 121.45785522460936 31.26151847839355, 121.45796966552734 31.261400222778324, 121.45817565917969 31.261137008667)"
+        },
+        {
+          "link_id": "120555",
+          "link_length_km": 0.21,
+          "traffic_flow_vph": 741.0,
+          "avg_speed_kph": 37.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 518.7
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 148.2
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 37.05
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 22.23
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 14.82
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "THC": 0.0001
+            },
+            "Passenger Truck": {
+              "THC": 0.0
+            },
+            "Light Commercial Truck": {
+              "THC": 0.0
+            },
+            "Transit Bus": {
+              "THC": 0.0007
+            },
+            "Combination Long-haul Truck": {
+              "THC": 0.0002
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "THC": 0.0011
+          },
+          "emission_rates_g_per_veh_km": {
+            "THC": 0.0068
+          },
+          "geometry": "LINESTRING (121.48275756835939 31.230998992919922, 121.48271942138672 31.23121452331543, 121.48253631591795 31.232095718383786, 121.48242950439453 31.232580184936516, 121.48236846923828 31.232826232910163)"
+        },
+        {
+          "link_id": "85167",
+          "link_length_km": 0.27,
+          "traffic_flow_vph": 731.0,
+          "avg_speed_kph": 51.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 511.7
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 146.2
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 36.55
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 21.93
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 14.62
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "THC": 0.0001
+            },
+            "Passenger Truck": {
+              "THC": 0.0
+            },
+            "Light Commercial Truck": {
+              "THC": 0.0
+            },
+            "Transit Bus": {
+              "THC": 0.0007
+            },
+            "Combination Long-haul Truck": {
+              "THC": 0.0002
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "THC": 0.001
+          },
+          "emission_rates_g_per_veh_km": {
+            "THC": 0.0049
+          },
+          "geometry": "LINESTRING (121.44773864746095 31.224716186523434, 121.44828033447264 31.22490692138671, 121.44879913330077 31.225072860717773, 121.44903564453124 31.22515869140624, 121.45032501220703 31.225584030151364)"
+        },
+        {
+          "link_id": "8838",
+          "link_length_km": 0.35,
+          "traffic_flow_vph": 1288.0,
+          "avg_speed_kph": 37.0,
+          "fleet_composition": {
+            "Passenger Car": {
+              "source_type_id": 21,
+              "percentage": 70.0,
+              "vehicles_per_hour": 901.6
+            },
+            "Passenger Truck": {
+              "source_type_id": 31,
+              "percentage": 20.0,
+              "vehicles_per_hour": 257.6
+            },
+            "Light Commercial Truck": {
+              "source_type_id": 32,
+              "percentage": 5.0,
+              "vehicles_per_hour": 64.4
+            },
+            "Transit Bus": {
+              "source_type_id": 42,
+              "percentage": 3.0,
+              "vehicles_per_hour": 38.64
+            },
+            "Combination Long-haul Truck": {
+              "source_type_id": 62,
+              "percentage": 2.0,
+              "vehicles_per_hour": 25.76
+            }
+          },
+          "emissions_by_vehicle": {
+            "Passenger Car": {
+              "THC": 0.0003
+            },
+            "Passenger Truck": {
+              "THC": 0.0001
+            },
+            "Light Commercial Truck": {
+              "THC": 0.0
+            },
+            "Transit Bus": {
+              "THC": 0.0021
+            },
+            "Combination Long-haul Truck": {
+              "THC": 0.0006
+            }
+          },
+          "total_emissions_kg_per_hr": {
+            "THC": 0.0031
+          },
+          "emission_rates_g_per_veh_km": {
+            "THC": 0.0068
+          },
+          "geometry": "LINESTRING (121.48113250732422 31.247114181518548, 121.48104095458984 31.24708366394043, 121.48094940185547 31.247047424316413, 121.48035430908203 31.24678993225098, 121.48025512695312 31.246742248535153, 121.48019409179688 31.24671363830566, 121.48013305664064 31.24667930603028, 121.48004150390625 31.24662208557129, 121.47992706298828 31.24654388427734, 121.47982025146486 31.246467590332024, 121.47963714599611 31.246349334716797, 121.47940063476564 31.246179580688477, 121.47928619384766 31.24610710144043, 121.47917175292969 31.246053695678704, 121.47913360595702 31.246042251586903, 121.4791030883789 31.24603462219238, 121.47906494140626 31.246028900146488, 121.4790267944336 31.246026992797844, 121.47885131835939 31.24602508544922, 121.47879028320312 31.24601936340332, 121.47872924804686 31.246013641357408, 121.47866821289064 31.24600410461426, 121.47860717773438 31.245988845825195, 121.47852325439455 31.245962142944332, 121.47817993164062 31.245849609374993, 121.47786712646484 31.245756149292003)"
+        }
+      ],
+      "summary": {
+        "total_links": 6,
+        "total_emissions_kg_per_hr": {
+          "THC": 0.0193
+        }
+      },
+      "fleet_mix_fill": {
+        "strategy": "default_fleet_mix",
+        "filled_count": 6,
+        "filled_link_ids": [
+          "38625",
+          "6903",
+          "642",
+          "120555",
+          "85167",
+          "8838"
+        ],
+        "filled_row_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "default_fleet_mix_used": {
+          "Passenger Car": 70.0,
+          "Passenger Truck": 20.0,
+          "Light Commercial Truck": 5.0,
+          "Transit Bus": 3.0,
+          "Combination Long-haul Truck": 2.0
+        }
+      },
+      "scenario_label": "baseline",
+      "defaults_used": {
+        "model_year": 2020,
+        "season": "夏季",
+        "fleet_mix": {
+          "Passenger Car": 70.0,
+          "Passenger Truck": 20.0,
+          "Light Commercial Truck": 5.0,
+          "Transit Bus": 3.0,
+          "Combination Long-haul Truck": 2.0
+        }
+      },
+      "download_file": {
+        "path": "/home/kirito/Agent1/emission_agent/outputs/test_6links_emission_results_20260419_213645.xlsx",
+        "filename": "test_6links_emission_results_20260419_213645.xlsx"
+      }
+    },
+    "error": null,
+    "summary": "已完成宏观排放计算，共 6 个路段\n车型年份: 2020，季节: 夏季，污染物: THC\n**总排放量:**\n  - THC: 19.30 g/小时 (463.20 g/天)\n**缺失车型分布处理:** 已对 6 个路段使用默认车队组成填补空白行\n**使用默认参数:** 车型年份=2020, 季节=夏季, 车队组成=系统默认\n**单位排放率 (平均):**\n  - THC: 0.01 g/(veh·km)\n**路段统计 (THC):**\n  - 单路段平均: 0.00 kg/h\n  - 单路段最高: 0.01 kg/h\n  - 单路段最低: 0.00 kg/h",
+    "chart_data": null,
+    "table_data": null,
+    "map_data": null,
+    "download_file": null,
+    "message": "已完成宏观排放计算，共 6 个路段\n车型年份: 2020，季节: 夏季，污染物: THC\n**总排放量:**\n  - THC: 19.30 g/小时 (463.20 g/天)\n**缺失车型分布处理:** 已对 6 个路段使用默认车队组成填补空白行\n**使用默认参数:** 车型年份=2020, 季节=夏季, 车队组成=系统默认\n**单位排放率 (平均):**\n  - THC: 0.01 g/(veh·km)\n**路段统计 (THC):**\n  - 单路段平均: 0.00 kg/h\n  - 单路段最高: 0.01 kg/h\n  - 单路段最低: 0.00 kg/h",
+    "_standardization_records": [
+      {
+        "param": "pollutants[THC]",
+        "success": true,
+        "original": "THC",
+        "normalized": "THC",
+        "strategy": "exact",
+        "confidence": 1.0
+      }
+    ],
+    "_trace": {
+      "tool_name": "calculate_macro_emission",
+      "original_arguments": {
+        "file_path": "/home/kirito/Agent1/emission_agent/test_data/test_6links.xlsx",
+        "pollutants": [
+          "THC"
+        ]
+      },
+      "standardization_enabled": true,
+      "file_path_context": "/home/kirito/Agent1/emission_agent/test_data/test_6links.xlsx",
+      "standardized_arguments": {
+        "file_path": "/home/kirito/Agent1/emission_agent/test_data/test_6links.xlsx",
+        "pollutants": [
+          "THC"
+        ]
+      },
+      "standardization_records": [
+        {
+          "param": "pollutants[THC]",
+          "success": true,
+          "original": "THC",
+          "normalized": "THC",
+          "strategy": "exact",
+          "confidence": 1.0
+        }
+      ],
+      "cross_constraint_validation": {
+        "all_valid": true,
+        "violations": [],
+        "warnings": []
+      },
+      "auto_injected_file_path": false,
+      "duration_ms": 5711.54
+    }
+  },
+  "commit_hash": "757adbbfe9881200f98eaaf234e2968ba02f24ec"
+}

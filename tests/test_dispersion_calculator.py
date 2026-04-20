@@ -58,6 +58,9 @@ def _build_emissions_df() -> pd.DataFrame:
             "NAME_1": ["R1", "R2"],
             "data_time": [pd.Timestamp("2024-07-01 12:00:00")] * 2,
             "nox": [1.0, 2.0],
+            "co": [3.0, 4.0],
+            "co2": [10.0, 20.0],
+            "pm2.5": [0.1, 0.2],
             "length": [1.0, 1.2],
         }
     )
@@ -97,12 +100,12 @@ def _build_macro_result(include_geometry: bool = True) -> dict:
                 {
                     "link_id": "R1",
                     "link_length_km": 1.0,
-                    "total_emissions_kg_per_hr": {"NOx": 1.5},
+                    "total_emissions_kg_per_hr": {"NOx": 1.5, "CO": 3.0, "CO2": 10.0, "PM2.5": 0.15},
                 },
                 {
                     "link_id": "R2",
                     "link_length_km": 1.2,
-                    "total_emissions_kg_per_hr": {"NOx": 2.5},
+                    "total_emissions_kg_per_hr": {"NOx": 2.5, "CO": 4.0, "CO2": 20.0, "PM2.5": 0.25},
                 },
             ]
         },
@@ -454,11 +457,20 @@ class TestDispersionCalculator:
         with pytest.raises(ValueError):
             calculator._validate_inputs(roads, _build_emissions_df(), "NOx")
 
-    def test_validate_inputs_unsupported_pollutant(self):
+    def test_validate_inputs_supports_co2(self):
         calculator = dispersion.DispersionCalculator()
 
-        with pytest.raises(ValueError):
-            calculator._validate_inputs(_build_roads_gdf(), _build_emissions_df(), "CO2")
+        calculator._validate_inputs(_build_roads_gdf(), _build_emissions_df(), "CO2")
+
+    def test_validate_inputs_warns_for_unlisted_pollutant(self, caplog):
+        calculator = dispersion.DispersionCalculator()
+        emissions_df = _build_emissions_df()
+        emissions_df["so2"] = [0.01, 0.02]
+
+        with caplog.at_level("WARNING"):
+            calculator._validate_inputs(_build_roads_gdf(), emissions_df, "SO2")
+
+        assert "is not listed in dispersion pollutant config" in caplog.text
 
     def test_process_meteorology_preset(self):
         calculator = dispersion.DispersionCalculator()
@@ -546,17 +558,24 @@ class TestDispersionCalculator:
         assert "raster_grid" in result["data"]
         assert len(result["data"]["results"]) == 2
 
-    def test_calculate_success_with_mock_models(self, monkeypatch):
-        monkeypatch.setattr(dispersion, "load_all_models", lambda *args, **kwargs: _build_mock_models(1.0))
+    @pytest.mark.parametrize("pollutant", ["NOx", "CO", "PM2.5"])
+    def test_calculate_success_with_mock_models(self, monkeypatch, pollutant):
+        monkeypatch.setattr(
+            dispersion,
+            "load_models_for_stability",
+            lambda *args, **kwargs: {"x0": ConstantModel(1.0), "x-1": ConstantModel(1.0)},
+        )
 
         calculator = dispersion.DispersionCalculator()
         result = calculator.calculate(
             roads_gdf=_build_roads_gdf(),
             emissions_df=_build_emissions_df(),
             met_input="urban_summer_day",
+            pollutant=pollutant,
         )
 
         assert result["status"] == "success"
+        assert result["data"]["query_info"]["pollutant"] == pollutant
         assert result["data"]["query_info"]["n_roads"] == 2
         assert result["data"]["summary"]["receptor_count"] > 0
 
@@ -577,6 +596,13 @@ class TestEmissionToDispersionAdapter:
         assert row["NAME_1"] == "R1"
         assert row["nox"] == pytest.approx(1.5)
         assert row["length"] == pytest.approx(1.0)
+
+    def test_adapt_dynamic_pollutant(self):
+        _, emissions_df = EmissionToDispersionAdapter.adapt(_build_macro_result(), pollutant="PM2.5")
+
+        row = emissions_df.iloc[0]
+        assert "pm2.5" in emissions_df.columns
+        assert row["pm2.5"] == pytest.approx(0.15)
 
     def test_adapt_with_geometry_source(self):
         macro_result = _build_macro_result(include_geometry=False)

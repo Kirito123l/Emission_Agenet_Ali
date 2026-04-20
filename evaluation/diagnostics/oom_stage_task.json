@@ -1,0 +1,117 @@
+[
+  {
+    "ts": "09:59:36",
+    "stage": "eval:before",
+    "rss_mb": 204.4
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "task:e2e_heldout_multistep_007:before",
+    "rss_mb": 242.3
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "file_analyzer:before",
+    "rss_mb": 242.3
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "file_analyzer:after",
+    "rss_mb": 252.2
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "tool:analyze_file:before",
+    "rss_mb": 256.8
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "file_analyzer:before",
+    "rss_mb": 256.8
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "file_analyzer:after",
+    "rss_mb": 257.3
+  },
+  {
+    "ts": "09:59:37",
+    "stage": "tool:analyze_file:after",
+    "rss_mb": 257.3
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "tool:calculate_dispersion:before",
+    "rss_mb": 266.0
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion.calculate:before",
+    "rss_mb": 271.6
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._segment_roads:before",
+    "rss_mb": 273.3
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._segment_roads:after",
+    "rss_mb": 276.5
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._generate_receptors:before",
+    "rss_mb": 276.5
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._generate_receptors:after",
+    "rss_mb": 364.2
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._build_source_arrays:before",
+    "rss_mb": 364.2
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._build_source_arrays:after",
+    "rss_mb": 364.6
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._process_meteorology:before",
+    "rss_mb": 364.6
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._process_meteorology:after",
+    "rss_mb": 364.6
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._ensure_models_loaded:before",
+    "rss_mb": 364.6
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._ensure_models_loaded:after",
+    "rss_mb": 364.6
+  },
+  {
+    "ts": "09:59:50",
+    "stage": "dispersion._get_or_load_model:VU:before",
+    "rss_mb": 364.7
+  },
+  {
+    "ts": "09:59:51",
+    "stage": "dispersion._get_or_load_model:after",
+    "rss_mb": 490.9
+  },
+  {
+    "ts": "09:59:51",
+    "stage": "dispersion.predict_time_series_xgb:before:receptors=202154,sources_shape=(1, 7506, 4),met_rows=1,batch=200000,track=True",
+    "rss_mb": 490.9
+  }
+]

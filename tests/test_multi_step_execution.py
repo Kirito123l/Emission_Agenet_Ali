@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -118,6 +119,21 @@ def make_dispersion_success_result():
     }
 
 
+def make_dispersion_success_result_for_pollutant(pollutant: str, *, mean: float, maximum: float):
+    result = make_dispersion_success_result()
+    result["summary"] = f"{pollutant} dispersion calculation completed"
+    result["data"]["query_info"]["pollutant"] = pollutant
+    result["data"]["summary"]["mean_concentration"] = mean
+    result["data"]["summary"]["max_concentration"] = maximum
+    result["map_data"] = {
+        "type": "contour",
+        "pollutant": pollutant,
+        "summary": result["data"]["summary"],
+        "query_info": {"pollutant": pollutant},
+    }
+    return result
+
+
 def make_hotspot_success_result():
     return {
         "success": True,
@@ -157,6 +173,36 @@ def make_macro_spatial_data():
     }
 
 
+def make_macro_spatial_data_with_pollutants(pollutants):
+    return {
+        "query_info": {"pollutants": list(pollutants)},
+        "summary": {
+            "total_links": 2,
+            "total_emissions_kg_per_hr": {pollutant: 1.0 for pollutant in pollutants},
+        },
+        "results": [
+            {
+                "link_id": "L1",
+                "geometry": "LINESTRING (0 0, 1 1)",
+                "total_emissions_kg_per_hr": {pollutant: 0.1 for pollutant in pollutants},
+            },
+            {
+                "link_id": "L2",
+                "geometry": "LINESTRING (1 1, 2 2)",
+                "total_emissions_kg_per_hr": {pollutant: 0.2 for pollutant in pollutants},
+            },
+        ],
+    }
+
+
+def make_macro_emission_result_with_pollutants(pollutants):
+    return {
+        "success": True,
+        "summary": "macro emission completed",
+        "data": make_macro_spatial_data_with_pollutants(pollutants),
+    }
+
+
 def make_render_result(map_data):
     return {
         "success": True,
@@ -167,6 +213,149 @@ def make_render_result(map_data):
 
 
 class TestLLMNativeToolLoop:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("reply", ["全部", "都看", "两个都要", "看全部的", "都看一下", "全部都看"])
+    async def test_all_reply_consumes_pending_dispersion_pollutant_clarification(self, reply):
+        config = get_config()
+        config.enable_state_orchestration = True
+        config.enable_trace = True
+
+        router = make_router(
+            llm_tool_responses=[LLMResponse(content="已完成 CO2 和 NOx 扩散分析。")],
+            executor_results=[
+                make_dispersion_success_result_for_pollutant("CO2", mean=10.0, maximum=20.0),
+                make_dispersion_success_result_for_pollutant("NOx", mean=1.0, maximum=2.0),
+            ],
+        )
+        router._save_result_to_session_context(
+            "calculate_macro_emission",
+            make_macro_emission_result_with_pollutants(["CO2", "NOx"]),
+        )
+
+        clarification = await router.chat("请继续做大气扩散分析。", trace={})
+
+        assert "当前可直接做物理扩散分析的污染物有：CO2、NOx" in clarification.text
+        assert "扩散气象条件" not in clarification.text
+        assert router.llm.chat_with_tools.await_count == 0
+
+        result = await router.chat(reply, trace={})
+
+        assert "您要看全部" not in result.text
+        assert [call["name"] for call in result.executed_tool_calls] == [
+            "calculate_dispersion",
+            "calculate_dispersion",
+        ]
+        executed_args = [
+            call.kwargs["arguments"]
+            for call in router.executor.execute.await_args_list
+        ]
+        assert [args["pollutant"] for args in executed_args] == ["CO2", "NOx"]
+        assert result.map_data["type"] == "map_collection"
+        assert [item["pollutant"] for item in result.map_data["items"]] == ["CO2", "NOx"]
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ("reply", "expected_pollutant"),
+        [("看 CO2", "CO2"), ("只看 NOx", "NOx")],
+    )
+    async def test_single_pollutant_reply_is_not_misclassified_as_all_selection(self, reply, expected_pollutant):
+        config = get_config()
+        config.enable_state_orchestration = True
+        config.enable_trace = True
+
+        router = make_router(
+            llm_tool_responses=[LLMResponse(content=f"已完成 {expected_pollutant} 扩散分析。")],
+            executor_results=[
+                make_dispersion_success_result_for_pollutant(
+                    expected_pollutant,
+                    mean=10.0 if expected_pollutant == "CO2" else 1.0,
+                    maximum=20.0 if expected_pollutant == "CO2" else 2.0,
+                ),
+            ],
+        )
+        router._save_result_to_session_context(
+            "calculate_macro_emission",
+            make_macro_emission_result_with_pollutants(["CO2", "NOx"]),
+        )
+
+        clarification = await router.chat("请继续做大气扩散分析。", trace={})
+        result = await router.chat(reply, trace={})
+
+        assert "您要看全部" in clarification.text
+        assert router.executor.execute.await_count == 1
+        executed_args = router.executor.execute.await_args_list[0].kwargs["arguments"]
+        assert executed_args["pollutant"] == expected_pollutant
+        assert result.map_data["pollutant"] == expected_pollutant
+
+    @pytest.mark.anyio
+    async def test_pollutant_selection_survives_meteorology_confirmation_reply(self):
+        config = get_config()
+        config.enable_state_orchestration = True
+        config.enable_trace = True
+
+        router = make_router(
+            llm_tool_responses=[LLMResponse(content="已完成 NOx 扩散分析。")],
+            executor_results=[
+                make_dispersion_success_result_for_pollutant("NOx", mean=1.0, maximum=2.0),
+            ],
+        )
+        router._save_result_to_session_context(
+            "calculate_macro_emission",
+            make_macro_emission_result_with_pollutants(["CO2", "NOx"]),
+        )
+
+        clarification = await router.chat("请继续做大气扩散分析。", trace={})
+        still_pending = await router.chat("开始", trace={})
+        result = await router.chat("NOx", trace={})
+
+        assert "您要看全部" in clarification.text
+        assert "您要看全部" in still_pending.text
+        assert router.executor.execute.await_count == 1
+        executed_args = router.executor.execute.await_args_list[0].kwargs["arguments"]
+        assert executed_args["pollutant"] == "NOx"
+        assert result.map_data["pollutant"] == "NOx"
+
+    @pytest.mark.anyio
+    async def test_explicit_all_pollutant_expansion_preserves_payload_identity_and_skips_so2(self):
+        config = get_config()
+        config.enable_state_orchestration = True
+        config.enable_trace = True
+
+        async def execute_by_pollutant(*, tool_name, arguments, file_path=None):
+            pollutant = arguments["pollutant"]
+            if pollutant == "CO2":
+                return make_dispersion_success_result_for_pollutant("CO2", mean=10.0, maximum=20.0)
+            if pollutant == "NOx":
+                return make_dispersion_success_result_for_pollutant("NOx", mean=1.0, maximum=2.0)
+            raise AssertionError(f"unexpected pollutant execution: {pollutant}")
+
+        router = make_router(
+            llm_tool_responses=[
+                LLMResponse(content=""),
+                LLMResponse(content="已完成 CO2 和 NOx 扩散分析。"),
+            ],
+            executor_results=[],
+        )
+        router.executor.execute = AsyncMock(side_effect=execute_by_pollutant)
+        router._save_result_to_session_context(
+            "calculate_macro_emission",
+            make_macro_emission_result_with_pollutants(["CO2", "NOx", "SO2"]),
+        )
+
+        result = await router.chat("对所有已计算污染物逐个扩散，包括 CO2、NOx、SO2。", trace={})
+
+        executed_args = [
+            call.kwargs["arguments"]
+            for call in router.executor.execute.await_args_list
+        ]
+        assert [args["pollutant"] for args in executed_args] == ["CO2", "NOx"]
+        assert "SO2" in result.text
+        assert "暂不自动分析：SO2" in result.text
+        assert result.map_data["type"] == "map_collection"
+        assert [item["pollutant"] for item in result.map_data["items"]] == ["CO2", "NOx"]
+        assert result.text.count("CO2") >= 1
+        assert result.text.count("NOx") >= 1
+
     @pytest.mark.anyio
     async def test_tool_results_are_fed_back_and_next_tool_selected(self):
         config = get_config()
@@ -260,6 +449,76 @@ class TestLLMNativeToolLoop:
         assert result.trace["final_stage"] == "DONE"
         assert router.executor.execute.await_count == 1
         assert router.llm.chat_with_tools.await_count == 2
+
+    @pytest.mark.anyio
+    async def test_redundant_hotspot_render_does_not_hijack_successful_workflow_response(self):
+        config = get_config()
+        config.enable_state_orchestration = True
+        config.enable_trace = True
+
+        llm_tool_responses = [
+            LLMResponse(
+                content="先做扩散",
+                tool_calls=[
+                    ToolCall(
+                        id="disp-1",
+                        name="calculate_dispersion",
+                        arguments={"meteorology": "urban_summer_day", "pollutant": "NOx"},
+                    )
+                ],
+            ),
+            LLMResponse(
+                content="继续做热点",
+                tool_calls=[
+                    ToolCall(
+                        id="hot-1",
+                        name="analyze_hotspots",
+                        arguments={"method": "percentile", "percentile": 5.0},
+                    )
+                ],
+            ),
+            LLMResponse(
+                content="再渲染热点",
+                tool_calls=[
+                    ToolCall(
+                        id="map-1",
+                        name="render_spatial_map",
+                        arguments={"layer_type": "hotspot"},
+                    )
+                ],
+            ),
+        ]
+        dispersion = make_dispersion_success_result()
+        dispersion["map_data"] = {
+            "type": "contour",
+            "pollutant": "NOx",
+            "summary": dispersion["data"]["summary"],
+        }
+        hotspot = make_hotspot_success_result()
+        hotspot["data"]["query_info"] = {"pollutant": "NOx"}
+        hotspot["map_data"] = {
+            "type": "hotspot",
+            "pollutant": "NOx",
+            "summary": hotspot["data"]["summary"],
+            "hotspots_detail": deepcopy(hotspot["data"]["hotspots"]),
+        }
+        router = make_router(
+            llm_tool_responses=llm_tool_responses,
+            executor_results=[dispersion, hotspot],
+            fact_memory={"last_spatial_data": make_macro_spatial_data()},
+        )
+
+        result = await router.chat("请做扩散分析，并继续识别热点区域", trace={})
+
+        assert "本轮已经提供过，不需要重复执行或重复建议" not in result.text
+        assert result.text == "综合结果"
+        assert router.executor.execute.await_count == 2
+        assert [call["name"] for call in result.executed_tool_calls] == [
+            "calculate_dispersion",
+            "analyze_hotspots",
+        ]
+        assert result.map_data["type"] == "map_collection"
+        assert [item["type"] for item in result.map_data["items"]] == ["contour", "hotspot"]
 
     @pytest.mark.anyio
     async def test_max_steps_limit_forces_finalize_with_current_results(self):

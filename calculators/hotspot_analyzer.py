@@ -98,6 +98,7 @@ class HotspotAnalyzer:
         min_hotspot_area_m2: float = 2500.0,
         max_hotspots: int = 10,
         source_attribution: bool = True,
+        unit: str = "μg/m³",
     ) -> Dict[str, Any]:
         """Run hotspot analysis against a dispersion raster grid."""
         try:
@@ -126,6 +127,7 @@ class HotspotAnalyzer:
                     method,
                     percentile,
                     threshold_value,
+                    unit,
                 )
                 result = self._empty_result(
                     method=method,
@@ -136,6 +138,7 @@ class HotspotAnalyzer:
                     cutoff=float(threshold_value or 0.0),
                     percentile=percentile,
                     threshold_value=threshold_value,
+                    unit=unit,
                 )
                 if perf_enabled:
                     logger.debug("[PERF][Hotspot] Empty matrix path total: %.4fs", time.perf_counter() - perf_start)
@@ -204,6 +207,7 @@ class HotspotAnalyzer:
                         normalized_method,
                         percentile,
                         threshold_value,
+                        unit,
                     )
                     result = self._empty_result(
                         method=normalized_method,
@@ -214,6 +218,7 @@ class HotspotAnalyzer:
                         cutoff=0.0,
                         percentile=percentile,
                         threshold_value=None,
+                        unit=unit,
                     )
                     if perf_enabled:
                         logger.debug("[PERF][Hotspot] All-zero matrix path total: %.4fs", time.perf_counter() - perf_start)
@@ -283,6 +288,7 @@ class HotspotAnalyzer:
                 normalized_method,
                 percentile,
                 threshold_value,
+                unit,
             )
             result = HotspotAnalysisResult(
                 method=normalized_method,
@@ -295,7 +301,7 @@ class HotspotAnalyzer:
                 ),
                 interpretation=interpretation,
                 hotspots=hotspots,
-                summary=self._build_summary(hotspots, matrix, resolution, normalized_method, cutoff),
+                summary=self._build_summary(hotspots, matrix, resolution, normalized_method, cutoff, unit),
             )
             if perf_enabled:
                 logger.debug("[PERF][Hotspot] Total analyze: %.4fs", time.perf_counter() - perf_start)
@@ -319,6 +325,7 @@ class HotspotAnalyzer:
         cutoff: float,
         percentile: Optional[float],
         threshold_value: Optional[float],
+        unit: str,
     ) -> HotspotAnalysisResult:
         coverage_level = coverage_assessment.get("level", "unknown") if isinstance(coverage_assessment, dict) else "unknown"
         return HotspotAnalysisResult(
@@ -328,7 +335,7 @@ class HotspotAnalyzer:
             coverage_level=coverage_level,
             interpretation=interpretation,
             hotspots=[],
-            summary=self._build_summary([], matrix, resolution, method, cutoff),
+            summary=self._build_summary([], matrix, resolution, method, cutoff, unit),
         )
 
     def _cluster_hotspot_cells(self, hotspot_mask: np.ndarray) -> List[List[Tuple[int, int]]]:
@@ -525,6 +532,7 @@ class HotspotAnalyzer:
         method: str,
         percentile: Optional[float],
         threshold_value: Optional[float],
+        unit: str,
     ) -> str:
         """Adjust hotspot wording according to road network coverage quality."""
         level = coverage_assessment.get("level", "unknown") if isinstance(coverage_assessment, dict) else "unknown"
@@ -532,7 +540,7 @@ class HotspotAnalyzer:
         if method == "percentile":
             method_desc = f"浓度最高的 {float(percentile):g}% 栅格区域"
         else:
-            method_desc = f"浓度超过 {float(threshold_value):g} μg/m³ 的区域"
+            method_desc = f"浓度超过 {float(threshold_value):g} {unit} 的区域"
 
         if level == "complete_regional":
             return f"区域污染热点识别：{method_desc}"
@@ -547,6 +555,7 @@ class HotspotAnalyzer:
         resolution: float,
         method: str,
         cutoff: float,
+        unit: str = "μg/m³",
     ) -> Dict[str, Any]:
         """Build compact numeric summary of the hotspot extraction result."""
         total_hotspot_area = float(sum(hotspot.area_m2 for hotspot in hotspots))
@@ -560,7 +569,7 @@ class HotspotAnalyzer:
             "max_concentration": round(max((hotspot.max_conc for hotspot in hotspots), default=0.0), 4),
             "cutoff_value": round(float(cutoff), 4),
             "method": method,
-            "unit": "μg/m³",
+            "unit": unit,
         }
 
 

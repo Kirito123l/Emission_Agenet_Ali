@@ -125,6 +125,58 @@ def test_download_artifact_already_provided_is_deduplicated():
     assert affordance.provided_artifact.artifact_id == "download_detailed_csv"
 
 
+def _assessment_with_map(map_type: str):
+    result = {
+        "success": True,
+        "summary": "map delivered",
+        "map_data": {"type": map_type},
+        "data": {},
+    }
+    return build_readiness_assessment(
+        _macro_file_context(status="complete", has_geometry=True),
+        None,
+        [{"name": "render_spatial_map", "result": result}],
+        current_response_payloads={"map_data": result["map_data"]},
+    )
+
+
+def test_contour_map_is_deduplicated_as_dispersion_not_any():
+    assessment = _assessment_with_map("contour")
+
+    assert assessment.key_signals["provided_artifact_ids"] == ["map:dispersion"]
+
+    dispersion = assessment.get_action("render_dispersion_map")
+    hotspot = assessment.get_action("render_hotspot_map")
+    emission = assessment.get_action("render_emission_map")
+
+    assert dispersion is not None
+    assert dispersion.status == ReadinessStatus.ALREADY_PROVIDED
+    assert dispersion.provided_artifact is not None
+    assert dispersion.provided_artifact.artifact_id == "map:dispersion"
+    assert hotspot is not None
+    assert hotspot.status != ReadinessStatus.ALREADY_PROVIDED
+    assert emission is not None
+    assert emission.status != ReadinessStatus.ALREADY_PROVIDED
+
+
+def test_render_map_conflicts_are_scoped_by_map_kind():
+    hotspot_assessment = _assessment_with_map("hotspot")
+    dispersion_assessment = _assessment_with_map("contour")
+    emission_assessment = _assessment_with_map("macro_emission_map")
+
+    assert hotspot_assessment.get_action("render_hotspot_map").status == ReadinessStatus.ALREADY_PROVIDED
+    assert hotspot_assessment.get_action("render_dispersion_map").status != ReadinessStatus.ALREADY_PROVIDED
+    assert hotspot_assessment.get_action("render_emission_map").status != ReadinessStatus.ALREADY_PROVIDED
+
+    assert dispersion_assessment.get_action("render_dispersion_map").status == ReadinessStatus.ALREADY_PROVIDED
+    assert dispersion_assessment.get_action("render_hotspot_map").status != ReadinessStatus.ALREADY_PROVIDED
+    assert dispersion_assessment.get_action("render_emission_map").status != ReadinessStatus.ALREADY_PROVIDED
+
+    assert emission_assessment.get_action("render_emission_map").status == ReadinessStatus.ALREADY_PROVIDED
+    assert emission_assessment.get_action("render_dispersion_map").status != ReadinessStatus.ALREADY_PROVIDED
+    assert emission_assessment.get_action("render_hotspot_map").status != ReadinessStatus.ALREADY_PROVIDED
+
+
 def test_standard_macro_input_is_ready():
     assessment = build_readiness_assessment(
         _macro_file_context(status="complete", has_geometry=False),

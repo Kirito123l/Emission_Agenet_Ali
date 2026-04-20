@@ -504,6 +504,26 @@ def test_build_concentration_map_value_range(renderer):
     assert map_data["layers"][0]["style"]["value_range"] == [1.5, 10.5]
 
 
+def test_build_concentration_map_uses_payload_pollutant_unit_and_summary(renderer):
+    result_data = _make_concentration_result(mean_values=[1.5, 5.0, 10.5])
+    result_data["data"]["query_info"] = {"pollutant": "CO2", "unit": "ppm"}
+    result_data["data"]["summary"] = {
+        "receptor_count": 3,
+        "mean_concentration": 42.0,
+        "max_concentration": 99.0,
+        "unit": "ppm",
+    }
+
+    map_data = renderer._build_concentration_map(result_data, None, "")
+
+    assert map_data["pollutant"] == "CO2"
+    assert map_data["layers"][0]["style"]["legend_title"] == "CO2 Concentration"
+    assert map_data["layers"][0]["style"]["legend_unit"] == "ppm"
+    assert map_data["summary"]["mean_concentration"] == 42.0
+    assert map_data["summary"]["max_concentration"] == 99.0
+    assert map_data["summary"]["unit"] == "ppm"
+
+
 def test_detect_layer_type_with_concentration_grid(renderer):
     data = {"data": {"concentration_grid": {"receptors": [{"lon": 121.4, "lat": 31.2}]}}}
     assert renderer._detect_layer_type(data) == "concentration"

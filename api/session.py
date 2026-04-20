@@ -8,6 +8,8 @@ from pathlib import Path
 # Import new architecture components
 from config import get_config
 from core.context_store import SessionContextStore
+from core.governed_router import build_router
+from core.naive_router import NaiveRouter
 from core.router import UnifiedRouter
 
 
@@ -29,12 +31,16 @@ class Session:
         self.last_result_file: Optional[Any] = None
         self._storage_dir = Path(storage_dir) if storage_dir else Path("data/sessions")
         self._router_state_dir = self._storage_dir / "router_state"
+        self._naive_router_state_dir = self._storage_dir / "naive_router_state"
         self._memory_dir = self._storage_dir / "memory"
         self._router_state_dir.mkdir(parents=True, exist_ok=True)
+        self._naive_router_state_dir.mkdir(parents=True, exist_ok=True)
         self._memory_dir.mkdir(parents=True, exist_ok=True)
 
         # Router对象延迟创建，不序列化
         self._router: Optional[UnifiedRouter] = None
+        self._governed_router: Optional[Any] = None
+        self._naive_router: Optional[NaiveRouter] = None
 
         # 对话历史缓存（用于持久化）
         self._history: List[Dict] = []
@@ -43,14 +49,38 @@ class Session:
     def router(self) -> UnifiedRouter:
         """延迟创建Router"""
         if self._router is None:
-            self._router = UnifiedRouter(
+            self._router = build_router(
                 session_id=self.session_id,
                 memory_storage_dir=self._memory_dir,
+                router_mode="full",
             )
             self._restore_router_state()
         return self._router
 
-    async def chat(self, message: str, file_path: Optional[str] = None) -> Dict:
+    @property
+    def governed_router(self):
+        """延迟创建 GovernedRouter wrapper."""
+        if self._governed_router is None:
+            self._governed_router = build_router(
+                session_id=self.session_id,
+                memory_storage_dir=self._memory_dir,
+                router_mode="governed_v2",
+            )
+            self._restore_router_state(router_obj=self._governed_router)
+        return self._governed_router
+
+    @property
+    def naive_router(self) -> NaiveRouter:
+        """延迟创建NaiveRouter baseline。"""
+        if self._naive_router is None:
+            self._naive_router = NaiveRouter(
+                session_id=self.session_id,
+                tool_call_log_path=self._storage_dir / "naive_router_tool_calls.jsonl",
+            )
+            self._restore_naive_router_state()
+        return self._naive_router
+
+    async def chat(self, message: str, file_path: Optional[str] = None, mode: str = "full") -> Dict:
         """
         异步聊天接口
 
@@ -58,8 +88,15 @@ class Session:
             Dict with keys: text, chart_data, table_data, map_data, download_file, trace, trace_friendly
         """
         trace = {} if get_config().enable_trace else None
-        result = await self.router.chat(user_message=message, file_path=file_path, trace=trace)
-        self.save_router_state()
+        if mode == "naive":
+            result = await self.naive_router.chat(user_message=message, file_path=file_path, trace=trace)
+            self.save_naive_router_state()
+        elif mode == "governed_v2":
+            result = await self.governed_router.chat(user_message=message, file_path=file_path, trace=trace)
+            self.save_router_state(router_obj=self.governed_router)
+        else:
+            result = await self.router.chat(user_message=message, file_path=file_path, trace=trace)
+            self.save_router_state(router_obj=self.router)
 
         return {
             "text": result.text,
@@ -67,22 +104,24 @@ class Session:
             "table_data": result.table_data,
             "map_data": result.map_data,
             "download_file": result.download_file,
+            "executed_tool_calls": result.executed_tool_calls,
             "trace": result.trace,
             "trace_friendly": result.trace_friendly,
         }
 
-    def save_router_state(self) -> None:
+    def save_router_state(self, router_obj: Optional[Any] = None) -> None:
         """Persist router state required for follow-up turns after process restarts."""
-        if self._router is None:
+        router_obj = router_obj or self._router or self._governed_router
+        if router_obj is None:
             return
 
         state_path = self._router_state_dir / f"{self.session_id}.json"
-        if get_config().enable_live_state_persistence and hasattr(self._router, "to_persisted_state"):
-            payload = self._router.to_persisted_state()
+        if get_config().enable_live_state_persistence and hasattr(router_obj, "to_persisted_state"):
+            payload = router_obj.to_persisted_state()
             payload["saved_at"] = datetime.now().isoformat()
         else:
             payload = {
-                "context_store": self._router.context_store.to_persisted_dict(),
+                "context_store": router_obj.context_store.to_persisted_dict(),
                 "saved_at": datetime.now().isoformat(),
             }
         try:
@@ -91,9 +130,24 @@ class Session:
         except Exception as exc:
             print(f"Warning: Failed to persist router state for session {self.session_id}: {exc}")
 
-    def _restore_router_state(self) -> None:
+    def save_naive_router_state(self) -> None:
+        """Persist NaiveRouter's simple history list."""
+        if self._naive_router is None:
+            return
+
+        state_path = self._naive_router_state_dir / f"{self.session_id}.json"
+        payload = self._naive_router.to_persisted_state()
+        payload["saved_at"] = datetime.now().isoformat()
+        try:
+            with open(state_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            print(f"Warning: Failed to persist naive router state for session {self.session_id}: {exc}")
+
+    def _restore_router_state(self, router_obj: Optional[Any] = None) -> None:
         """Restore persisted router state for an existing session."""
-        if self._router is None:
+        router_obj = router_obj or self._router or self._governed_router
+        if router_obj is None:
             return
 
         state_path = self._router_state_dir / f"{self.session_id}.json"
@@ -103,14 +157,30 @@ class Session:
         try:
             with open(state_path, "r", encoding="utf-8") as f:
                 payload = json.load(f)
-            if get_config().enable_live_state_persistence and hasattr(self._router, "restore_persisted_state"):
-                self._router.restore_persisted_state(payload)
+            if get_config().enable_live_state_persistence and hasattr(router_obj, "restore_persisted_state"):
+                router_obj.restore_persisted_state(payload)
             else:
                 context_payload = payload.get("context_store")
                 if isinstance(context_payload, dict):
-                    self._router.context_store = SessionContextStore.from_persisted_dict(context_payload)
+                    router_obj.context_store = SessionContextStore.from_persisted_dict(context_payload)
         except Exception as exc:
             print(f"Warning: Failed to restore router state for session {self.session_id}: {exc}")
+
+    def _restore_naive_router_state(self) -> None:
+        """Restore NaiveRouter's simple history state for an existing session."""
+        if self._naive_router is None:
+            return
+
+        state_path = self._naive_router_state_dir / f"{self.session_id}.json"
+        if not state_path.exists():
+            return
+
+        try:
+            with open(state_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            self._naive_router.restore_persisted_state(payload)
+        except Exception as exc:
+            print(f"Warning: Failed to restore naive router state for session {self.session_id}: {exc}")
 
     def save_turn(
         self,
@@ -250,6 +320,9 @@ class SessionManager:
             memory_file = self._storage_dir / "memory" / f"{session_id}.json"
             if memory_file.exists():
                 memory_file.unlink()
+            naive_router_state_file = self._storage_dir / "naive_router_state" / f"{session_id}.json"
+            if naive_router_state_file.exists():
+                naive_router_state_file.unlink()
             self._save_to_disk()
 
     def cleanup_idle_sessions(self, ttl_hours: Optional[int] = None) -> int:
@@ -331,6 +404,7 @@ class SessionManager:
                     with open(history_file, "w", encoding="utf-8") as f:
                         json.dump(session._history, f, ensure_ascii=False, indent=2)
                 session.save_router_state()
+                session.save_naive_router_state()
 
             # Success - no message to avoid log pollution
         except Exception as e:

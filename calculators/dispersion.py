@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import lru_cache
 import logging
 import os
 from pathlib import Path
@@ -33,6 +34,7 @@ DISPERSION_PAIR_LIMIT = 100_000_000
 CONTOUR_MAX_GRID_POINTS = 50_000
 CONTOUR_DISPLAY_FLOOR = 1e-4
 CONTOUR_MIN_LEVEL_DELTA = 5e-5
+DEFAULT_SUPPORTED_DISPERSION_POLLUTANTS = {"NOx", "CO", "PM2.5", "PM10", "CO2", "THC"}
 
 
 @dataclass
@@ -143,6 +145,47 @@ def _default_model_base_dir() -> Path:
 def _default_presets_path() -> Path:
     """Return the meteorology preset configuration path."""
     return Path(__file__).resolve().parents[1] / "config" / "meteorology_presets.yaml"
+
+
+def _default_dispersion_pollutants_path() -> Path:
+    """Return the pollutant applicability configuration path."""
+    return Path(__file__).resolve().parents[1] / "config" / "dispersion_pollutants.yaml"
+
+
+@lru_cache(maxsize=1)
+def load_dispersion_pollutants_config() -> Dict[str, Dict[str, Any]]:
+    """Load optional dispersion pollutant applicability metadata."""
+    path = _default_dispersion_pollutants_path()
+    if not path.exists():
+        return {
+            pollutant: {"status": "supported", "default_unit": "μg/m³", "science_caveats": []}
+            for pollutant in sorted(DEFAULT_SUPPORTED_DISPERSION_POLLUTANTS)
+        }
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    pollutants = payload.get("pollutants", {})
+    if not isinstance(pollutants, dict):
+        return {}
+    return {
+        str(name): details if isinstance(details, dict) else {}
+        for name, details in pollutants.items()
+    }
+
+
+def _emission_column_for_pollutant(pollutant: str) -> str:
+    """Return the adapter emission column expected for a pollutant."""
+    return str(pollutant or "NOx").lower()
+
+
+def _source_strength_column_for_pollutant(pollutant: str) -> str:
+    """Return the internal source-strength column for a pollutant."""
+    return f"{str(pollutant or 'NOx').lower().replace('.', '')}_g_m_s2"
+
+
+def _default_unit_for_pollutant(pollutant: str) -> str:
+    config = load_dispersion_pollutants_config()
+    details = config.get(str(pollutant or "NOx"), {})
+    unit = details.get("default_unit") if isinstance(details, dict) else None
+    return str(unit or "μg/m³")
 
 
 def _extract_line_coords(geometry: Any) -> list[Tuple[float, float]]:
@@ -1197,7 +1240,7 @@ class DispersionCalculator:
             utm_roads, origin = self._transform_to_local(merged)
             segments_df = self._segment_roads(utm_roads)
             receptors_df = self._generate_receptors(utm_roads)
-            _, sources_re = self._build_source_arrays(segments_df, utm_roads)
+            _, sources_re = self._build_source_arrays(segments_df, utm_roads, pollutant)
             met_df = self._process_meteorology(met_input)
             met_df, sources_re = self._align_sources_and_met(met_df, sources_re)
             self._ensure_models_loaded()
@@ -1283,8 +1326,32 @@ class DispersionCalculator:
         emissions_df: pd.DataFrame,
         pollutant: str,
     ) -> None:
-        if pollutant != "NOx":
-            raise ValueError("Only NOx is currently supported by the surrogate model")
+        pollutant_name = str(pollutant or "NOx")
+        pollutant_config = load_dispersion_pollutants_config()
+        supported = set(pollutant_config.keys()) or DEFAULT_SUPPORTED_DISPERSION_POLLUTANTS
+        if pollutant_name not in supported:
+            logger.warning(
+                "Pollutant '%s' is not listed in dispersion pollutant config; "
+                "continuing with physical dispersion only.",
+                pollutant_name,
+            )
+        else:
+            details = pollutant_config.get(pollutant_name, {})
+            status = str(details.get("status", "supported")) if isinstance(details, dict) else "supported"
+            caveats = details.get("science_caveats", []) if isinstance(details, dict) else []
+            if status != "supported":
+                logger.warning(
+                    "Dispersion pollutant '%s' status=%s. Science caveats: %s",
+                    pollutant_name,
+                    status,
+                    "; ".join(str(item) for item in caveats) if caveats else "none",
+                )
+            elif caveats:
+                logger.info(
+                    "Dispersion pollutant '%s' science caveats: %s",
+                    pollutant_name,
+                    "; ".join(str(item) for item in caveats),
+                )
 
         if not isinstance(roads_gdf, gpd.GeoDataFrame):
             raise TypeError("roads_gdf must be a GeoDataFrame")
@@ -1294,7 +1361,7 @@ class DispersionCalculator:
         if missing_roads:
             raise ValueError(f"roads_gdf missing required columns: {sorted(missing_roads)}")
 
-        pollutant_col = pollutant.lower()
+        pollutant_col = _emission_column_for_pollutant(pollutant_name)
         emission_required = {"NAME_1", "data_time", pollutant_col, "length"}
         missing_emissions = emission_required - set(emissions_df.columns)
         if missing_emissions:
@@ -1308,7 +1375,8 @@ class DispersionCalculator:
         emissions_df: pd.DataFrame,
         pollutant: str,
     ) -> gpd.GeoDataFrame:
-        pollutant_col = pollutant.lower()
+        pollutant_col = _emission_column_for_pollutant(pollutant)
+        source_strength_col = _source_strength_column_for_pollutant(pollutant)
         roads = roads_gdf.copy()
         emissions = emissions_df.copy()
 
@@ -1345,7 +1413,7 @@ class DispersionCalculator:
         merged_gdf["road_index"] = merged_gdf["NAME_1"].astype("category").cat.codes
         merged_gdf["day"] = merged_gdf["data_time"].dt.date
         merged_gdf["hour"] = merged_gdf["data_time"].dt.hour
-        merged_gdf["nox_g_m_s2"] = merged_gdf.apply(
+        merged_gdf[source_strength_col] = merged_gdf.apply(
             lambda row: emission_to_line_source_strength(
                 float(row[pollutant_col]),
                 float(row["length"]),
@@ -1455,14 +1523,16 @@ class DispersionCalculator:
         self,
         segments_df: pd.DataFrame,
         merged: gpd.GeoDataFrame,
+        pollutant: str,
     ) -> Tuple[np.ndarray, np.ndarray]:
         unique_data_times = pd.Index(sorted(pd.to_datetime(merged["data_time"]).unique()))
         self._source_times = unique_data_times
+        source_strength_col = _source_strength_column_for_pollutant(pollutant)
 
         tiled = segments_df.loc[segments_df.index.repeat(len(unique_data_times))].copy()
         tiled["data_time"] = np.tile(unique_data_times.to_numpy(), len(segments_df))
 
-        emission_df = merged[["road_index", "data_time", "nox_g_m_s2"]].copy()
+        emission_df = merged[["road_index", "data_time", source_strength_col]].copy()
         tiled = tiled.merge(
             emission_df,
             left_on=["road_id", "data_time"],
@@ -1470,8 +1540,8 @@ class DispersionCalculator:
             how="left",
         )
         tiled = tiled.sort_values(["data_time", "road_id", "segment_id"]).reset_index(drop=True)
-        tiled["nox_g_m_s2"] = tiled["nox_g_m_s2"].fillna(0.0)
-        tiled.rename(columns={"nox_g_m_s2": "emission"}, inplace=True)
+        tiled[source_strength_col] = tiled[source_strength_col].fillna(0.0)
+        tiled.rename(columns={source_strength_col: "emission"}, inplace=True)
 
         pollution_sources = np.array(
             [
@@ -1654,6 +1724,7 @@ class DispersionCalculator:
         receptor_local_coords: np.ndarray,
         receptor_concentrations: np.ndarray,
         origin: Tuple[float, float],
+        unit: str = "μg/m³",
         interp_resolution_m: Optional[float] = None,
         n_levels: Optional[int] = None,
         smooth_sigma: Optional[float] = None,
@@ -1679,6 +1750,7 @@ class DispersionCalculator:
             "interp_grid_shape": [0, 0],
             "bbox_wgs84": [0.0, 0.0, 0.0, 0.0],
             "geojson": empty_feature_collection,
+            "unit": unit,
             "stats": {
                 "min_concentration": 0.0,
                 "max_concentration": 0.0,
@@ -1858,7 +1930,7 @@ class DispersionCalculator:
                         "level_index": int(level_index),
                         "label": (
                             f"{_format_contour_label_value(level_min)} - "
-                            f"{_format_contour_label_value(level_max)} μg/m³"
+                            f"{_format_contour_label_value(level_max)} {unit}"
                         ),
                         "interp_method": primary_method,
                     },
@@ -2159,6 +2231,7 @@ class DispersionCalculator:
             float(np.mean([item["mean_conc"] for item in results])) if results else 0.0
         )
         max_concentration = float(max((item["max_conc"] for item in results), default=0.0))
+        unit = _default_unit_for_pollutant(pollutant)
         result_data = {
             "query_info": {
                 "pollutant": pollutant,
@@ -2172,6 +2245,7 @@ class DispersionCalculator:
                 "contour_enabled": bool(self.config.contour_enabled),
                 "contour_interp_resolution_m": float(self.config.contour_interp_resolution_m),
                 "contour_n_levels": int(self.config.contour_n_levels),
+                "unit": unit,
             },
             "results": results,
             "summary": {
@@ -2179,7 +2253,7 @@ class DispersionCalculator:
                 "time_steps": int(len(met_df)),
                 "mean_concentration": mean_concentration,
                 "max_concentration": max_concentration,
-                "unit": "μg/m³",
+                "unit": unit,
                 "coordinate_system": "WGS-84",
             },
             "concentration_grid": {
@@ -2203,6 +2277,7 @@ class DispersionCalculator:
                     receptor_local_coords=receptors_df[["x", "y"]].to_numpy(dtype=float),
                     receptor_concentrations=mean_concs,
                     origin=origin,
+                    unit=unit,
                     interp_resolution_m=self.config.contour_interp_resolution_m,
                     n_levels=self.config.contour_n_levels,
                     smooth_sigma=self.config.contour_smooth_sigma,
@@ -2219,6 +2294,7 @@ class DispersionCalculator:
                     "interp_grid_shape": [0, 0],
                     "bbox_wgs84": [0.0, 0.0, 0.0, 0.0],
                     "geojson": {"type": "FeatureCollection", "features": []},
+                    "unit": unit,
                     "stats": {
                         "min_concentration": 0.0,
                         "max_concentration": 0.0,

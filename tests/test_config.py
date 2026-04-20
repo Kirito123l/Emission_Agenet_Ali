@@ -32,6 +32,17 @@ class TestConfigLoading:
         assert config.enable_live_state_persistence is True
         assert config.enable_conversation_fast_path is True
         assert config.enable_layered_memory_context is True
+        assert config.enable_session_state_block is False
+        assert config.enable_ao_aware_memory is True
+        assert config.enable_ao_classifier_rule_layer is True
+        assert config.enable_ao_classifier_llm_layer is True
+        assert config.ao_classifier_model == "qwen-plus"
+        assert config.ao_classifier_confidence_threshold == 0.7
+        assert config.ao_classifier_timeout_sec == 5.0
+        assert config.enable_ao_block_injection is True
+        assert config.enable_ao_persistent_facts is True
+        assert config.ao_block_token_budget == 1200
+        assert config.enable_governed_router is True
         assert config.enable_llm_retry_backoff is True
         assert config.enable_contour_output is True
         assert config.contour_interp_resolution_m == 10.0
@@ -110,6 +121,10 @@ class TestConfigLoading:
         monkeypatch.setenv("MAP_EXPORT_BASEMAP_ENABLED", "false")
         monkeypatch.setenv("MAP_EXPORT_BASEMAP_TIMEOUT", "1.5")
         monkeypatch.setenv("STANDARDIZATION_FUZZY_ENABLED", "false")
+        monkeypatch.setenv("ENABLE_AO_AWARE_MEMORY", "false")
+        monkeypatch.setenv("ENABLE_AO_BLOCK_INJECTION", "false")
+        monkeypatch.setenv("ENABLE_GOVERNED_ROUTER", "false")
+        monkeypatch.setenv("AO_CLASSIFIER_MODEL", "qwen3-max")
         reset_config()
         config = get_config()
         assert config.enable_llm_standardization is False
@@ -124,6 +139,10 @@ class TestConfigLoading:
         assert config.map_export_basemap_enabled is False
         assert config.map_export_basemap_timeout == 1.5
         assert config.standardization_fuzzy_enabled is False
+        assert config.enable_ao_aware_memory is False
+        assert config.enable_ao_block_injection is False
+        assert config.enable_governed_router is False
+        assert config.ao_classifier_model == "qwen3-max"
 
     def test_directories_created(self):
         config = get_config()

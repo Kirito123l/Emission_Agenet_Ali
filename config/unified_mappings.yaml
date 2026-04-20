@@ -552,6 +552,73 @@ defaults:
     "Transit Bus": 3.0
     "Combination Long-haul Truck": 2.0
 
+tools:
+  query_emission_factors:
+    required_slots:
+      - vehicle_type
+      - pollutants
+    optional_slots:
+      - model_year
+      - season
+      - road_type
+    clarification_followup_slots:
+      - model_year
+    confirm_first_slots:
+      - road_type
+    defaults:
+      season: "夏季"
+      road_type: "快速路"
+
+  calculate_micro_emission:
+    required_slots:
+      - vehicle_type
+      - pollutants
+    optional_slots:
+      - season
+      - model_year
+    confirm_first_slots:
+      - season
+    defaults:
+      season: "夏季"
+
+  calculate_macro_emission:
+    required_slots:
+      - pollutants
+    optional_slots:
+      - season
+      - scenario_label
+    confirm_first_slots:
+      - season
+    defaults:
+      season: "夏季"
+
+  calculate_dispersion:
+    required_slots: []
+    optional_slots:
+      - meteorology
+      - pollutant
+      - scenario_label
+    defaults: {}
+
+  analyze_hotspots:
+    required_slots: []
+    optional_slots:
+      - method
+      - percentile
+    defaults: {}
+
+  render_spatial_map:
+    required_slots: []
+    optional_slots:
+      - pollutant
+      - scenario_label
+    defaults: {}
+
+  query_knowledge:
+    required_slots: []
+    optional_slots: []
+    defaults: {}
+
 # ============ VSP Bins ============
 vsp_bins:
   1:

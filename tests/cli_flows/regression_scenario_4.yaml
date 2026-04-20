@@ -1,0 +1,7 @@
+steps:
+  - upload: /home/kirito/Agent1/emission_agent/test_data/1km_hd_irregular_changning_02.zip
+  - user: 请基于这个路网文件计算道路网络排放，污染物用 CO2 和 NOx。
+  - user: 请做 NOx 扩散分析。
+  - user: 请做 CO2 扩散分析。
+  - user: CO2的热点呢？
+

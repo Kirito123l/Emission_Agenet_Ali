@@ -9,6 +9,8 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.analytical_objective import AOStatus, AnalyticalObjective, ToolCallRecord
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,8 +27,40 @@ def _convert_paths_to_strings(obj: Any) -> Any:
 
 
 @dataclass
+class FileReference:
+    path: str
+    filename: str
+    task_type: Optional[str] = None
+    uploaded_turn: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "path": self.path,
+            "filename": self.filename,
+            "task_type": self.task_type,
+            "uploaded_turn": self.uploaded_turn,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "FileReference":
+        payload = data if isinstance(data, dict) else {}
+        return cls(
+            path=str(payload.get("path") or ""),
+            filename=str(payload.get("filename") or ""),
+            task_type=(
+                str(payload.get("task_type")).strip()
+                if payload.get("task_type") is not None
+                else None
+            ),
+            uploaded_turn=int(payload.get("uploaded_turn") or 0),
+        )
+
+
+@dataclass
 class FactMemory:
-    """Fact memory - Structured key facts"""
+    """Structured facts plus AO-scoped objective history for one session."""
+
+    session_id: str = ""
     recent_vehicle: Optional[str] = None
     recent_pollutants: List[str] = field(default_factory=list)
     recent_year: Optional[int] = None
@@ -42,6 +76,275 @@ class FactMemory:
     cumulative_tools_used: List[str] = field(default_factory=list)
     key_findings: List[str] = field(default_factory=list)
     user_corrections: List[str] = field(default_factory=list)
+
+    # Deprecated Phase 1 session-level fields kept for rollback/backward compatibility.
+    tool_call_log: List[Dict[str, Any]] = field(default_factory=list)
+    active_artifact_refs: Dict[str, Any] = field(default_factory=dict)
+    locked_parameters_display: Dict[str, Any] = field(default_factory=dict)
+    constraint_violations_seen: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Persistent facts across analytical objectives.
+    files_in_session: List[FileReference] = field(default_factory=list)
+    session_confirmed_parameters: Dict[str, str] = field(default_factory=dict)
+    cumulative_constraint_violations: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Analytical-objective history.
+    ao_history: List[AnalyticalObjective] = field(default_factory=list)
+    current_ao_id: Optional[str] = None
+    _ao_counter: int = 0
+    last_turn_index: int = 0
+
+    MAX_TOOL_CALL_LOG = 20
+    MAX_CONSTRAINT_VIOLATIONS = 10
+    MAX_SESSION_FILES = 10
+    MAX_SESSION_CONFIRMED_PARAMETERS = 12
+    MAX_CUMULATIVE_CONSTRAINTS = 20
+
+    TOOL_TO_RESULT_TYPE = {
+        "calculate_macro_emission": "emission",
+        "calculate_micro_emission": "emission",
+        "calculate_dispersion": "dispersion",
+        "analyze_hotspots": "hotspot",
+        "render_spatial_map": "visualization",
+        "compare_scenarios": "scenario_comparison",
+        "analyze_file": "file_analysis",
+        "query_emission_factors": "emission_factors",
+        "query_knowledge": "knowledge",
+    }
+
+    def append_tool_call_log(
+        self,
+        turn: int,
+        tool: str,
+        args: Dict[str, Any],
+        result: Optional[Dict[str, Any]],
+        summary: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Append one compact tool execution record for the State Contract."""
+        result_payload = result if isinstance(result, dict) else {}
+        success = bool(result_payload.get("success"))
+        result_ref = self._infer_result_ref(tool, result_payload) if success else ""
+        compact_summary = str(summary or result_payload.get("summary") or result_payload.get("message") or "")
+        if len(compact_summary) > 180:
+            compact_summary = compact_summary[:177].rstrip() + "..."
+
+        record = {
+            "turn": int(turn or 0),
+            "tool": str(tool or "unknown"),
+            "args_compact": self._compact_payload(args if isinstance(args, dict) else {}),
+            "success": success,
+            "result_ref": result_ref,
+            "summary": compact_summary,
+        }
+        self.tool_call_log.append(record)
+        self.tool_call_log = self.tool_call_log[-self.MAX_TOOL_CALL_LOG :]
+
+        if success and result_ref:
+            result_type = result_ref.split(":", 1)[0]
+            self.active_artifact_refs[result_type] = result_ref
+            geometry_status = self._infer_geometry_status(result_payload)
+            if geometry_status:
+                self.active_artifact_refs["geometry"] = geometry_status
+        self.last_turn_index = max(self.last_turn_index, int(turn or 0))
+        return record
+
+    def update_artifact_refs(
+        self,
+        store_summary: Optional[Dict[str, Any]],
+        geometry_status: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Synchronize active artifact refs from a SessionContextStore summary."""
+        if isinstance(store_summary, dict):
+            results = store_summary.get("results")
+            if isinstance(results, dict):
+                for key, payload in results.items():
+                    if not isinstance(payload, dict):
+                        continue
+                    result_type = str(payload.get("type") or str(key).split(":", 1)[0])
+                    label = str(payload.get("label") or str(key).split(":", 1)[-1])
+                    self.active_artifact_refs[result_type] = f"{result_type}:{label}"
+            else:
+                for key, value in store_summary.items():
+                    if key in {"geometry", "geometry_present"}:
+                        continue
+                    if isinstance(value, str):
+                        self.active_artifact_refs[str(key)] = value
+        if isinstance(geometry_status, dict):
+            self.active_artifact_refs["geometry"] = {
+                "geometry_present": bool(geometry_status.get("geometry_present")),
+                "source": str(geometry_status.get("source") or "unknown"),
+            }
+
+    def snapshot_locked_parameters(self, state_parameters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Refresh confirmed parameter display values from TaskState parameters."""
+        locked: Dict[str, Any] = {}
+        if isinstance(state_parameters, dict):
+            for name, entry in state_parameters.items():
+                is_locked = bool(getattr(entry, "locked", False))
+                if isinstance(entry, dict):
+                    is_locked = bool(entry.get("locked", is_locked))
+                    value = entry.get("normalized") or entry.get("raw")
+                else:
+                    value = getattr(entry, "normalized", None) or getattr(entry, "raw", None)
+                if is_locked and value is not None:
+                    locked[str(name)] = value
+        self.locked_parameters_display = locked
+        self.update_session_confirmed_parameters(locked)
+        return dict(locked)
+
+    def append_constraint_violation(
+        self,
+        turn: int,
+        constraint: str,
+        values: Dict[str, Any],
+        blocked: bool,
+    ) -> Dict[str, Any]:
+        """Append one compact cross-constraint violation/warning record."""
+        record = {
+            "turn": int(turn or 0),
+            "constraint": str(constraint or "unknown"),
+            "values": self._compact_payload(values if isinstance(values, dict) else {}),
+            "blocked": bool(blocked),
+        }
+        self.constraint_violations_seen.append(record)
+        self.constraint_violations_seen = self.constraint_violations_seen[-self.MAX_CONSTRAINT_VIOLATIONS :]
+        self.last_turn_index = max(self.last_turn_index, int(turn or 0))
+        return record
+
+    def register_file_reference(
+        self,
+        *,
+        path: str,
+        task_type: Optional[str],
+        uploaded_turn: int,
+    ) -> Optional[FileReference]:
+        file_path = str(path or "").strip()
+        if not file_path:
+            return None
+        filename = Path(file_path).name
+        existing = next(
+            (item for item in self.files_in_session if item.path == file_path),
+            None,
+        )
+        if existing is None:
+            existing = FileReference(
+                path=file_path,
+                filename=filename,
+                task_type=str(task_type).strip() if task_type is not None else None,
+                uploaded_turn=int(uploaded_turn or 0),
+            )
+            self.files_in_session.append(existing)
+        else:
+            existing.filename = filename or existing.filename
+            if task_type is not None:
+                existing.task_type = str(task_type).strip() or existing.task_type
+            if uploaded_turn:
+                existing.uploaded_turn = int(uploaded_turn)
+        self.files_in_session = self.files_in_session[-self.MAX_SESSION_FILES :]
+        self.last_turn_index = max(self.last_turn_index, int(uploaded_turn or 0))
+        return existing
+
+    def update_session_confirmed_parameters(
+        self,
+        parameters: Optional[Dict[str, Any]],
+    ) -> Dict[str, str]:
+        confirmed = dict(self.session_confirmed_parameters)
+        if isinstance(parameters, dict):
+            for key, value in parameters.items():
+                key_text = str(key or "").strip()
+                value_text = str(value).strip() if value is not None else ""
+                if key_text and value_text:
+                    confirmed[key_text] = value_text
+        items = list(confirmed.items())[-self.MAX_SESSION_CONFIRMED_PARAMETERS :]
+        self.session_confirmed_parameters = dict(items)
+        return dict(self.session_confirmed_parameters)
+
+    def append_cumulative_constraint_violation(
+        self,
+        turn: int,
+        constraint: str,
+        values: Dict[str, Any],
+        blocked: bool,
+        *,
+        ao_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        record = {
+            "turn": int(turn or 0),
+            "constraint": str(constraint or "unknown"),
+            "values": self._compact_payload(values if isinstance(values, dict) else {}),
+            "blocked": bool(blocked),
+        }
+        if ao_id:
+            record["ao_id"] = str(ao_id)
+        self.cumulative_constraint_violations.append(record)
+        self.cumulative_constraint_violations = self.cumulative_constraint_violations[-self.MAX_CUMULATIVE_CONSTRAINTS :]
+        self.last_turn_index = max(self.last_turn_index, int(turn or 0))
+        return record
+
+    @classmethod
+    def _infer_result_ref(cls, tool: str, result: Dict[str, Any]) -> str:
+        result_type = cls.TOOL_TO_RESULT_TYPE.get(str(tool or ""), "unknown")
+        data = result.get("data") if isinstance(result.get("data"), dict) else {}
+        label = (
+            data.get("scenario_label")
+            or result.get("scenario_label")
+            or data.get("label")
+            or "baseline"
+        )
+        return f"{result_type}:{str(label)}"
+
+    @classmethod
+    def _infer_geometry_status(cls, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        data = result.get("data") if isinstance(result.get("data"), dict) else {}
+        if not data:
+            return None
+        if isinstance(data.get("spatial_metadata"), dict) and data.get("spatial_metadata"):
+            return {"geometry_present": True, "source": "spatial_metadata"}
+        results = data.get("results")
+        if isinstance(results, list) and any(isinstance(item, dict) and item.get("geometry") for item in results[:10]):
+            return {"geometry_present": True, "source": "tool_result_geometry"}
+        if data.get("geometry") or data.get("geojson") or data.get("concentration_grid"):
+            return {"geometry_present": True, "source": "tool_result_payload"}
+        return None
+
+    @classmethod
+    def _compact_payload(cls, payload: Any, *, depth: int = 0) -> Any:
+        if depth > 2:
+            return "<nested>"
+        payload = _convert_paths_to_strings(payload)
+        if isinstance(payload, dict):
+            compact: Dict[str, Any] = {}
+            preferred_keys = (
+                "file_path",
+                "input_file",
+                "pollutant",
+                "pollutants",
+                "vehicle_type",
+                "season",
+                "road_type",
+                "meteorology",
+                "model_year",
+                "scenario_label",
+                "emission_ref",
+                "emission_source",
+                "dispersion_ref",
+                "data_source",
+            )
+            keys = [key for key in preferred_keys if key in payload]
+            keys.extend(key for key in payload.keys() if key not in keys)
+            for key in keys[:12]:
+                compact[str(key)] = cls._compact_payload(payload[key], depth=depth + 1)
+            if len(payload) > len(compact):
+                compact["_omitted_keys"] = len(payload) - len(compact)
+            return compact
+        if isinstance(payload, list):
+            items = [cls._compact_payload(item, depth=depth + 1) for item in payload[:5]]
+            if len(payload) > 5:
+                items.append(f"...({len(payload) - 5} more)")
+            return items
+        if isinstance(payload, str):
+            return payload if len(payload) <= 160 else payload[:157].rstrip() + "..."
+        return payload
 
 
 @dataclass
@@ -88,7 +391,7 @@ class MemoryManager:
         self._storage_dir = Path(storage_dir) if storage_dir else Path("data/sessions/history")
         self._storage_dir.mkdir(parents=True, exist_ok=True)
         self.working_memory: List[Turn] = []
-        self.fact_memory = FactMemory()
+        self.fact_memory = FactMemory(session_id=session_id)
         self.mid_term_memory: List[SummarySegment] = []
         self.compressed_memory: str = ""
         self.turn_counter: int = 0
@@ -138,6 +441,7 @@ class MemoryManager:
             Dictionary of structured facts
         """
         return {
+            "session_id": self.fact_memory.session_id,
             "recent_vehicle": self.fact_memory.recent_vehicle,
             "recent_pollutants": self.fact_memory.recent_pollutants,
             "recent_year": self.fact_memory.recent_year,
@@ -152,6 +456,17 @@ class MemoryManager:
             "cumulative_tools_used": list(self.fact_memory.cumulative_tools_used),
             "key_findings": list(self.fact_memory.key_findings),
             "user_corrections": list(self.fact_memory.user_corrections),
+            "tool_call_log": list(self.fact_memory.tool_call_log),
+            "active_artifact_refs": dict(self.fact_memory.active_artifact_refs),
+            "locked_parameters_display": dict(self.fact_memory.locked_parameters_display),
+            "constraint_violations_seen": list(self.fact_memory.constraint_violations_seen),
+            "files_in_session": [item.to_dict() for item in self.fact_memory.files_in_session],
+            "session_confirmed_parameters": dict(self.fact_memory.session_confirmed_parameters),
+            "cumulative_constraint_violations": list(self.fact_memory.cumulative_constraint_violations),
+            "ao_history": [item.to_dict() for item in self.fact_memory.ao_history],
+            "current_ao_id": self.fact_memory.current_ao_id,
+            "_ao_counter": self.fact_memory._ao_counter,
+            "last_turn_index": self.fact_memory.last_turn_index,
         }
 
     def build_context_for_prompt(self, max_chars: int = MAX_MEMORY_CONTEXT_CHARS) -> str:
@@ -226,6 +541,7 @@ class MemoryManager:
             file_analysis: Optional cached file analysis result
         """
         self.turn_counter += 1
+        self.fact_memory.last_turn_index = self.turn_counter
 
         # 1. Add to working memory
         turn = Turn(
@@ -238,6 +554,20 @@ class MemoryManager:
 
         # 2. Update fact memory from successful tool calls
         if tool_calls:
+            for call in tool_calls:
+                if not isinstance(call, dict):
+                    continue
+                self.fact_memory.append_tool_call_log(
+                    self.turn_counter,
+                    str(call.get("name") or "unknown"),
+                    call.get("arguments", {}) if isinstance(call.get("arguments"), dict) else {},
+                    call.get("result", {}) if isinstance(call.get("result"), dict) else {},
+                    summary=(
+                        (call.get("result") or {}).get("summary")
+                        if isinstance(call.get("result"), dict)
+                        else None
+                    ),
+                )
             self._extract_facts_from_tool_calls(tool_calls)
 
         # 3. Update active file and cache analysis
@@ -249,6 +579,14 @@ class MemoryManager:
                 task_type = file_analysis.get("task_type") or file_analysis.get("detected_type")
                 if task_type:
                     self.fact_memory.session_topic = str(task_type)
+            inferred_task_type = None
+            if isinstance(file_analysis, dict):
+                inferred_task_type = file_analysis.get("task_type") or file_analysis.get("detected_type")
+            self.fact_memory.register_file_reference(
+                path=str(file_path),
+                task_type=str(inferred_task_type) if inferred_task_type is not None else None,
+                uploaded_turn=self.turn_counter,
+            )
 
         # 4. Detect user corrections
         self._detect_correction(user_message)
@@ -483,12 +821,41 @@ class MemoryManager:
         self._sync_legacy_compressed_memory()
         logger.info("Cleared topic memory")
 
+    def _migrate_legacy_fact_memory_if_needed(self) -> None:
+        """One-time migration from Phase 1 session-level tool log to one legacy AO."""
+        if self.fact_memory.ao_history:
+            return
+        if not self.fact_memory.tool_call_log:
+            return
+
+        legacy_ao = AnalyticalObjective(
+            ao_id="AO#legacy",
+            session_id=self.session_id,
+            objective_text="Legacy migrated analytical objective",
+            status=AOStatus.COMPLETED,
+            start_turn=1,
+            end_turn=self.turn_counter or self.fact_memory.last_turn_index or 0,
+            metadata={"migration_source": "phase1_session_state_contract"},
+        )
+        for item in self.fact_memory.tool_call_log:
+            if not isinstance(item, dict):
+                continue
+            legacy_ao.tool_call_log.append(ToolCallRecord.from_dict(item))
+            result_ref = str(item.get("result_ref") or "").strip()
+            if result_ref:
+                result_type = result_ref.split(":", 1)[0]
+                legacy_ao.artifacts_produced[result_type] = result_ref
+        self.fact_memory.ao_history = [legacy_ao]
+        self.fact_memory.current_ao_id = None
+        self.fact_memory._ao_counter = 1
+
     def _save(self):
         """Persist memory to disk"""
         data = {
             "session_id": self.session_id,
             "turn_counter": self.turn_counter,
             "fact_memory": {
+                "session_id": self.fact_memory.session_id,
                 "recent_vehicle": self.fact_memory.recent_vehicle,
                 "recent_pollutants": self.fact_memory.recent_pollutants,
                 "recent_year": self.fact_memory.recent_year,
@@ -503,6 +870,21 @@ class MemoryManager:
                 "cumulative_tools_used": self.fact_memory.cumulative_tools_used,
                 "key_findings": self.fact_memory.key_findings,
                 "user_corrections": self.fact_memory.user_corrections,
+                "tool_call_log": _convert_paths_to_strings(self.fact_memory.tool_call_log),
+                "active_artifact_refs": _convert_paths_to_strings(self.fact_memory.active_artifact_refs),
+                "locked_parameters_display": _convert_paths_to_strings(self.fact_memory.locked_parameters_display),
+                "constraint_violations_seen": _convert_paths_to_strings(self.fact_memory.constraint_violations_seen),
+                "files_in_session": [item.to_dict() for item in self.fact_memory.files_in_session],
+                "session_confirmed_parameters": _convert_paths_to_strings(
+                    self.fact_memory.session_confirmed_parameters
+                ),
+                "cumulative_constraint_violations": _convert_paths_to_strings(
+                    self.fact_memory.cumulative_constraint_violations
+                ),
+                "ao_history": [item.to_dict() for item in self.fact_memory.ao_history],
+                "current_ao_id": self.fact_memory.current_ao_id,
+                "_ao_counter": self.fact_memory._ao_counter,
+                "last_turn_index": self.fact_memory.last_turn_index,
             },
             "mid_term_memory": [
                 {
@@ -552,6 +934,7 @@ class MemoryManager:
             # Load fact memory
             if "fact_memory" in data:
                 fm = data["fact_memory"]
+                self.fact_memory.session_id = str(fm.get("session_id") or self.session_id)
                 self.fact_memory.recent_vehicle = fm.get("recent_vehicle")
                 self.fact_memory.recent_pollutants = fm.get("recent_pollutants", [])
                 self.fact_memory.recent_year = fm.get("recent_year")
@@ -566,6 +949,51 @@ class MemoryManager:
                 self.fact_memory.cumulative_tools_used = list(fm.get("cumulative_tools_used", []))
                 self.fact_memory.key_findings = list(fm.get("key_findings", []))
                 self.fact_memory.user_corrections = list(fm.get("user_corrections", []))
+                self.fact_memory.tool_call_log = [
+                    item for item in list(fm.get("tool_call_log", [])) if isinstance(item, dict)
+                ][-FactMemory.MAX_TOOL_CALL_LOG :]
+                self.fact_memory.active_artifact_refs = (
+                    dict(fm.get("active_artifact_refs", {}))
+                    if isinstance(fm.get("active_artifact_refs"), dict)
+                    else {}
+                )
+                self.fact_memory.locked_parameters_display = (
+                    dict(fm.get("locked_parameters_display", {}))
+                    if isinstance(fm.get("locked_parameters_display"), dict)
+                    else {}
+                )
+                self.fact_memory.constraint_violations_seen = [
+                    item for item in list(fm.get("constraint_violations_seen", [])) if isinstance(item, dict)
+                ][-FactMemory.MAX_CONSTRAINT_VIOLATIONS :]
+                self.fact_memory.files_in_session = [
+                    FileReference.from_dict(item)
+                    for item in list(fm.get("files_in_session", []))
+                    if isinstance(item, dict)
+                ][-FactMemory.MAX_SESSION_FILES :]
+                self.fact_memory.session_confirmed_parameters = (
+                    dict(fm.get("session_confirmed_parameters", {}))
+                    if isinstance(fm.get("session_confirmed_parameters"), dict)
+                    else {}
+                )
+                self.fact_memory.cumulative_constraint_violations = [
+                    item
+                    for item in list(fm.get("cumulative_constraint_violations", []))
+                    if isinstance(item, dict)
+                ][-FactMemory.MAX_CUMULATIVE_CONSTRAINTS :]
+                self.fact_memory.ao_history = [
+                    AnalyticalObjective.from_dict(item)
+                    for item in list(fm.get("ao_history", []))
+                    if isinstance(item, dict)
+                ]
+                self.fact_memory.current_ao_id = (
+                    str(fm.get("current_ao_id")).strip()
+                    if fm.get("current_ao_id") is not None
+                    else None
+                )
+                self.fact_memory._ao_counter = int(fm.get("_ao_counter") or 0)
+                self.fact_memory.last_turn_index = int(
+                    fm.get("last_turn_index") or data.get("turn_counter") or 0
+                )
 
             self.turn_counter = int(data.get("turn_counter", 0) or 0)
 
@@ -614,9 +1042,15 @@ class MemoryManager:
                 max_working_turn = max((turn.turn_index or 0) for turn in self.working_memory) if self.working_memory else 0
                 max_summary_turn = max((segment.end_turn or 0) for segment in self.mid_term_memory) if self.mid_term_memory else 0
                 self.turn_counter = max(max_working_turn, max_summary_turn, len(self.working_memory))
+            self.fact_memory.last_turn_index = max(self.fact_memory.last_turn_index, self.turn_counter)
+            self._migrate_legacy_fact_memory_if_needed()
 
             logger.info(f"Loaded memory for session {self.session_id}")
 
         except Exception as e:
             logger.warning(f"Failed to load memory: {e}")
             # Continue with empty memory
+
+
+# Compatibility alias used by older router reset paths.
+MemoryManager.FactMemory = FactMemory

@@ -90,6 +90,30 @@ def _has_valid_contour_bands(payload: Any) -> bool:
     return isinstance(features, list)
 
 
+def _resolve_dispersion_pollutant(
+    data: Dict[str, Any],
+    result_data: Optional[Dict[str, Any]] = None,
+    explicit: Optional[str] = None,
+) -> str:
+    """Resolve pollutant from a dispersion-like payload, falling back only when absent."""
+    query_info = data.get("query_info", {}) if isinstance(data, dict) else {}
+    result_data = result_data or {}
+    return str(
+        explicit
+        or query_info.get("pollutant")
+        or data.get("pollutant")
+        or result_data.get("pollutant")
+        or "NOx"
+    )
+
+
+def _resolve_concentration_unit(data: Dict[str, Any]) -> str:
+    """Resolve concentration unit from result summary/query metadata."""
+    summary = data.get("summary", {}) if isinstance(data, dict) else {}
+    query_info = data.get("query_info", {}) if isinstance(data, dict) else {}
+    return str(summary.get("unit") or query_info.get("unit") or data.get("unit") or "μg/m³")
+
+
 class SpatialRendererTool(BaseTool):
     name = "render_spatial_map"
     description = "Render spatial data as an interactive map"
@@ -402,13 +426,7 @@ class SpatialRendererTool(BaseTool):
         data = result_data.get("data", result_data)
 
         if not pollutant:
-            query_info = data.get("query_info", {})
-            pollutant = (
-                query_info.get("pollutant")
-                or data.get("pollutant")
-                or result_data.get("pollutant")
-                or "NOx"
-            )
+            pollutant = _resolve_dispersion_pollutant(data, result_data)
 
         source_receptors: List[Dict[str, Any]] = []
         concentration_grid = data.get("concentration_grid", {})
@@ -536,6 +554,7 @@ class SpatialRendererTool(BaseTool):
                 pass
 
         summary = data.get("summary", {})
+        unit = _resolve_concentration_unit(data)
         min_value = min((feature["properties"]["value"] for feature in features), default=0.0)
         max_value = max((feature["properties"]["value"] for feature in features), default=0.0)
 
@@ -558,7 +577,7 @@ class SpatialRendererTool(BaseTool):
                         "value_range": [float(min_value), float(max_value)],
                         "opacity": 0.85,
                         "legend_title": f"{pollutant} Concentration",
-                        "legend_unit": summary.get("unit", "μg/m³"),
+                        "legend_unit": unit,
                     },
                 }
             ],
@@ -573,7 +592,7 @@ class SpatialRendererTool(BaseTool):
                 "max_concentration": float(
                     summary.get("max_concentration", max(all_max_values) if all_max_values else 0.0)
                 ),
-                "unit": summary.get("unit", "μg/m³"),
+                "unit": unit,
             },
         }
 
@@ -594,12 +613,8 @@ class SpatialRendererTool(BaseTool):
             return None
 
         resolution = float(raster.get("resolution_m", 50.0))
-        pollutant = (
-            pollutant
-            or data.get("query_info", {}).get("pollutant")
-            or data.get("pollutant")
-            or "NOx"
-        )
+        pollutant = _resolve_dispersion_pollutant(data, result_data, pollutant)
+        unit = _resolve_concentration_unit(data)
 
         values: List[float] = []
         features: List[Dict[str, Any]] = []
@@ -682,7 +697,7 @@ class SpatialRendererTool(BaseTool):
                         "opacity": 0.7,
                         "stroke": False,
                         "legend_title": f"{pollutant} Concentration",
-                        "legend_unit": "μg/m³",
+                        "legend_unit": unit,
                         "resolution_m": resolution,
                     },
                 }
@@ -694,7 +709,7 @@ class SpatialRendererTool(BaseTool):
                 "resolution_m": resolution,
                 "mean_concentration": round(sum(values) / len(values), 4),
                 "max_concentration": round(max(values), 4),
-                "unit": "μg/m³",
+                "unit": unit,
             },
         }
 
@@ -715,12 +730,7 @@ class SpatialRendererTool(BaseTool):
         if not isinstance(features, list):
             return None
 
-        pollutant = (
-            pollutant
-            or data.get("query_info", {}).get("pollutant")
-            or data.get("pollutant")
-            or "NOx"
-        )
+        pollutant = _resolve_dispersion_pollutant(data, result_data, pollutant)
 
         bbox = contour_bands.get("bbox_wgs84")
         center = [31.23, 121.47]
@@ -736,7 +746,7 @@ class SpatialRendererTool(BaseTool):
         stats = contour_bands.get("stats", {}) if isinstance(contour_bands.get("stats"), dict) else {}
         interp_resolution = float(contour_bands.get("interp_resolution_m", 10.0))
         n_levels = int(contour_bands.get("n_levels", len(contour_bands.get("levels", [])) or 0))
-        unit = "μg/m³"
+        unit = _resolve_concentration_unit(data)
 
         return {
             "type": "contour",
@@ -794,6 +804,8 @@ class SpatialRendererTool(BaseTool):
         contributing_road_ids: set[str] = set()
         center_lons: List[float] = []
         center_lats: List[float] = []
+        pollutant = _resolve_dispersion_pollutant(data)
+        unit = _resolve_concentration_unit(data)
 
         for hotspot in hotspots:
             if not isinstance(hotspot, dict):
@@ -863,11 +875,11 @@ class SpatialRendererTool(BaseTool):
             zoom = 12
 
         layers: List[Dict[str, Any]] = []
-        contour_map = self._build_contour_map(data, pollutant=data.get("query_info", {}).get("pollutant"))
+        contour_map = self._build_contour_map(data, pollutant=pollutant)
         if contour_map and contour_map.get("layers"):
             layers.append(contour_map["layers"][0])
         elif "raster_grid" in data:
-            raster_map = self._build_raster_map(data, pollutant=data.get("query_info", {}).get("pollutant"))
+            raster_map = self._build_raster_map(data, pollutant=pollutant)
             if raster_map and raster_map.get("layers"):
                 layers.append(raster_map["layers"][0])
 
@@ -890,6 +902,8 @@ class SpatialRendererTool(BaseTool):
         return {
             "type": "hotspot",
             "title": title or "Pollution Hotspot Analysis",
+            "pollutant": pollutant,
+            "unit": unit,
             "scenario_label": str(data.get("scenario_label") or "baseline"),
             "center": center,
             "zoom": zoom,

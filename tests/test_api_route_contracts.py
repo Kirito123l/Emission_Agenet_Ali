@@ -73,6 +73,74 @@ async def test_file_preview_route_detects_trajectory_csv_with_expected_warnings(
 
 
 @pytest.mark.anyio
+async def test_chat_route_forwards_naive_mode_to_session(api_app, monkeypatch):
+    from api import session as session_mod
+
+    calls = []
+
+    async def fake_chat(self, message, file_path=None, mode="full"):
+        calls.append({"message": message, "file_path": file_path, "mode": mode})
+        return {
+            "text": "baseline reply",
+            "chart_data": None,
+            "table_data": None,
+            "map_data": None,
+            "download_file": None,
+            "trace": {"router_mode": mode},
+            "trace_friendly": [],
+        }
+
+    monkeypatch.setattr(session_mod.Session, "chat", fake_chat)
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        response = await api_client.post(
+            "/api/chat",
+            data={"message": "hello", "mode": "naive"},
+            headers={"X-User-ID": "chat-mode-user"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["reply"] == "baseline reply"
+        assert payload["trace"]["router_mode"] == "naive"
+        assert calls == [{"message": "hello", "file_path": None, "mode": "naive"}]
+
+
+@pytest.mark.anyio
+async def test_chat_route_uses_shared_chat_session_service(api_app, monkeypatch):
+    from services.chat_session_service import ChatSessionService, ChatTurnResult
+
+    calls = []
+
+    async def fake_process_turn(self, *, message, session_id=None, upload=None, mode="full"):
+        calls.append({"message": message, "session_id": session_id, "upload": upload, "mode": mode})
+        return ChatTurnResult(
+            session_id=session_id or "shared-session",
+            message_id="shared-msg",
+            reply="shared reply",
+            raw_reply="shared reply",
+            router_mode=mode,
+        )
+
+    monkeypatch.setattr(ChatSessionService, "process_turn", fake_process_turn)
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        response = await api_client.post(
+            "/api/chat",
+            data={"message": "hello from api", "mode": "full"},
+            headers={"X-User-ID": "shared-service-user"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["reply"] == "shared reply"
+        assert payload["session_id"] == "shared-session"
+        assert calls == [{"message": "hello from api", "session_id": None, "upload": None, "mode": "full"}]
+
+
+@pytest.mark.anyio
 async def test_session_routes_create_list_and_history_backfill_legacy_download_metadata(api_app):
     from api.session import SessionRegistry
     from config import get_config
