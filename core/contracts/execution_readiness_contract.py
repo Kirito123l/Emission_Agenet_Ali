@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from core.analytical_objective import ConversationalStance
 from core.contracts.base import ContractContext, ContractInterception
+from core.contracts.runtime_defaults import has_runtime_default
 from core.contracts.split_contract_utils import SplitContractSupport
 from core.router import RouterResponse
 
@@ -67,7 +68,7 @@ class ExecutionReadinessContract(SplitContractSupport):
             suppress_defaults_for=[],
         )
         missing_required = self._missing_slots(snapshot, active_required_slots)
-        no_default_optionals = self._get_unfilled_optionals_without_default(snapshot, tool_spec)
+        optional_classification = self._classify_missing_optionals(tool_name, snapshot, tool_spec)
         stance_value = getattr(getattr(current_ao, "stance", None), "value", None) or "directive"
         branch = stance_value if stance_value in {"directive", "deliberative", "exploratory"} else "directive"
 
@@ -82,6 +83,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                 normalizations=normalizations,
                 rejected_slots=rejected_slots,
                 runtime_defaults=[],
+                no_default_optionals_probed=[],
             )
             return ContractInterception(
                 proceed=False,
@@ -112,6 +114,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                 normalizations=normalizations,
                 rejected_slots=rejected_slots,
                 runtime_defaults=[],
+                no_default_optionals_probed=[],
             )
             return ContractInterception(
                 proceed=False,
@@ -121,6 +124,9 @@ class ExecutionReadinessContract(SplitContractSupport):
                 ),
                 metadata={"clarification": {"telemetry": telemetry}},
             )
+
+        no_default_optionals = list(optional_classification["no_default"])
+        runtime_defaults = list(optional_classification["resolved_by_default"])
 
         if branch == ConversationalStance.DELIBERATIVE.value and no_default_optionals:
             pending_slot = no_default_optionals[0]
@@ -140,7 +146,8 @@ class ExecutionReadinessContract(SplitContractSupport):
                 stage2_meta=stage2_meta,
                 normalizations=normalizations,
                 rejected_slots=rejected_slots,
-                runtime_defaults=[],
+                runtime_defaults=runtime_defaults,
+                no_default_optionals_probed=no_default_optionals,
             )
             return ContractInterception(
                 proceed=False,
@@ -151,7 +158,6 @@ class ExecutionReadinessContract(SplitContractSupport):
                 metadata={"clarification": {"telemetry": telemetry}},
             )
 
-        runtime_defaults = ["model_year"] if tool_name == "query_emission_factors" and self._snapshot_missing_value(snapshot, "model_year") else []
         telemetry = self._telemetry(
             tool_name=tool_name,
             decision="proceed",
@@ -162,6 +168,7 @@ class ExecutionReadinessContract(SplitContractSupport):
             normalizations=normalizations,
             rejected_slots=rejected_slots,
             runtime_defaults=runtime_defaults,
+            no_default_optionals_probed=[],
         )
         return ContractInterception(
             metadata={
@@ -220,6 +227,7 @@ class ExecutionReadinessContract(SplitContractSupport):
         normalizations: List[Dict[str, Any]],
         rejected_slots: List[str],
         runtime_defaults: List[str],
+        no_default_optionals_probed: List[str],
     ) -> Dict[str, Any]:
         return {
             "turn": self._current_turn_index(),
@@ -248,7 +256,34 @@ class ExecutionReadinessContract(SplitContractSupport):
                 "readiness_decision": decision,
                 "pending_slot": pending_slot,
                 "runtime_defaults_applied": list(runtime_defaults),
+                "runtime_defaults_resolved": list(runtime_defaults),
+                "no_default_optionals_probed": list(no_default_optionals_probed),
             },
+        }
+
+    def _classify_missing_optionals(
+        self,
+        tool_name: str,
+        snapshot: Dict[str, Dict[str, Any]],
+        tool_spec: Dict[str, Any],
+    ) -> Dict[str, List[str]]:
+        resolved_by_default: List[str] = []
+        no_default: List[str] = []
+        optional_slots = [
+            str(item)
+            for item in list(tool_spec.get("optional_slots") or [])
+            if str(item).strip()
+        ]
+        for slot_name in optional_slots:
+            if not self._snapshot_missing_value(snapshot, slot_name):
+                continue
+            if has_runtime_default(tool_name, slot_name):
+                resolved_by_default.append(slot_name)
+            else:
+                no_default.append(slot_name)
+        return {
+            "resolved_by_default": list(dict.fromkeys(resolved_by_default)),
+            "no_default": list(dict.fromkeys(no_default)),
         }
 
     @staticmethod

@@ -130,7 +130,7 @@ async def test_directive_required_filled_optional_missing_proceeds_with_runtime_
 
 
 @pytest.mark.anyio
-async def test_deliberative_required_filled_optional_missing_probes():
+async def test_deliberative_with_runtime_default_optional_proceeds():
     contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
     ao = manager.create_ao("先确认参数", AORelationship.INDEPENDENT, current_turn=1)
     ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
@@ -139,11 +139,82 @@ async def test_deliberative_required_filled_optional_missing_probes():
     interception = await contract.before_turn(_context("先确认小汽车CO2因子参数"))
 
     telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["final_decision"] == "proceed"
+    assert telemetry["execution_readiness"]["readiness_branch"] == "deliberative"
+    assert telemetry["execution_readiness"]["pending_slot"] is None
+    assert telemetry["execution_readiness"]["runtime_defaults_resolved"] == ["model_year"]
+    assert telemetry["execution_readiness"]["no_default_optionals_probed"] == []
+    assert "probe_turn_count" not in telemetry
+
+
+@pytest.mark.anyio
+async def test_deliberative_without_runtime_default_still_probes():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"], "stability_class": "D"})
+    ao = manager.create_ao("先确认扩散参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("calculate_dispersion", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DELIBERATIVE
+
+    interception = await contract.before_turn(_context("先确认CO2扩散参数"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
     assert interception.proceed is False
     assert telemetry["final_decision"] == "clarify"
     assert telemetry["execution_readiness"]["readiness_branch"] == "deliberative"
-    assert telemetry["execution_readiness"]["pending_slot"] == "model_year"
-    assert "probe_turn_count" not in telemetry
+    assert telemetry["execution_readiness"]["pending_slot"] == "meteorology"
+    assert telemetry["execution_readiness"]["runtime_defaults_resolved"] == []
+    assert telemetry["execution_readiness"]["no_default_optionals_probed"] == [
+        "meteorology",
+        "pollutant",
+        "scenario_label",
+    ]
+
+
+@pytest.mark.anyio
+async def test_multi_turn_clarification_not_broken():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"]})
+    ao = manager.create_ao("先确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DELIBERATIVE
+
+    interception = await contract.before_turn(_context("先确认CO2因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["final_decision"] == "clarify"
+    assert telemetry["execution_readiness"]["pending_slot"] == "vehicle_type"
+
+
+@pytest.mark.anyio
+async def test_directive_path_unchanged():
+    hints = {"vehicle_type": "Passenger Car", "pollutants": ["PM2.5"]}
+    contract, manager = _readiness_contract(hints)
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查小汽车PM2.5因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["final_decision"] == "proceed"
+    assert telemetry["execution_readiness"]["readiness_branch"] == "directive"
+
+
+@pytest.mark.anyio
+async def test_directive_telemetry_records_runtime_defaults_resolved():
+    hints = {"vehicle_type": "Passenger Car", "pollutants": ["PM2.5"]}
+    contract, manager = _readiness_contract(hints)
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查小汽车PM2.5因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert telemetry["execution_readiness"]["readiness_decision"] == "proceed"
+    assert telemetry["execution_readiness"]["runtime_defaults_resolved"] == ["model_year"]
+    assert telemetry["execution_readiness"]["no_default_optionals_probed"] == []
 
 
 @pytest.mark.anyio
