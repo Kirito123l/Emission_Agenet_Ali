@@ -330,6 +330,122 @@ async def test_stance_contract_detects_reversal_and_updates_history():
     assert ao.stance_history[-1][1] == ConversationalStance.DELIBERATIVE
 
 
+@pytest.mark.anyio
+async def test_stance_fallback_when_low_conf_deliberative_and_required_filled_no_hedging():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = StanceResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    context = _context("Passenger Car PM2.5 夏季 factor")
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car"},
+            "pollutants": {"value": ["PM2.5"]},
+        },
+        "stance": {"value": "deliberative", "conf": "low"},
+    }
+
+    await contract.before_turn(context)
+
+    assert ao.stance == ConversationalStance.DIRECTIVE
+    assert ao.stance_resolved_by == "fallback_saturated_slots"
+    assert context.metadata["stance"]["fallback_reason"] == "low_conf_nondirective_with_filled_required"
+
+
+@pytest.mark.anyio
+async def test_stance_not_fallback_when_hedging_present():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = StanceResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    context = _context("如果 Passenger Car PM2.5")
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car"},
+            "pollutants": {"value": ["PM2.5"]},
+        },
+        "stance": {"value": "deliberative", "conf": "low"},
+    }
+
+    await contract.before_turn(context)
+
+    assert ao.stance == ConversationalStance.DELIBERATIVE
+    assert ao.stance_resolved_by == "llm_slot_filler"
+    assert context.metadata["stance"]["stance_fallback_skipped_reason"] == "explicit_hedging"
+
+
+@pytest.mark.anyio
+async def test_stance_not_fallback_when_required_missing():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = StanceResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    context = _context("Passenger Car factor")
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car"},
+        },
+        "stance": {"value": "deliberative", "conf": "low"},
+    }
+
+    await contract.before_turn(context)
+
+    assert ao.stance == ConversationalStance.DELIBERATIVE
+    assert ao.stance_resolved_by == "llm_slot_filler"
+    assert context.metadata["stance"]["stance_fallback_skipped_reason"] == "required_missing"
+
+
+@pytest.mark.anyio
+async def test_deliberative_high_conf_not_fallback():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = StanceResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    context = _context("Passenger Car PM2.5 factor")
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car"},
+            "pollutants": {"value": ["PM2.5"]},
+        },
+        "stance": {"value": "deliberative", "conf": "high"},
+    }
+
+    await contract.before_turn(context)
+
+    assert ao.stance == ConversationalStance.DELIBERATIVE
+    assert ao.stance_confidence == StanceConfidence.HIGH
+    assert "fallback_reason" not in context.metadata["stance"]
+
+
+@pytest.mark.anyio
+async def test_stance_fallback_skips_without_resolved_tool():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = StanceResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    manager.create_ao("factor", AORelationship.INDEPENDENT, current_turn=1)
+    context = _context("Passenger Car PM2.5 factor")
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car"},
+            "pollutants": {"value": ["PM2.5"]},
+        },
+        "stance": {"value": "deliberative", "conf": "low"},
+    }
+
+    await contract.before_turn(context)
+
+    assert context.metadata["stance"]["stance_fallback_skipped_reason"] == "no_resolved_tool"
+
+
 def test_split_serialization_excludes_pcm_fields():
     _config()
     ao = AnalyticalObjective(

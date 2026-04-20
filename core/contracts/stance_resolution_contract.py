@@ -1,16 +1,22 @@
 from __future__ import annotations
 
-from typing import Any
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import yaml
 
 from core.analytical_objective import ConversationalStance, StanceConfidence
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.stance_resolver import StanceResolution, StanceResolver
+
+TOOLS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "unified_mappings.yaml"
 
 
 class StanceResolutionContract(BaseContract):
     """Wave 2 split contract for conversational stance resolution."""
 
     name = "stance_resolution"
+    _tools_cache: Optional[Dict[str, Any]] = None
 
     def __init__(self, inner_router: Any = None, ao_manager: Any = None, runtime_config: Any = None):
         self.inner_router = inner_router
@@ -56,13 +62,25 @@ class StanceResolutionContract(BaseContract):
                 "stance_llm_hint_raw": stance_raw,
                 "stance_llm_hint_parse_success": parse_success,
             }
+            resolution = self._fallback_low_confidence_saturated_slots(
+                resolution=resolution,
+                context=context,
+                current_ao=current_ao,
+                payload=payload,
+            )
         self._write_stance(current_ao, resolution, turn)
+        stance_resolution_metadata = dict(context.metadata.get("stance_resolution") or {})
         context.metadata["stance"] = {
             "reversal_detected": reversal_detected,
             "stance": resolution.stance.value,
             "confidence": resolution.confidence.value,
             "resolved_by": resolution.resolved_by,
             "evidence": list(resolution.evidence),
+            **{
+                key: stance_resolution_metadata[key]
+                for key in ("fallback_reason", "stance_fallback_skipped_reason")
+                if key in stance_resolution_metadata
+            },
         }
         return ContractInterception()
 
@@ -80,6 +98,90 @@ class StanceResolutionContract(BaseContract):
                 True,
             )
         return None, None, False
+
+    def _fallback_low_confidence_saturated_slots(
+        self,
+        *,
+        resolution: StanceResolution,
+        context: ContractContext,
+        current_ao: Any,
+        payload: Dict[str, Any],
+    ) -> StanceResolution:
+        metadata = context.metadata.setdefault("stance_resolution", {})
+        if (
+            resolution.stance not in {ConversationalStance.DELIBERATIVE, ConversationalStance.EXPLORATORY}
+            or resolution.confidence != StanceConfidence.LOW
+        ):
+            return resolution
+        tool_intent = context.metadata.get("tool_intent") or getattr(current_ao, "tool_intent", None)
+        tool_name = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
+        if not tool_name:
+            metadata["stance_fallback_skipped_reason"] = "no_resolved_tool"
+            return resolution
+        slots = self._extract_payload_slots(payload)
+        if not self._check_required_filled_presence(tool_name, slots):
+            metadata["stance_fallback_skipped_reason"] = "required_missing"
+            return resolution
+        if self._has_explicit_hedging(context.effective_user_message):
+            metadata["stance_fallback_skipped_reason"] = "explicit_hedging"
+            return resolution
+        metadata["fallback_reason"] = "low_conf_nondirective_with_filled_required"
+        return StanceResolution(
+            stance=ConversationalStance.DIRECTIVE,
+            confidence=StanceConfidence.LOW,
+            evidence=list(resolution.evidence) + ["fallback_saturated_slots"],
+            resolved_by="fallback_saturated_slots",
+        )
+
+    @classmethod
+    def _check_required_filled_presence(cls, tool_name: str, payload_slots: Dict[str, Any]) -> bool:
+        required_slots = cls._required_slots_for_tool(tool_name)
+        if not required_slots:
+            return False
+        return all(cls._slot_present(payload_slots.get(slot)) for slot in required_slots)
+
+    @staticmethod
+    def _extract_payload_slots(payload: Dict[str, Any]) -> Dict[str, Any]:
+        slots = payload.get("slots") if isinstance(payload, dict) else None
+        if isinstance(slots, dict):
+            return dict(slots)
+        snapshot = payload.get("parameter_snapshot") if isinstance(payload, dict) else None
+        return dict(snapshot) if isinstance(snapshot, dict) else {}
+
+    @staticmethod
+    def _slot_present(slot_payload: Any) -> bool:
+        value = slot_payload.get("value") if isinstance(slot_payload, dict) else slot_payload
+        return value not in (None, "", [])
+
+    @staticmethod
+    def _has_explicit_hedging(user_message: str) -> bool:
+        text = str(user_message or "").strip().lower()
+        if not text:
+            return False
+        hedging_terms = (
+            "等等",
+            "先确认",
+            "先看看",
+            "先看",
+            "如果",
+            "或者",
+            "还是",
+            "要不要",
+            "scope",
+            "能否",
+        )
+        return any(term in text for term in hedging_terms)
+
+    @classmethod
+    def _required_slots_for_tool(cls, tool_name: str) -> list[str]:
+        if cls._tools_cache is None:
+            with TOOLS_CONFIG_PATH.open("r", encoding="utf-8") as handle:
+                payload = yaml.safe_load(handle) or {}
+            cls._tools_cache = dict(payload.get("tools") or {})
+        spec = cls._tools_cache.get(tool_name) if isinstance(cls._tools_cache, dict) else None
+        if not isinstance(spec, dict):
+            return []
+        return [str(slot) for slot in list(spec.get("required_slots") or []) if str(slot).strip()]
 
     def _current_turn_index(self, *, pre_call: bool = False) -> int:
         turn_counter = int(getattr(getattr(self.inner_router, "memory", None), "turn_counter", 0) or 0)
