@@ -176,6 +176,93 @@ async def test_code_switch_pollutants_not_rejected_by_stage3():
 
 
 @pytest.mark.anyio
+async def test_stage3_accepts_canonical_vehicle_type():
+    contract, manager = _readiness_contract({"vehicle_type": "Light Commercial Truck", "pollutants": ["PM2.5"]})
+    ao = manager.create_ao("truck factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查小货车PM2.5因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    snapshot = interception.metadata["clarification"]["direct_execution"]["parameter_snapshot"]
+    assert telemetry["final_decision"] == "proceed"
+    assert "vehicle_type" not in telemetry["stage3_rejected_slots"]
+    assert snapshot["vehicle_type"]["value"] == "Light Commercial Truck"
+
+
+@pytest.mark.anyio
+async def test_stage3_accepts_canonical_pollutant_list():
+    contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["PM2.5", "NOx"]})
+    ao = manager.create_ao("car factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查小汽车PM2.5和NOx因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    snapshot = interception.metadata["clarification"]["direct_execution"]["parameter_snapshot"]
+    assert telemetry["final_decision"] == "proceed"
+    assert "pollutants" not in telemetry["stage3_rejected_slots"]
+    assert snapshot["pollutants"]["value"] == ["PM2.5", "NOx"]
+
+
+@pytest.mark.anyio
+async def test_stage3_accepts_canonical_road_type():
+    contract, manager = _readiness_contract(
+        {"vehicle_type": "Passenger Car", "pollutants": ["CO"], "road_type": "次干道"}
+    )
+    ao = manager.create_ao("road factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查次干道小汽车CO因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    snapshot = interception.metadata["clarification"]["direct_execution"]["parameter_snapshot"]
+    assert telemetry["final_decision"] == "proceed"
+    assert "road_type" not in telemetry["stage3_rejected_slots"]
+    assert snapshot["road_type"]["value"] == "次干道"
+
+
+@pytest.mark.anyio
+async def test_stage3_accepts_alias_still_works():
+    contract, manager = _readiness_contract({"vehicle_type": "bus", "pollutants": ["pm25"]})
+    ao = manager.create_ao("bus factor", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("bus pm25 factor"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    snapshot = interception.metadata["clarification"]["direct_execution"]["parameter_snapshot"]
+    assert telemetry["final_decision"] == "proceed"
+    assert snapshot["vehicle_type"]["value"] == "Transit Bus"
+    assert snapshot["pollutants"]["value"] == ["PM2.5"]
+
+
+def test_pollutant_strip_chinese_emission_suffix():
+    normalized, success = ExecutionReadinessContract._standardize_pollutant_value(["NOx排放"])
+
+    assert success is True
+    assert normalized == ["NOx"]
+
+
+def test_pollutant_strip_english_emission_suffix():
+    normalized, success = ExecutionReadinessContract._standardize_pollutant_value(["PM2.5 emission"])
+
+    assert success is True
+    assert normalized == ["PM2.5"]
+
+
+def test_pollutant_plain_canonical_still_works():
+    normalized, success = ExecutionReadinessContract._standardize_pollutant_value(["CO2"])
+
+    assert success is True
+    assert normalized == ["CO2"]
+
+
+@pytest.mark.anyio
 async def test_intent_contract_uses_compact_stage2_hint():
     config = _config()
     inner = FakeInnerRouter({})

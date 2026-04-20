@@ -105,6 +105,9 @@ class SplitContractSupport(ClarificationContract):
         value: Any,
         raw_text: Any,
     ) -> tuple[Any, bool, str, List[str]]:
+        canonical, canonical_ok = self._accept_already_canonical(slot_name, value)
+        if canonical_ok:
+            return canonical, True, "already_canonical", []
         if slot_name in {"pollutants", "pollutant"}:
             normalized, success = self._standardize_pollutant_value(value if raw_text in (None, "", []) else raw_text)
             if success:
@@ -112,6 +115,26 @@ class SplitContractSupport(ClarificationContract):
                     normalized = normalized[0] if normalized else None
                 return normalized, True, "pollutant_list_fallback", []
         return super()._standardize_slot(slot_name, value=value, raw_text=raw_text)
+
+    def _accept_already_canonical(self, slot_name: str, value: Any) -> tuple[Any, bool]:
+        if slot_name not in {"vehicle_type", "pollutants", "pollutant", "road_type", "season"}:
+            return value, False
+        legal_values = self._build_legal_values({"required_slots": [slot_name], "optional_slots": []}).get(slot_name)
+        if not legal_values:
+            return value, False
+        legal_set = {str(item) for item in legal_values}
+        if slot_name == "pollutants":
+            values = value if isinstance(value, list) else [value]
+            if values and all(str(item) in legal_set for item in values):
+                return list(values), True
+            return value, False
+        if slot_name == "pollutant":
+            if isinstance(value, list):
+                if len(value) == 1 and str(value[0]) in legal_set:
+                    return value[0], True
+                return value, False
+            return value, str(value) in legal_set
+        return value, str(value) in legal_set
 
     @staticmethod
     def _standardize_pollutant_value(value: Any) -> tuple[Any, bool]:
@@ -135,6 +158,7 @@ class SplitContractSupport(ClarificationContract):
             "hc": "THC",
             "总烃": "THC",
         }
+        suffix_tokens = ("emissions", "emission", "factor", "排放", "因子")
         values = value if isinstance(value, list) else [value]
         normalized: List[Any] = []
         ok = True
@@ -142,7 +166,15 @@ class SplitContractSupport(ClarificationContract):
             if not isinstance(item, str):
                 normalized.append(item)
                 continue
-            key = item.strip().lower().replace(" ", "")
+            cleaned = item.strip()
+            lowered = cleaned.lower()
+            for suffix in suffix_tokens:
+                suffix_lower = suffix.lower()
+                if lowered.endswith(suffix_lower):
+                    cleaned = cleaned[: -len(suffix)].strip()
+                    lowered = cleaned.lower()
+                    break
+            key = cleaned.lower().replace(" ", "")
             key = key.replace("p.m.", "pm")
             mapped = alias.get(key)
             if mapped is None:
