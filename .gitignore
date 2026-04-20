@@ -89,3 +89,11 @@ nginx/
 # *.jpg
 # *.jpeg
 .omx/
+
+# ============ Phase 2R: added 2026-04-20 to prevent future pollution ============
+# omx session backup dumps (already committed in snapshot 9d92b3d, prevent future re-entry)
+.omx_backup_*/
+# tool cache (LLM result cache; regenerated per run, should not be versioned)
+evaluation/tool_cache/
+# ChatGPT code-review temporary copies
+tmp_for_chatgpt_code_review/
