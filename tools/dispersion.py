@@ -170,6 +170,25 @@ class DispersionTool(BaseTool):
             if result.get("status") != "success":
                 error_data = result.copy()
                 error_data.pop("failure_detail", None)
+                error_code = str(result.get("error_code") or "")
+                if error_code == "DISPERSION_GRID_TOO_LARGE":
+                    message = result.get(
+                        "message",
+                        "Dispersion grid is too large for the current preflight limit.",
+                    )
+                    return ToolResult(
+                        success=False,
+                        error=message,
+                        data={
+                            "error_code": error_code,
+                            "status": result.get("status"),
+                            "message": message,
+                            "receptors": result.get("receptors"),
+                            "sources": result.get("sources"),
+                            "estimated_pairs": result.get("estimated_pairs"),
+                            "limit": result.get("limit"),
+                        },
+                    )
                 return ToolResult(
                     success=False,
                     error=result.get("message", "Dispersion calculation failed"),

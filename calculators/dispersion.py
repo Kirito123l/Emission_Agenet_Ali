@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MET_DATE = 2024010100
 MAX_TRACKED_ROADS_PER_RECEPTOR = 10
 DENSE_ROAD_CONTRIBUTION_LIMIT = 10_000_000
+DISPERSION_PAIR_LIMIT = 100_000_000
 CONTOUR_MAX_GRID_POINTS = 50_000
 CONTOUR_DISPLAY_FLOOR = 1e-4
 CONTOUR_MIN_LEVEL_DELTA = 5e-5
@@ -405,6 +407,20 @@ def predict_time_series_xgb(
     wind-aligned rotation, source-relative masking, directional model
     selection, and concentration accumulation per receptor per hour.
     """
+    def _pair_limit() -> int:
+        raw_limit = os.environ.get("DISPERSION_PAIR_LIMIT")
+        if raw_limit is None:
+            return DISPERSION_PAIR_LIMIT
+        try:
+            return int(raw_limit)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid DISPERSION_PAIR_LIMIT=%r; using default %s",
+                raw_limit,
+                DISPERSION_PAIR_LIMIT,
+            )
+            return DISPERSION_PAIR_LIMIT
+
     no_hc_classes = {"VS", "S", "N1"}
 
     rx = np.asarray(receptors_x, dtype=float)
@@ -433,6 +449,32 @@ def predict_time_series_xgb(
         )
 
     n_receptors = rx.size
+    n_sources = int(src.shape[1])
+    estimated_pairs = int(n_receptors * n_sources)
+    limit = _pair_limit()
+    if estimated_pairs > limit:
+        message = (
+            f"Dispersion grid has {estimated_pairs:,} receptor-source pairs "
+            f"(limit {limit:,}). Reduce receptor density or coarsen source segmentation."
+        )
+        logger.warning(
+            "Dispersion grid preflight rejected: receptors=%s sources=%s pairs=%s limit=%s",
+            n_receptors,
+            n_sources,
+            estimated_pairs,
+            limit,
+        )
+        return {
+            "status": "grid_too_large",
+            "error_code": "DISPERSION_GRID_TOO_LARGE",
+            "receptors": int(n_receptors),
+            "sources": int(n_sources),
+            "estimated_pairs": estimated_pairs,
+            "limit": int(limit),
+            "message": message,
+            "data": None,
+        }
+
     receptor_ids = np.arange(n_receptors)
     results: list[pd.DataFrame] = []
     progress_interval = 10
@@ -1184,6 +1226,11 @@ class DispersionCalculator:
                 track_road_contributions=True,
                 segment_to_road_map=segments_df["road_idx"].to_numpy(dtype=int),
             )
+            if (
+                isinstance(prediction_result, dict)
+                and prediction_result.get("status") == "grid_too_large"
+            ):
+                return prediction_result
             if isinstance(prediction_result, tuple):
                 conc_df, road_contributions = prediction_result
             else:
