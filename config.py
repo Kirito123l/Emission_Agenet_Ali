@@ -77,6 +77,9 @@ class Config:
         self.enable_clarification_contract = (
             os.getenv("ENABLE_CLARIFICATION_CONTRACT", "true").lower() == "true"
         )
+        self.enable_contract_split = (
+            os.getenv("ENABLE_CONTRACT_SPLIT", "false").lower() == "true"
+        )
         self.enable_clarification_stage2_llm = (
             os.getenv("ENABLE_CLARIFICATION_STAGE2_LLM", "true").lower() == "true"
         )
