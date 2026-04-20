@@ -4,7 +4,7 @@
 
 Wave 2 replaced the Wave 1 monolithic clarification contract with split intent, stance, and execution-readiness contracts. It repaired the Wave 1 held-out collapse on the targeted `parameter_ambiguous` slice and repaired Stage 2 latency, but it also exposed a serious multi-turn clarification trade-off.
 
-Stage 4 main full completed for both A and E. Stage 4 held-out full did not complete because the provider returned an `Arrearage` billing failure during the A run. The partial held-out A output is contaminated and is not used as a full-run conclusion.
+Stage 4 main full completed for both A and E. The first Stage 4 held-out full attempt aborted because the provider returned an `Arrearage` billing failure during the A run; after billing was restored, `wave2_heldout_full_retry` completed cleanly for both A and E.
 
 | Area | Result |
 |---|---:|
@@ -16,9 +16,10 @@ Stage 4 main full completed for both A and E. Stage 4 held-out full did not comp
 | Stage 3 targeted held-out `parameter_ambiguous` E completion | 57.14% |
 | Stage 4 main full A completion | 70.00% |
 | Stage 4 main full E completion | 71.67% |
-| Stage 4 held-out full | blocked by provider billing failure |
+| Stage 4 held-out full retry A completion | 54.67% |
+| Stage 4 held-out full retry E completion | 56.00% |
 
-Main full E improves overall completion over A by +1.67 pp and improves tool accuracy by +6.67 pp, but `multi_turn_clarification` regresses sharply. The accepted Wave 2 trade-off is to carry this as known work for Wave 3 rather than repairing it before Stage 4.
+Main full E improves overall completion over A by +1.67 pp and improves tool accuracy by +6.67 pp. Held-out full retry E improves over Wave 1 held-out E by +37.33 pp overall, but `multi_turn_clarification` regresses sharply. The accepted Wave 2 trade-off is to carry this as known work for Wave 3 rather than repairing it before Stage 4.
 
 ## 2. Implementation Changes
 
@@ -229,7 +230,7 @@ E failure shapes in main full:
 
 The largest E failure concentration is still `multi_turn_clarification`: 18/20 failed, mostly with repeated executions or missing required user-response behavior rather than infra errors.
 
-### 6.2 Held-out Benchmark A vs E
+### 6.2 Held-out Benchmark A vs E (Attempt 1 Aborted)
 
 Held-out full was attempted with:
 
@@ -258,37 +259,115 @@ The partial A metrics are not a valid held-out full conclusion:
 |---|---:|---:|---:|
 | A | 51 | 47.06% | 56.86% |
 
-Wave 1 held-out full baseline remains the latest clean full held-out A/E run:
+The aborted attempt was cleaned up by moving the metrics artifact to `evaluation/results/wave2_heldout_full_attempt1_aborted_A`.
+
+### 6.2 Held-out Benchmark A vs E (Retry)
+
+Provider billing was restored and the held-out full run was retried with:
+
+```bash
+/home/kirito/miniconda3/bin/python evaluation/run_oasc_matrix.py --groups A,E \
+  --samples evaluation/benchmarks/held_out_tasks.jsonl \
+  --parallel 8 --qps-limit 15 --cache \
+  --output-prefix wave2_heldout_full_retry
+```
+
+Both groups completed cleanly.
+
+| Group | Tasks | Completion | Tool accuracy | Parameter legal | Result data | Infra unknown | Data integrity |
+|---|---:|---:|---:|---:|---:|---:|---|
+| A | 75 | 54.67% | 66.67% | 66.67% | 72.00% | 0 | clean |
+| E | 75 | 56.00% | 74.67% | 73.33% | 81.33% | 0 | clean |
+
+Per-category held-out full retry:
+
+| Category | A completion | E completion | Delta |
+|---|---:|---:|---:|
+| `ambiguous_colloquial` | 20.00% | 70.00% | +50.00 pp |
+| `code_switch_typo` | 62.50% | 75.00% | +12.50 pp |
+| `constraint_violation` | 57.14% | 28.57% | -28.57 pp |
+| `incomplete` | 100.00% | 80.00% | -20.00 pp |
+| `multi_step` | 0.00% | 0.00% | +0.00 pp |
+| `multi_turn_clarification` | 30.00% | 0.00% | -30.00 pp |
+| `parameter_ambiguous` | 71.43% | 85.71% | +14.29 pp |
+| `simple` | 75.00% | 75.00% | +0.00 pp |
+| `user_revision` | 100.00% | 100.00% | +0.00 pp |
+
+Key Wave 1 E vs Wave 2 E held-out full comparison:
+
+| Category | Wave 1 E | Wave 2 E retry | Delta |
+|---|---:|---:|---:|
+| overall | 18.67% | 56.00% | +37.33 pp |
+| `ambiguous_colloquial` | 0.00% | 70.00% | +70.00 pp |
+| `code_switch_typo` | 0.00% | 75.00% | +75.00 pp |
+| `constraint_violation` | 14.29% | 28.57% | +14.29 pp |
+| `incomplete` | 100.00% | 80.00% | -20.00 pp |
+| `multi_step` | 0.00% | 0.00% | +0.00 pp |
+| `multi_turn_clarification` | 40.00% | 0.00% | -40.00 pp |
+| `parameter_ambiguous` | 0.00% | 85.71% | +85.71 pp |
+| `simple` | 0.00% | 75.00% | +75.00 pp |
+| `user_revision` | 50.00% | 100.00% | +50.00 pp |
+
+Held-out retry pass/fail task analysis for A vs E:
+
+| Shape | Count |
+|---|---:|
+| both pass | 33 |
+| A fail, E pass | 9 |
+| A pass, E fail | 8 |
+| both fail | 25 |
+
+Category distribution of A pass -> E fail:
+
+| Category | Count |
+|---|---:|
+| `code_switch_typo` | 1 |
+| `constraint_violation` | 2 |
+| `incomplete` | 1 |
+| `multi_turn_clarification` | 3 |
+| `simple` | 1 |
+
+Wave 1 E -> Wave 2 E held-out transition analysis:
+
+| Shape | Count |
+|---|---:|
+| both pass | 9 |
+| Wave 1 fail, Wave 2 pass | 33 |
+| Wave 1 pass, Wave 2 fail | 5 |
+| both fail | 28 |
+
+The Wave 1 pass -> Wave 2 fail cases are concentrated in `multi_turn_clarification` (4 tasks) and `incomplete` (1 task).
+
+Wave 1 held-out full baseline:
 
 | Group | Tasks | Completion | Tool accuracy |
 |---|---:|---:|---:|
 | Wave 1 A | 75 | 54.67% | 66.67% |
 | Wave 1 E | 75 | 18.67% | 32.00% |
 
-Clean Wave 2 held-out evidence available before the billing abort:
-
-| Run | Scope | Completion |
-|---|---|---:|
-| `wave2_heldout_smoke_E` | 10-task smoke | 50.00% |
-| `wave2_heldout_param_gate_retry2_E` | `parameter_ambiguous`, 7 tasks | 57.14% |
-
-Wave 1 vs Wave 2 full held-out delta per category cannot be computed until `wave2_heldout_full_E` completes cleanly.
-
 ### 6.3 Main vs Held-out Comparison (Generalization Check)
 
-Current clean comparison is necessarily partial because Stage 4 held-out full did not complete.
+Current clean comparison uses Stage 4 main full and the held-out full retry.
 
 | Evidence | Main | Held-out |
 |---|---:|---:|
-| Wave 2 E smoke/full overall | main smoke 86.67%; main full 71.67% | held-out smoke 50.00%; targeted `parameter_ambiguous` 57.14% |
-| `parameter_ambiguous` | main full E 66.67% | targeted held-out E 57.14% |
-| `multi_turn_clarification` | main full E 10.00% | held-out smoke E 0.00% |
+| Wave 2 E overall | main full 71.67% | held-out full retry 56.00% |
+| `ambiguous_colloquial` | main full E 65.00% | held-out full E 70.00% |
+| `code_switch_typo` | main full E 90.00% | held-out full E 75.00% |
+| `constraint_violation` | main full E 76.47% | held-out full E 28.57% |
+| `incomplete` | main full E 83.33% | held-out full E 80.00% |
+| `multi_step` | main full E 90.00% | held-out full E 0.00% |
+| `multi_turn_clarification` | main full E 10.00% | held-out full E 0.00% |
+| `parameter_ambiguous` | main full E 66.67% | held-out full E 85.71% |
+| `simple` | main full E 80.95% | held-out full E 75.00% |
+| `user_revision` | main full E 85.00% | held-out full E 100.00% |
 
 Interpretation:
 
-- Wave 2 repairs the catastrophic Wave 1 held-out `parameter_ambiguous` failure enough to pass the targeted gate.
-- Full held-out generalization remains unmeasured for Wave 2 because of billing abort.
-- Multi-turn clarification remains weak on both main and held-out smoke evidence.
+- Wave 2 repairs the catastrophic Wave 1 held-out collapse in `simple`, `parameter_ambiguous`, `code_switch_typo`, `ambiguous_colloquial`, and `user_revision`.
+- Held-out `parameter_ambiguous` now exceeds both A and Wave 1 E.
+- Held-out `multi_turn_clarification` is 0.00%, confirming that the accepted multi-turn regression generalizes beyond main.
+- Held-out `multi_step` remains 0.00% despite strong main full performance, so this category needs separate generalization analysis before any robustness claim.
 
 ## 7. Known Issues and Trade-offs
 
@@ -332,7 +411,7 @@ Main full E also shows:
 - `incomplete` regression vs A: 83.33% E vs 94.44% A.
 - Standardization confirmation failures for ambiguous vehicle or road-type values.
 - Multi-step/render failures where `render_spatial_map` lacked a dispersion result in context.
-- Provider billing failure blocked held-out full completion; this must be resolved before any clean Stage 4 held-out claim.
+- The first held-out full attempt was blocked by provider billing failure; the retry completed cleanly and should be used for held-out full claims.
 
 ## 8. Wave 3 Recommendations
 
@@ -369,11 +448,13 @@ Expected impact:
 
 ### 9.1 Held-out Evaluation Necessity
 
-Wave 1 looked promising on main `multi_turn_clarification` smoke at 65%, but held-out E collapsed to 18.67% overall and 0% on `simple`, `parameter_ambiguous`, `multi_step`, and `code_switch_typo`. Wave 2's targeted held-out gate shows why held-out evaluation is necessary: the main benchmark alone did not reveal resolver brittleness, and the held-out target forced fixes to Stage 3 normalization and runtime-default readiness.
+Wave 1 looked promising on main `multi_turn_clarification` smoke at 65%, but held-out E collapsed to 18.67% overall and 0% on `simple`, `parameter_ambiguous`, `multi_step`, and `code_switch_typo`. The Wave 2 held-out full retry reached 56.00% overall and repaired several collapsed categories: `simple` 0.00% -> 75.00%, `parameter_ambiguous` 0.00% -> 85.71%, `code_switch_typo` 0.00% -> 75.00%, `ambiguous_colloquial` 0.00% -> 70.00%, and `user_revision` 50.00% -> 100.00%.
+
+The same held-out full retry also shows why held-out evaluation cannot be replaced by main metrics: `multi_step` remains 0.00% on held-out despite 90.00% on main full, and `multi_turn_clarification` falls from Wave 1 held-out 40.00% to Wave 2 held-out 0.00%.
 
 Suggested citation anchor:
 
-> Main-benchmark gains were insufficient evidence of robustness; held-out evaluation exposed a category-level collapse that only became visible under paraphrased slot and stance distributions.
+> Main-benchmark gains were insufficient evidence of robustness; held-out evaluation exposed both repaired generalization failures and newly introduced invariant failures that were not visible from aggregate main completion alone.
 
 ### 9.2 Invariant Migration Challenge
 
@@ -408,9 +489,13 @@ Relevant Wave 2 commits:
 | `b03f7e3` | Make split readiness runtime-default aware |
 | `d56e4ca` | Record main multi-turn gate failure after readiness fix |
 | `69a89d6` | Diagnose Wave 2 multi-turn clarification regression |
+| `f6662fa` | Phase 2R Wave 2 final report + full run results |
+| `3afe078` | Clean up aborted held-out full run artifacts |
+| `fe7007a` | Wave 2 held-out full retry results |
 
 Final report pass:
 
 - Ran main full A+E successfully and retained `evaluation/results/wave2_main_full_A` / `evaluation/results/wave2_main_full_E`.
-- Attempted held-out full A+E; provider billing failure produced only contaminated partial `evaluation/results/wave2_heldout_full_A`.
-- Wrote this report without production code changes.
+- Attempted held-out full A+E; provider billing failure produced contaminated partial `evaluation/results/wave2_heldout_full_A`, later renamed to `evaluation/results/wave2_heldout_full_attempt1_aborted_A`.
+- After billing was restored, reran held-out full A+E as `wave2_heldout_full_retry`; both groups completed cleanly.
+- Updated this report without production code changes.
