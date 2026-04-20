@@ -150,6 +150,13 @@ class GovernedRouter:
             and str(direct_execution.get("trigger_mode") or "") == "fresh"
             and not bool(direct_execution.get("confirm_first_detected"))
         )
+        runtime_defaults_allowed = [
+            str(item)
+            for item in list(direct_execution.get("runtime_defaults_allowed") or [])
+            if str(item).strip()
+        ]
+        if "model_year" in runtime_defaults_allowed and tool_name == "query_emission_factors":
+            allow_factor_year_default = True
         if not tool_name or not isinstance(snapshot, dict):
             return None
 
@@ -307,6 +314,8 @@ class GovernedRouter:
         current_ao.metadata["clarification_contract"] = clarification_state
 
     def _mark_parameter_collection_complete(self) -> None:
+        if bool(getattr(self.runtime_config, "enable_contract_split", False)):
+            return
         if not getattr(self.runtime_config, "enable_ao_first_class_state", True):
             return
         current_ao = self.ao_manager.get_current_ao()

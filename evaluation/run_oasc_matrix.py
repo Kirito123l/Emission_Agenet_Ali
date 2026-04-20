@@ -56,6 +56,7 @@ GROUP_CONFIGS: List[Dict[str, Any]] = [
             "ENABLE_AO_PERSISTENT_FACTS": "true",
             "ENABLE_GOVERNED_ROUTER": "true",
             "ENABLE_CLARIFICATION_CONTRACT": "true",
+            "ENABLE_CONTRACT_SPLIT": "true",
         },
     },
     {
@@ -70,6 +71,7 @@ GROUP_CONFIGS: List[Dict[str, Any]] = [
             "ENABLE_AO_PERSISTENT_FACTS": "true",
             "ENABLE_GOVERNED_ROUTER": "true",
             "ENABLE_CLARIFICATION_CONTRACT": "true",
+            "ENABLE_CONTRACT_SPLIT": "true",
         },
     },
     {
@@ -84,6 +86,7 @@ GROUP_CONFIGS: List[Dict[str, Any]] = [
             "ENABLE_AO_PERSISTENT_FACTS": "true",
             "ENABLE_GOVERNED_ROUTER": "true",
             "ENABLE_CLARIFICATION_CONTRACT": "true",
+            "ENABLE_CONTRACT_SPLIT": "true",
         },
     },
     {
@@ -98,6 +101,7 @@ GROUP_CONFIGS: List[Dict[str, Any]] = [
             "ENABLE_AO_PERSISTENT_FACTS": "false",
             "ENABLE_GOVERNED_ROUTER": "true",
             "ENABLE_CLARIFICATION_CONTRACT": "true",
+            "ENABLE_CONTRACT_SPLIT": "true",
         },
     },
     {

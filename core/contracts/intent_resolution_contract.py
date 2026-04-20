@@ -1,19 +1,107 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict
 
-from core.contracts.base import BaseContract, ContractContext, ContractInterception
+from core.analytical_objective import IntentConfidence
+from core.contracts.base import ContractContext, ContractInterception
+from core.contracts.split_contract_utils import SplitContractSupport
+from core.intent_resolver import IntentResolver
+from core.router import RouterResponse
 
 
-class IntentResolutionContract(BaseContract):
+class IntentResolutionContract(SplitContractSupport):
     """Wave 2 split contract for tool-intent resolution."""
 
     name = "intent_resolution"
 
     def __init__(self, inner_router: Any = None, ao_manager: Any = None, runtime_config: Any = None):
-        self.inner_router = inner_router
-        self.ao_manager = ao_manager
-        self.runtime_config = runtime_config
+        super().__init__(inner_router=inner_router, ao_manager=ao_manager, runtime_config=runtime_config)
+        self.intent_resolver = IntentResolver(inner_router, ao_manager)
 
     async def before_turn(self, context: ContractContext) -> ContractInterception:
+        if not getattr(self.runtime_config, "enable_contract_split", False):
+            return ContractInterception()
+        state = context.state_snapshot
+        oasc_state = dict(context.metadata.get("oasc") or {})
+        classification = oasc_state.get("classification")
+        current_ao = self.ao_manager.get_current_ao() if self.ao_manager is not None else None
+        if state is None or classification is None or current_ao is None:
+            return ContractInterception()
+
+        tool_intent = self.intent_resolver.resolve_fast(state, current_ao)
+        if tool_intent.confidence == IntentConfidence.NONE and self._stage2_available():
+            payload, stage2_meta = await self._run_stage2_llm_with_telemetry(
+                user_message=context.effective_user_message,
+                state=state,
+                current_ao=current_ao,
+                tool_name=None,
+                snapshot={},
+                tool_spec=self._generic_tool_spec(),
+                classification=classification,
+            )
+            llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(payload)
+            tool_intent = self.intent_resolver.resolve_with_llm_hint(state, current_ao, llm_hint)
+            context.metadata["stage2_payload"] = payload
+            context.metadata["stage2_telemetry"] = stage2_meta
+            context.metadata["intent_resolution"] = {
+                "llm_intent_raw": llm_raw,
+                "llm_intent_parse_success": parse_success,
+            }
+        self._persist_tool_intent(current_ao, tool_intent)
+        context.metadata["tool_intent"] = tool_intent
+        if tool_intent.confidence == IntentConfidence.NONE:
+            telemetry = self._telemetry(
+                tool_name=None,
+                decision="clarify",
+                branch="intent",
+                pending_slot="tool_intent",
+                stage2_meta=dict(context.metadata.get("stage2_telemetry") or {}),
+            )
+            return ContractInterception(
+                proceed=False,
+                response=RouterResponse(
+                    text="请先说明您想执行哪类交通排放分析：排放因子查询、微观排放、宏观排放或知识库问答。",
+                    trace_friendly=[{"step_type": "clarification", "summary": "clarify tool intent"}],
+                ),
+                metadata={"clarification": {"telemetry": telemetry}},
+            )
         return ContractInterception()
+
+    def _telemetry(
+        self,
+        *,
+        tool_name: str | None,
+        decision: str,
+        branch: str,
+        pending_slot: str | None,
+        stage2_meta: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        return {
+            "turn": self._current_turn_index(),
+            "triggered": True,
+            "trigger_mode": "split",
+            "classification_at_trigger": None,
+            "stage1_filled_slots": [],
+            "stage2_called": bool(stage2_meta.get("stage2_called")),
+            "stage2_latency_ms": stage2_meta.get("stage2_latency_ms"),
+            "stage2_missing_required": list(stage2_meta.get("stage2_missing_required") or []),
+            "stage2_clarification_question": stage2_meta.get("stage2_clarification_question"),
+            "stage2_response_chars": stage2_meta.get("stage2_response_chars"),
+            "stage2_intent_chars": stage2_meta.get("stage2_intent_chars"),
+            "stage2_stance_chars": stage2_meta.get("stage2_stance_chars"),
+            "stage2_prompt_tokens": stage2_meta.get("stage2_prompt_tokens"),
+            "stage2_completion_tokens": stage2_meta.get("stage2_completion_tokens"),
+            "stage2_raw_response_truncated": stage2_meta.get("stage2_raw_response_truncated"),
+            "stage3_rejected_slots": [],
+            "stage3_normalizations": [],
+            "final_decision": decision,
+            "proceed_mode": None,
+            "ao_id": getattr(self.ao_manager.get_current_ao(), "ao_id", None) if self.ao_manager else None,
+            "tool_name": tool_name,
+            "execution_readiness": {
+                "readiness_branch": branch,
+                "readiness_decision": decision,
+                "pending_slot": pending_slot,
+                "runtime_defaults_applied": [],
+            },
+        }

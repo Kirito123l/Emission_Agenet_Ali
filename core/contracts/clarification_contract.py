@@ -728,8 +728,8 @@ class ClarificationContract(BaseContract):
         raw = llm_payload.get("intent")
         if isinstance(raw, dict):
             hint = {
-                "resolved_tool": raw.get("resolved_tool"),
-                "intent_confidence": raw.get("intent_confidence") or raw.get("confidence"),
+                "resolved_tool": raw.get("resolved_tool") or raw.get("tool"),
+                "intent_confidence": raw.get("intent_confidence") or raw.get("confidence") or raw.get("conf"),
                 "reasoning": raw.get("reasoning"),
             }
             return hint, dict(raw), True
@@ -767,7 +767,7 @@ class ClarificationContract(BaseContract):
         if isinstance(raw, dict):
             hint = {
                 "value": raw.get("value") or raw.get("stance"),
-                "confidence": raw.get("confidence"),
+                "confidence": raw.get("confidence") or raw.get("conf"),
                 "reasoning": raw.get("reasoning"),
             }
             return hint, dict(raw), True

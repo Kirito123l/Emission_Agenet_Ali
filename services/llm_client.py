@@ -400,6 +400,45 @@ class LLMClientService:
             logger.error(f"LLM async JSON chat failed: {e}")
             raise
 
+    async def chat_json_with_metadata(
+        self,
+        messages: List[Dict[str, str]],
+        system: Optional[str] = None,
+        temperature: Optional[float] = None,
+        seed: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Async JSON chat with raw content and provider usage metadata."""
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+
+        try:
+            response = self._request_with_failover(
+                lambda cli: cli.chat.completions.create(
+                    model=self.model,
+                    messages=full_messages,
+                    temperature=0.0 if temperature is None else temperature,
+                    response_format={"type": "json_object"},
+                    **({"seed": seed} if seed is not None else {}),
+                    max_tokens=self.max_tokens,
+                ),
+                operation="LLM async JSON chat",
+            )
+            usage = self._log_usage(response, "chat_json")
+            content = response.choices[0].message.content or "{}"
+            return {
+                "payload": json.loads(content),
+                "raw_response": content,
+                "usage": usage or {},
+            }
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse async JSON response: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"LLM async JSON chat failed: {e}")
+            raise
+
     def chat_sync(
         self,
         prompt: str,

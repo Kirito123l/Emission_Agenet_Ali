@@ -376,9 +376,10 @@ class AOManager:
 
         clarification_state = ao.metadata.get("clarification_contract") if isinstance(ao.metadata, dict) else None
         if self._lifecycle_alignment_enabled():
-            parameter_state = getattr(ao, "parameter_state", None)
-            if bool(getattr(parameter_state, "collection_mode", False)):
-                return False, "collection_mode_active", check_results
+            if not self._contract_split_enabled():
+                parameter_state = getattr(ao, "parameter_state", None)
+                if bool(getattr(parameter_state, "collection_mode", False)):
+                    return False, "collection_mode_active", check_results
             tool_intent = getattr(ao, "tool_intent", None)
             if getattr(tool_intent, "confidence", IntentConfidence.NONE) == IntentConfidence.NONE:
                 return False, "intent_not_resolved", check_results
@@ -411,8 +412,10 @@ class AOManager:
         check_results: Dict[str, Any] = {
             "has_produced_expected_artifacts": bool(ao.has_produced_expected_artifacts()),
             "objective_satisfied": bool(self._ao_objective_satisfied(ao)),
-            "collection_mode_active": bool(
-                getattr(getattr(ao, "parameter_state", None), "collection_mode", False)
+            "collection_mode_active": (
+                False
+                if self._contract_split_enabled()
+                else bool(getattr(getattr(ao, "parameter_state", None), "collection_mode", False))
             ),
             "intent_resolved": (
                 getattr(getattr(ao, "tool_intent", None), "confidence", IntentConfidence.NONE)
@@ -461,6 +464,15 @@ class AOManager:
             return True
 
     @staticmethod
+    def _contract_split_enabled() -> bool:
+        try:
+            from config import get_config
+
+            return bool(getattr(get_config(), "enable_contract_split", False))
+        except Exception:
+            return False
+
+    @staticmethod
     def _tool_intent_confidence(ao: AnalyticalObjective) -> Optional[str]:
         confidence = getattr(getattr(ao, "tool_intent", None), "confidence", None)
         if isinstance(confidence, IntentConfidence):
@@ -469,6 +481,8 @@ class AOManager:
 
     @staticmethod
     def _parameter_state_collection_mode(ao: AnalyticalObjective) -> Optional[bool]:
+        if AOManager._contract_split_enabled():
+            return None
         parameter_state = getattr(ao, "parameter_state", None)
         if parameter_state is None:
             return None
@@ -476,6 +490,8 @@ class AOManager:
 
     @staticmethod
     def _parameter_state_awaiting_slot(ao: AnalyticalObjective) -> Optional[str]:
+        if AOManager._contract_split_enabled():
+            return None
         parameter_state = getattr(ao, "parameter_state", None)
         if parameter_state is None:
             return None

@@ -100,15 +100,21 @@ class ParameterState:
     probe_abandoned: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "required_filled": sorted(str(item) for item in self.required_filled),
             "optional_filled": sorted(str(item) for item in self.optional_filled),
-            "awaiting_slot": self.awaiting_slot,
-            "collection_mode": self.collection_mode,
-            "collection_mode_reason": self.collection_mode_reason,
-            "probe_turn_count": int(self.probe_turn_count or 0),
-            "probe_abandoned": bool(self.probe_abandoned),
         }
+        if not _contract_split_enabled():
+            payload.update(
+                {
+                    "awaiting_slot": self.awaiting_slot,
+                    "collection_mode": self.collection_mode,
+                    "collection_mode_reason": self.collection_mode_reason,
+                    "probe_turn_count": int(self.probe_turn_count or 0),
+                    "probe_abandoned": bool(self.probe_abandoned),
+                }
+            )
+        return payload
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ParameterState":
@@ -207,6 +213,10 @@ class AnalyticalObjective:
         return any(record.success for record in self.tool_call_log)
 
     def to_dict(self) -> Dict[str, Any]:
+        metadata = dict(self.metadata)
+        if _contract_split_enabled():
+            metadata.pop("collection_mode", None)
+            metadata.pop("pcm_trigger_reason", None)
         return {
             "ao_id": self.ao_id,
             "session_id": self.session_id,
@@ -230,7 +240,7 @@ class AnalyticalObjective:
                 {"turn": int(turn or 0), "stance": stance.value}
                 for turn, stance in self.stance_history
             ],
-            "metadata": dict(self.metadata),
+            "metadata": metadata,
         }
 
     @classmethod
@@ -369,3 +379,12 @@ class AnalyticalObjective:
             parameter_state.probe_turn_count = int(contract_state.get("probe_turn_count") or 0)
         if not parameter_state.probe_abandoned:
             parameter_state.probe_abandoned = bool(contract_state.get("probe_abandoned", False))
+
+
+def _contract_split_enabled() -> bool:
+    try:
+        from config import get_config
+
+        return bool(getattr(get_config(), "enable_contract_split", False))
+    except Exception:
+        return False
