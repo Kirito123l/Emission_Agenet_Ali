@@ -511,3 +511,35 @@ Why:
 One-sentence paper framing:
 
 > Wave 2's held-out multi-step collapse is a mixed limitation: some failures expose real continuation-state defects, while others appear to be caused by the evaluator treating geometry-halt tolerance as a required success condition even when the full downstream chain executed correctly.
+
+## 7. Benchmark Correction Applied
+
+The held-out benchmark was corrected at v5 after this diagnosis.
+
+Applied fix set:
+
+- `e2e_heldout_multistep_001`
+- `e2e_heldout_multistep_003`
+- `e2e_heldout_multistep_004`
+- `e2e_heldout_multistep_005`
+- `e2e_heldout_multistep_007`
+- `e2e_heldout_multistep_008`
+
+Why 6 tasks rather than only the 3 exact-chain failures:
+
+- `003`, `005`, `007` were already exact-chain passes masked by the bad `geometry_gated_halt_acceptable` criterion.
+- `001`, `004`, `008` are still real wrong-continuation failures, but their incorrect halt criterion would also have blocked evaluator pass after a future Wave 3 continuation fix.
+- correcting the benchmark first ensures Wave 3 verification can measure the continuation bug family cleanly.
+
+The 3 `constraint_violation` tasks (`constraint_005/006/007`) retain `geometry_gated_halt_acceptable` by design.
+
+E-group rerun on v5:
+
+- result: `3/8` pass on `multi_step` = `37.50%`
+- newly passing tasks: `003`, `005`, `007`
+- remaining real continuation-bug tasks: `001`, `002`, `004`, `006`, `008`
+
+Updated interpretation:
+
+- Hypothesis 1 was confirmed benchmark-side.
+- Hypothesis 2 and Hypothesis 3 remain the explanation for the remaining five failures and should be addressed in Wave 3.
