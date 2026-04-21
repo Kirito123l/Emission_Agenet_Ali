@@ -8,6 +8,7 @@ from core.analytical_objective import (
     IntentConfidence,
     ToolIntent,
 )
+from core.execution_continuation import PendingObjective
 from core.execution_continuation_utils import load_execution_continuation
 
 
@@ -150,6 +151,18 @@ class IntentResolver:
     @staticmethod
     def _pending_tool_name(ao: Any) -> Optional[str]:
         continuation = load_execution_continuation(ao)
+        if continuation.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+            tool_intent = getattr(ao, "tool_intent", None)
+            resolved_tool = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
+            if resolved_tool:
+                return resolved_tool
+            metadata = getattr(ao, "metadata", None)
+            if isinstance(metadata, dict):
+                readiness_state = metadata.get("execution_readiness")
+                if isinstance(readiness_state, dict):
+                    pending_tool = str(readiness_state.get("tool_name") or "").strip()
+                    if pending_tool:
+                        return pending_tool
         if continuation.pending_next_tool:
             return str(continuation.pending_next_tool).strip() or None
         metadata = getattr(ao, "metadata", None)

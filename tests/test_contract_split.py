@@ -160,7 +160,7 @@ async def test_deliberative_with_runtime_default_optional_proceeds():
     ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
     ao.stance = ConversationalStance.DELIBERATIVE
 
-    interception = await contract.before_turn(_context("先确认小汽车CO2因子参数"))
+    interception = await contract.before_turn(_context("小汽车CO2因子参数"))
 
     telemetry = interception.metadata["clarification"]["telemetry"]
     assert interception.proceed is True
@@ -578,6 +578,37 @@ async def test_intent_contract_short_circuits_active_chain_continuation():
 
 
 @pytest.mark.anyio
+async def test_intent_contract_short_circuits_parameter_collection_to_bound_tool():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = IntentResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("继续补参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent(
+        "calculate_micro_emission",
+        IntentConfidence.HIGH,
+        projected_chain=["calculate_micro_emission"],
+    )
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "season",
+    }
+    ao.metadata["execution_readiness"] = {
+        "pending": True,
+        "tool_name": "calculate_micro_emission",
+        "pending_slot": "season",
+        "missing_slots": ["season"],
+    }
+
+    interception = await contract.before_turn(_context("夏季", kind=AOClassType.CONTINUATION))
+
+    assert interception.proceed is True
+    assert ao.tool_intent.resolved_tool == "calculate_micro_emission"
+    assert ao.tool_intent.projected_chain == ["calculate_micro_emission"]
+    assert ao.tool_intent.resolved_by == "parameter_collection_state"
+
+
+@pytest.mark.anyio
 async def test_intent_contract_allows_queue_override_before_short_circuit():
     config = _config()
     inner = FakeInnerRouter({"desired_tool_chain": ["render_spatial_map"]})
@@ -636,6 +667,59 @@ async def test_readiness_multistep_projected_chain_skips_snapshot_direct():
     assert interception.proceed is True
     assert "direct_execution" not in interception.metadata["clarification"]
     assert interception.metadata["clarification"]["telemetry"]["final_decision"] == "proceed"
+
+
+@pytest.mark.anyio
+async def test_readiness_stage2_needs_clarification_blocks_fresh_proceed():
+    contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["NOx"]})
+    ao = manager.create_ao("先查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+    context = _context("先查小汽车 NOx 因子")
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": "high"},
+            "pollutants": {"value": ["NOx"], "source": "user", "confidence": "high"},
+        },
+        "intent": {"tool": "query_emission_factors", "conf": "high"},
+        "stance": {"value": "directive", "conf": "medium"},
+        "missing_required": [],
+        "needs_clarification": True,
+        "clarification_question": "请先确认道路类型。",
+    }
+    ao.metadata["execution_readiness"] = {
+        "pending": False,
+        "tool_name": "query_emission_factors",
+        "pending_slot": None,
+        "missing_slots": [],
+        "confirm_first_slots": ["road_type"],
+    }
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["final_decision"] == "clarify"
+    assert telemetry["execution_readiness"]["pending_slot"] == "road_type"
+    assert ao.metadata["execution_continuation"]["pending_objective"] == "parameter_collection"
+
+
+@pytest.mark.anyio
+async def test_readiness_preserves_followup_slot_after_proceed():
+    contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查小汽车 CO2 因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["execution_continuation"]["continuation_after"]["pending_objective"] == "parameter_collection"
+    assert telemetry["execution_continuation"]["continuation_after"]["pending_slot"] == "model_year"
+    assert ao.metadata["execution_readiness"]["followup_slots"] == ["model_year"]
+    assert ao.metadata["execution_readiness"]["confirm_first_slots"] == ["road_type"]
+    assert ao.metadata["execution_readiness"]["pending_slot"] == "model_year"
 
 
 @pytest.mark.anyio
@@ -723,10 +807,11 @@ async def test_readiness_runtime_default_aware_off_suppresses_runtime_default_re
     ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
     ao.stance = ConversationalStance.DELIBERATIVE
 
-    interception = await contract.before_turn(_context("先确认小汽车 CO2 因子"))
+    interception = await contract.before_turn(_context("小汽车 CO2 因子"))
 
     telemetry = interception.metadata["clarification"]["telemetry"]
     assert interception.proceed is True
+    assert telemetry["execution_readiness"]["runtime_defaults_resolved"] == []
     assert interception.metadata["clarification"]["direct_execution"]["runtime_defaults_allowed"] == []
 
 
@@ -758,6 +843,51 @@ async def test_oasc_writes_chain_continuation_after_first_success():
     continuation = ao.metadata["execution_continuation"]
     assert continuation["pending_objective"] == "chain_continuation"
     assert continuation["pending_tool_queue"] == ["calculate_dispersion", "render_spatial_map"]
+
+
+@pytest.mark.anyio
+async def test_oasc_preserves_parameter_collection_after_execute_when_followup_remains():
+    contract, manager, _inner = _oasc_contract()
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH, projected_chain=["query_emission_factors"])
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "model_year",
+        "probe_count": 0,
+        "probe_limit": 2,
+    }
+    context = _context("查小汽车 CO2 因子", kind=AOClassType.CONTINUATION)
+    context.router_executed = True
+    context.metadata["execution_continuation_transition"] = {
+        "continuation_before": dict(ao.metadata["execution_continuation"]),
+        "continuation_after": {
+            "pending_objective": "parameter_collection",
+            "pending_slot": "model_year",
+            "probe_count": 0,
+            "probe_limit": 2,
+            "abandoned": False,
+            "updated_turn": 2,
+        },
+        "transition_reason": "initial_write",
+    }
+    result = RouterResponse(
+        text="ok",
+        executed_tool_calls=[
+            {
+                "name": "query_emission_factors",
+                "arguments": {"vehicle_type": "Passenger Car", "pollutants": ["CO2"]},
+                "result": {"success": True, "summary": "ok"},
+            }
+        ],
+        trace={},
+    )
+
+    await contract.after_turn(context, result)
+
+    continuation = ao.metadata["execution_continuation"]
+    assert continuation["pending_objective"] == "parameter_collection"
+    assert continuation["pending_slot"] == "model_year"
+    assert context.metadata["execution_continuation_transition"]["transition_reason"] == "initial_write"
 
 
 @pytest.mark.anyio

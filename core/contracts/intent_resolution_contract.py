@@ -40,12 +40,14 @@ class IntentResolutionContract(SplitContractSupport):
             getattr(self.runtime_config, "enable_split_continuation_state", True)
             and getattr(classification, "classification", None) is not None
             and str(getattr(classification.classification, "value", "") or "") == "continuation"
-            and continuation.pending_objective == PendingObjective.CHAIN_CONTINUATION
-            and continuation.pending_next_tool
             and not has_reversal_marker(context.effective_user_message)
         ):
             fast = self.intent_resolver.resolve_fast(state, current_ao)
-            if not fast.projected_chain or fast.projected_chain[0] == continuation.pending_next_tool:
+            if (
+                continuation.pending_objective == PendingObjective.CHAIN_CONTINUATION
+                and continuation.pending_next_tool
+                and (not fast.projected_chain or fast.projected_chain[0] == continuation.pending_next_tool)
+            ):
                 tool_intent = self.intent_resolver._intent(
                     continuation.pending_next_tool,
                     IntentConfidence.HIGH,
@@ -55,6 +57,29 @@ class IntentResolutionContract(SplitContractSupport):
                     projected_chain=list(continuation.pending_tool_queue or []),
                 )
                 short_circuit_intent = True
+            elif continuation.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+                bound_tool = str(getattr(getattr(current_ao, "tool_intent", None), "resolved_tool", "") or "").strip()
+                if not bound_tool:
+                    readiness_state = (
+                        current_ao.metadata.get("execution_readiness")
+                        if isinstance(getattr(current_ao, "metadata", None), dict)
+                        else None
+                    )
+                    if isinstance(readiness_state, dict):
+                        bound_tool = str(readiness_state.get("tool_name") or "").strip()
+                if bound_tool and (not fast.projected_chain or fast.projected_chain[0] == bound_tool):
+                    projected_chain = list(
+                        getattr(getattr(current_ao, "tool_intent", None), "projected_chain", []) or [bound_tool]
+                    )
+                    tool_intent = self.intent_resolver._intent(
+                        bound_tool,
+                        IntentConfidence.HIGH,
+                        resolved_by="parameter_collection_state",
+                        evidence=["parameter_collection_state"],
+                        state=state,
+                        projected_chain=projected_chain,
+                    )
+                    short_circuit_intent = True
 
         if tool_intent is None:
             tool_intent = self.intent_resolver.resolve_fast(state, current_ao)

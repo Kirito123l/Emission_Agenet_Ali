@@ -64,10 +64,11 @@ class ExecutionReadinessContract(SplitContractSupport):
         if not projected_chain:
             projected_chain = [tool_name]
 
+        pending_state = self._get_split_pending_state(current_ao)
         snapshot = self._initial_snapshot(
             tool_name=tool_name,
             current_ao=current_ao,
-            pending_state=self._get_split_pending_state(current_ao),
+            pending_state=pending_state,
             classification=classification,
         )
         stage1_filled = self._run_stage1(state, snapshot)
@@ -75,7 +76,16 @@ class ExecutionReadinessContract(SplitContractSupport):
         missing_required_stage1 = self._missing_slots(snapshot, active_required_slots)
         stage2_meta = dict(context.metadata.get("stage2_telemetry") or {})
         llm_payload = context.metadata.get("stage2_payload") if isinstance(context.metadata.get("stage2_payload"), dict) else None
-        if llm_payload is None and missing_required_stage1 and self._stage2_available():
+        if (
+            llm_payload is None
+            and self._stage2_available()
+            and (
+                missing_required_stage1
+                or continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION
+                or bool(pending_state.get("followup_slots"))
+                or bool(pending_state.get("confirm_first_slots"))
+            )
+        ):
             llm_payload, stage2_meta = await self._run_stage2_llm_with_telemetry(
                 user_message=context.effective_user_message,
                 state=state,
@@ -98,6 +108,20 @@ class ExecutionReadinessContract(SplitContractSupport):
         )
         missing_required = self._missing_slots(snapshot, active_required_slots)
         optional_classification = self._classify_missing_optionals(tool_name, snapshot, tool_spec)
+        stage2_needs_clarification = bool((llm_payload or {}).get("needs_clarification"))
+        followup_slots = self._slot_names(
+            pending_state.get("followup_slots") if pending_state.get("followup_slots") else tool_spec.get("clarification_followup_slots")
+        )
+        confirm_first_slots = self._slot_names(
+            pending_state.get("confirm_first_slots") if pending_state.get("confirm_first_slots") else tool_spec.get("confirm_first_slots")
+        )
+        confirm_first_detected = bool(
+            pending_state.get("confirm_first_detected") or self._detect_confirm_first(context.effective_user_message)
+        )
+        confirm_first_active = bool(confirm_first_detected and len(projected_chain) <= 1)
+        missing_followup = self._missing_named_slots(snapshot, followup_slots)
+        missing_confirm_first = self._missing_confirm_first_slots(snapshot, confirm_first_slots)
+        executed_tool_count = len(list(getattr(current_ao, "tool_call_log", []) or []))
         if bool(getattr(self.runtime_config, "enable_split_stance_contract", True)):
             stance_value = getattr(getattr(current_ao, "stance", None), "value", None) or "directive"
         else:
@@ -130,16 +154,49 @@ class ExecutionReadinessContract(SplitContractSupport):
             save_execution_continuation(current_ao, continuation_after)
             transition_reason = "replace_queue_override"
 
-        if missing_required or rejected_slots:
-            pending_slot = (missing_required or rejected_slots or [None])[0]
+        clarify_candidates = list(missing_required) + list(rejected_slots)
+        if continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+            clarify_candidates.extend(
+                self._missing_named_slots(snapshot, pending_state.get("missing_slots") or [])
+            )
+            clarify_candidates.extend(missing_confirm_first)
+            clarify_candidates.extend(missing_followup)
+        if confirm_first_active:
+            clarify_candidates.extend(missing_confirm_first)
+        if stage2_needs_clarification and executed_tool_count == 0:
+            clarify_candidates.extend(self._missing_named_slots(snapshot, stage2_meta.get("stage2_missing_required") or []))
+            clarify_candidates.extend(missing_confirm_first)
+            clarify_candidates.extend(missing_followup)
+
+        clarify_candidates = list(dict.fromkeys(str(item) for item in clarify_candidates if str(item).strip()))
+
+        if stage2_needs_clarification and executed_tool_count == 0 and not clarify_candidates:
+            clarify_candidates = self._missing_named_slots(snapshot, active_required_slots)
+            if not clarify_candidates:
+                clarify_candidates = list(dict.fromkeys([*missing_confirm_first, *missing_followup]))
+            if not clarify_candidates and active_required_slots:
+                clarify_candidates = [active_required_slots[0]]
+
+        if clarify_candidates:
+            pending_slot = clarify_candidates[0]
             question = self._build_question(
                 tool_name=tool_name,
                 snapshot=snapshot,
-                missing_slots=missing_required,
+                missing_slots=clarify_candidates,
                 rejected_slots=rejected_slots,
                 llm_question=stage2_meta.get("stage2_clarification_question"),
             )
-            self._persist_split_pending(current_ao, tool_name, pending_slot, snapshot)
+            self._persist_split_pending(
+                current_ao,
+                tool_name,
+                pending_slot,
+                snapshot,
+                missing_slots=clarify_candidates,
+                followup_slots=followup_slots,
+                confirm_first_slots=confirm_first_slots,
+                confirm_first_detected=confirm_first_active,
+                needs_clarification=stage2_needs_clarification,
+            )
             continuation_after = ExecutionContinuation(
                 pending_objective=PendingObjective.PARAMETER_COLLECTION,
                 pending_slot=pending_slot,
@@ -242,7 +299,17 @@ class ExecutionReadinessContract(SplitContractSupport):
                 save_execution_continuation(current_ao, continuation_after)
                 transition_reason = "abandon_probe_limit"
             else:
-                self._persist_split_pending(current_ao, tool_name, pending_slot, snapshot)
+                self._persist_split_pending(
+                    current_ao,
+                    tool_name,
+                    pending_slot,
+                    snapshot,
+                    missing_slots=[pending_slot],
+                    followup_slots=followup_slots,
+                    confirm_first_slots=confirm_first_slots,
+                    confirm_first_detected=confirm_first_active,
+                    needs_clarification=stage2_needs_clarification,
+                )
                 continuation_after = ExecutionContinuation(
                     pending_objective=PendingObjective.PARAMETER_COLLECTION,
                     pending_slot=pending_slot,
@@ -291,8 +358,38 @@ class ExecutionReadinessContract(SplitContractSupport):
                     metadata={"clarification": {"telemetry": telemetry}},
                 )
 
-        self._persist_split_pending(current_ao, tool_name, None, snapshot)
-        if continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+        preserve_followup_slot = next(
+            (
+                slot_name
+                for slot_name in followup_slots
+                if slot_name in runtime_defaults and self._snapshot_missing_value(snapshot, slot_name)
+            ),
+            None,
+        )
+        self._persist_split_pending(
+            current_ao,
+            tool_name,
+            preserve_followup_slot,
+            snapshot,
+            missing_slots=[preserve_followup_slot] if preserve_followup_slot else [],
+            followup_slots=followup_slots,
+            confirm_first_slots=confirm_first_slots,
+            confirm_first_detected=confirm_first_active,
+            needs_clarification=stage2_needs_clarification,
+        )
+        if preserve_followup_slot:
+            continuation_after = ExecutionContinuation(
+                pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                pending_slot=preserve_followup_slot,
+                probe_count=0,
+                probe_limit=max(1, int(continuation_before.probe_limit or 2)),
+                abandoned=False,
+                updated_turn=self._current_turn_index(),
+            )
+            save_execution_continuation(current_ao, continuation_after)
+            if transition_reason == "no_change":
+                transition_reason = "initial_write"
+        elif continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
             continuation_after = ExecutionContinuation(
                 pending_objective=PendingObjective.NONE,
                 updated_turn=self._current_turn_index(),
@@ -328,7 +425,7 @@ class ExecutionReadinessContract(SplitContractSupport):
             clarification_metadata["direct_execution"] = {
                 "tool_name": tool_name,
                 "parameter_snapshot": copy.deepcopy(snapshot),
-                "confirm_first_detected": False,
+                "confirm_first_detected": confirm_first_active,
                 "trigger_mode": "fresh",
                 "runtime_defaults_allowed": runtime_defaults,
                 "projected_chain": list(projected_chain),
@@ -379,7 +476,14 @@ class ExecutionReadinessContract(SplitContractSupport):
         current_ao = self.ao_manager.get_current_ao() if self.ao_manager is not None else None
         if current_ao is not None and telemetry.get("final_decision") == "proceed":
             pending = dict(getattr(current_ao, "metadata", {}).get("execution_readiness") or {})
-            pending["pending"] = False
+            continuation_after = dict(transition_meta.get("continuation_after") or {})
+            pending["pending"] = bool(continuation_after.get("pending_objective") == "parameter_collection")
+            if pending["pending"]:
+                pending["pending_slot"] = continuation_after.get("pending_slot")
+                pending["missing_slots"] = [continuation_after.get("pending_slot")] if continuation_after.get("pending_slot") else []
+            else:
+                pending["pending_slot"] = None
+                pending["missing_slots"] = []
             current_ao.metadata["execution_readiness"] = pending
 
     def _telemetry(
@@ -483,13 +587,60 @@ class ExecutionReadinessContract(SplitContractSupport):
         return dict(payload) if isinstance(payload, dict) else {}
 
     @staticmethod
-    def _persist_split_pending(ao: Any, tool_name: str, pending_slot: Optional[str], snapshot: Dict[str, Any]) -> None:
+    def _persist_split_pending(
+        ao: Any,
+        tool_name: str,
+        pending_slot: Optional[str],
+        snapshot: Dict[str, Any],
+        *,
+        missing_slots: Optional[List[str]] = None,
+        followup_slots: Optional[List[str]] = None,
+        confirm_first_slots: Optional[List[str]] = None,
+        confirm_first_detected: bool = False,
+        needs_clarification: bool = False,
+    ) -> None:
         if ao is None or not isinstance(getattr(ao, "metadata", None), dict):
             return
+        normalized_missing = [
+            str(item) for item in list(missing_slots if missing_slots is not None else ([pending_slot] if pending_slot else [])) if str(item).strip()
+        ]
         ao.metadata["execution_readiness"] = {
             "pending": bool(pending_slot),
             "tool_name": tool_name,
             "pending_slot": pending_slot,
-            "missing_slots": [pending_slot] if pending_slot else [],
+            "missing_slots": normalized_missing,
             "parameter_snapshot": copy.deepcopy(snapshot),
+            "followup_slots": [str(item) for item in list(followup_slots or []) if str(item).strip()],
+            "confirm_first_slots": [str(item) for item in list(confirm_first_slots or []) if str(item).strip()],
+            "confirm_first_detected": bool(confirm_first_detected),
+            "needs_clarification": bool(needs_clarification),
         }
+
+    @staticmethod
+    def _slot_names(values: Any) -> List[str]:
+        return [str(item) for item in list(values or []) if str(item).strip()]
+
+    def _missing_named_slots(self, snapshot: Dict[str, Dict[str, Any]], slot_names: Any) -> List[str]:
+        return [
+            slot_name
+            for slot_name in self._slot_names(slot_names)
+            if self._snapshot_missing_value(snapshot, slot_name)
+        ]
+
+    def _missing_confirm_first_slots(
+        self,
+        snapshot: Dict[str, Dict[str, Any]],
+        slot_names: Any,
+    ) -> List[str]:
+        missing: List[str] = []
+        for slot_name in self._slot_names(slot_names):
+            slot_payload = snapshot.get(slot_name)
+            if not isinstance(slot_payload, dict):
+                missing.append(slot_name)
+                continue
+            if self._snapshot_missing_value(snapshot, slot_name):
+                missing.append(slot_name)
+                continue
+            if str(slot_payload.get("source") or "missing") == "default":
+                missing.append(slot_name)
+        return missing

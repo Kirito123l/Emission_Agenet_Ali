@@ -134,6 +134,12 @@ class OASCContract(BaseContract):
                 for item in list(getattr(getattr(current_ao, "tool_intent", None), "projected_chain", []) or [])
                 if str(item).strip()
             ]
+            desired_after = transition_meta.get("continuation_after")
+            desired_after_state = (
+                ExecutionContinuation.from_dict(desired_after)
+                if isinstance(desired_after, dict)
+                else ExecutionContinuation.empty()
+            )
             if continuation_before.pending_objective == PendingObjective.CHAIN_CONTINUATION:
                 remaining = advance_tool_queue(
                     list(continuation_before.pending_tool_queue or []),
@@ -161,11 +167,24 @@ class OASCContract(BaseContract):
                     "initial_write" if continuation_after.is_active() else "clear_queue_empty"
                 )
             elif continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
-                continuation_after = ExecutionContinuation(
-                    pending_objective=PendingObjective.NONE,
-                    updated_turn=self._current_turn_index(),
-                )
-                transition_reason = "clear_queue_empty"
+                if desired_after_state.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+                    continuation_after = ExecutionContinuation(
+                        pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                        pending_slot=desired_after_state.pending_slot,
+                        probe_count=desired_after_state.probe_count,
+                        probe_limit=max(1, int(desired_after_state.probe_limit or continuation_before.probe_limit or 2)),
+                        abandoned=bool(desired_after_state.abandoned),
+                        updated_turn=self._current_turn_index(),
+                    )
+                    transition_reason = str(
+                        transition_meta.get("transition_reason") or "advance"
+                    )
+                else:
+                    continuation_after = ExecutionContinuation(
+                        pending_objective=PendingObjective.NONE,
+                        updated_turn=self._current_turn_index(),
+                    )
+                    transition_reason = "clear_queue_empty"
 
             save_execution_continuation(current_ao, continuation_after)
 
