@@ -230,7 +230,7 @@ E failure shapes in main full:
 
 The largest E failure concentration is still `multi_turn_clarification`: 18/20 failed, mostly with repeated executions or missing required user-response behavior rather than infra errors.
 
-### 6.2 Held-out Benchmark A vs E (Attempt 1 Aborted)
+### 6.2.1 Held-out Benchmark A vs E (Attempt 1 Aborted)
 
 Held-out full was attempted with:
 
@@ -261,7 +261,7 @@ The partial A metrics are not a valid held-out full conclusion:
 
 The aborted attempt was cleaned up by moving the metrics artifact to `evaluation/results/wave2_heldout_full_attempt1_aborted_A`.
 
-### 6.2 Held-out Benchmark A vs E (Retry)
+### 6.2.2 Held-out Benchmark A vs E (Retry, Pre-v5 Benchmark)
 
 Provider billing was restored and the held-out full run was retried with:
 
@@ -345,29 +345,100 @@ Wave 1 held-out full baseline:
 | Wave 1 A | 75 | 54.67% | 66.67% |
 | Wave 1 E | 75 | 18.67% | 32.00% |
 
+### 6.2.3 Held-out Benchmark Correction (v5)
+
+The held-out benchmark was then corrected at v5 after `evaluation/diagnostics/wave2_multistep_heldout_regression_diagnosis.md` confirmed that six `multi_step` tasks carried an erroneous `geometry_gated_halt_acceptable=true` success criterion.
+
+Problem summary:
+
+- `multistep_003`, `005`, and `007` already executed the exact expected full chain and still failed because the evaluator treated the halt-tolerance field as a required actual condition.
+- `multistep_001`, `004`, and `008` still contain real wrong-continuation bugs, but their incorrect halt flag would also have blocked clean Wave 3 verification even after the continuation bug was fixed.
+
+Why 6 corrected tasks rather than only 3:
+
+- `003`, `005`, `007`: exact-chain pass masked by bad benchmark criteria.
+- `001`, `004`, `008`: still wrong-continuation failures today, but the same bad criterion would have prevented them from turning green after a future router fix.
+
+Why `constraint_005`, `006`, `007` kept the flag:
+
+- those tasks use the field as intended: cross-constraint warning plus legally acceptable halt when geometry-dependent continuation is not appropriate.
+
+A was not rerun at v5. The correction was introduced to remeasure the Wave 2 E held-out regression that had already been diagnosed as benchmark-sensitive. The historical A retry remains the reference A baseline in this report.
+
+V5 rerun command:
+
+```bash
+/home/kirito/miniconda3/bin/python evaluation/run_oasc_matrix.py --groups E \
+  --samples evaluation/benchmarks/held_out_tasks.jsonl \
+  --parallel 8 --qps-limit 15 --cache \
+  --output-prefix wave2_heldout_full_v5_E
+```
+
+V5 rerun result:
+
+| Group | Tasks | Completion | Tool accuracy | Parameter legal | Result data | Infra unknown | Data integrity |
+|---|---:|---:|---:|---:|---:|---:|---|
+| E | 75 | 57.33% | 73.33% | 72.00% | 81.33% | 0 | clean |
+
+V5 per-category E results:
+
+| Category | Wave 2 E v5 |
+|---|---:|
+| `ambiguous_colloquial` | 80.00% |
+| `code_switch_typo` | 62.50% |
+| `constraint_violation` | 28.57% |
+| `incomplete` | 60.00% |
+| `multi_step` | 37.50% |
+| `multi_turn_clarification` | 0.00% |
+| `parameter_ambiguous` | 71.43% |
+| `simple` | 75.00% |
+| `user_revision` | 100.00% |
+
+Updated Wave 1 E vs Wave 2 E v5 held-out comparison:
+
+| Category | Wave 1 E | Wave 2 E v5 | Delta |
+|---|---:|---:|---:|
+| overall | 18.67% | 57.33% | +38.66 pp |
+| `ambiguous_colloquial` | 0.00% | 80.00% | +80.00 pp |
+| `code_switch_typo` | 0.00% | 62.50% | +62.50 pp |
+| `constraint_violation` | 14.29% | 28.57% | +14.28 pp |
+| `incomplete` | 100.00% | 60.00% | -40.00 pp |
+| `multi_step` | 0.00% | 37.50% | +37.50 pp |
+| `multi_turn_clarification` | 40.00% | 0.00% | -40.00 pp |
+| `parameter_ambiguous` | 0.00% | 71.43% | +71.43 pp |
+| `simple` | 0.00% | 75.00% | +75.00 pp |
+| `user_revision` | 50.00% | 100.00% | +50.00 pp |
+
+Key v5 number:
+
+- held-out E overall: `57.33%`
+- held-out E `multi_step`: `37.50%` = `3/8`
+
+The v5 rerun confirms the benchmark diagnosis: exactly three `multi_step` tasks (`003`, `005`, `007`) flip from fail to pass without any code change, leaving five genuine continuation failures for Wave 3.
+
 ### 6.3 Main vs Held-out Comparison (Generalization Check)
 
-Current clean comparison uses Stage 4 main full and the held-out full retry.
+Current clean comparison uses Stage 4 main full and the held-out v5 rerun.
 
 | Evidence | Main | Held-out |
 |---|---:|---:|
-| Wave 2 E overall | main full 71.67% | held-out full retry 56.00% |
-| `ambiguous_colloquial` | main full E 65.00% | held-out full E 70.00% |
-| `code_switch_typo` | main full E 90.00% | held-out full E 75.00% |
-| `constraint_violation` | main full E 76.47% | held-out full E 28.57% |
-| `incomplete` | main full E 83.33% | held-out full E 80.00% |
-| `multi_step` | main full E 90.00% | held-out full E 0.00% |
-| `multi_turn_clarification` | main full E 10.00% | held-out full E 0.00% |
-| `parameter_ambiguous` | main full E 66.67% | held-out full E 85.71% |
-| `simple` | main full E 80.95% | held-out full E 75.00% |
-| `user_revision` | main full E 85.00% | held-out full E 100.00% |
+| Wave 2 E overall | main full 71.67% | held-out full v5 57.33% |
+| `ambiguous_colloquial` | main full E 65.00% | held-out full E v5 80.00% |
+| `code_switch_typo` | main full E 90.00% | held-out full E v5 62.50% |
+| `constraint_violation` | main full E 76.47% | held-out full E v5 28.57% |
+| `incomplete` | main full E 83.33% | held-out full E v5 60.00% |
+| `multi_step` | main full E 90.00% | held-out full E v5 37.50% |
+| `multi_turn_clarification` | main full E 10.00% | held-out full E v5 0.00% |
+| `parameter_ambiguous` | main full E 66.67% | held-out full E v5 71.43% |
+| `simple` | main full E 80.95% | held-out full E v5 75.00% |
+| `user_revision` | main full E 85.00% | held-out full E v5 100.00% |
 
 Interpretation:
 
-- Wave 2 repairs the catastrophic Wave 1 held-out collapse in `simple`, `parameter_ambiguous`, `code_switch_typo`, `ambiguous_colloquial`, and `user_revision`.
-- Held-out `parameter_ambiguous` now exceeds both A and Wave 1 E.
+- Wave 2 repairs the catastrophic Wave 1 held-out collapse in `simple`, `parameter_ambiguous`, `code_switch_typo`, `ambiguous_colloquial`, `user_revision`, and part of `multi_step` once the benchmark contract is corrected.
+- Held-out `parameter_ambiguous` still exceeds Wave 1 E and main/held-out are now close enough to support a real robustness claim there.
 - Held-out `multi_turn_clarification` is 0.00%, confirming that the accepted multi-turn regression generalizes beyond main.
-- Held-out `multi_step` remains 0.00% despite strong main full performance, so this category needs separate generalization analysis before any robustness claim.
+- Held-out `multi_step` rises from 0.00% to 37.50% after benchmark correction, which shows that about half of the original collapse was evaluation-contract noise and about half remains a real continuation bug family.
 
 ## 7. Known Issues and Trade-offs
 
@@ -448,9 +519,11 @@ Expected impact:
 
 ### 9.1 Held-out Evaluation Necessity
 
-Wave 1 looked promising on main `multi_turn_clarification` smoke at 65%, but held-out E collapsed to 18.67% overall and 0% on `simple`, `parameter_ambiguous`, `multi_step`, and `code_switch_typo`. The Wave 2 held-out full retry reached 56.00% overall and repaired several collapsed categories: `simple` 0.00% -> 75.00%, `parameter_ambiguous` 0.00% -> 85.71%, `code_switch_typo` 0.00% -> 75.00%, `ambiguous_colloquial` 0.00% -> 70.00%, and `user_revision` 50.00% -> 100.00%.
+Wave 1 looked promising on main `multi_turn_clarification` smoke at 65%, but held-out E collapsed to 18.67% overall and 0% on `simple`, `parameter_ambiguous`, `multi_step`, and `code_switch_typo`. After the Wave 2 held-out benchmark correction and v5 rerun, held-out E reached 57.33% overall and repaired several collapsed categories: `simple` 0.00% -> 75.00%, `parameter_ambiguous` 0.00% -> 71.43%, `code_switch_typo` 0.00% -> 62.50%, `ambiguous_colloquial` 0.00% -> 80.00%, and `user_revision` 50.00% -> 100.00%.
 
-The same held-out full retry also shows why held-out evaluation cannot be replaced by main metrics: `multi_step` remains 0.00% on held-out despite 90.00% on main full, and `multi_turn_clarification` falls from Wave 1 held-out 40.00% to Wave 2 held-out 0.00%.
+The corrected v5 run also shows why held-out evaluation cannot be replaced by main metrics: `multi_step` improves from 0.00% to 37.50% after a benchmark self-audit, but still trails main full 90.00%, and `multi_turn_clarification` falls from Wave 1 held-out 40.00% to Wave 2 held-out 0.00%.
+
+Held-out benchmark construction itself requires iteration. Our initial held-out set included six multi-step tasks with overly strict geometry-halt criteria, carried over from main-benchmark fixtures that happened to rely on halt tolerance. Stage-4 analysis revealed that half of the held-out multi_step 0% rate was an evaluation-contract bug rather than execution failure. Held-out-first development must include benchmark self-audit as a checkpoint; the value of the paradigm comes precisely from these late-stage corrections, not in spite of them.
 
 Suggested citation anchor:
 
