@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from config import get_config
 from core.analytical_objective import (
@@ -8,6 +8,7 @@ from core.analytical_objective import (
     IntentConfidence,
     ToolIntent,
 )
+from core.execution_continuation_utils import load_execution_continuation
 
 
 class IntentResolver:
@@ -20,16 +21,6 @@ class IntentResolver:
 
     def resolve_fast(self, state: Any, ao: Any) -> ToolIntent:
         """Rules-only fast path. Returns HIGH when a legacy resolver rule hits."""
-        pending_tool = self._pending_tool_name(ao)
-        if pending_tool:
-            return self._intent(
-                pending_tool,
-                IntentConfidence.HIGH,
-                resolved_by="rule:pending",
-                evidence=["pending_tool_name"],
-                state=state,
-            )
-
         hints = self._extract_hints(state)
         desired_chain = [str(item) for item in hints.get("desired_tool_chain") or [] if item]
         if desired_chain:
@@ -39,6 +30,19 @@ class IntentResolver:
                 resolved_by="rule:desired_chain",
                 evidence=[f"desired_chain:{';'.join(desired_chain)}"],
                 state=state,
+                projected_chain=desired_chain,
+            )
+
+        pending_tool = self._pending_tool_name(ao)
+        if pending_tool:
+            projected_chain = self._projected_chain_from_ao(ao) or [pending_tool]
+            return self._intent(
+                pending_tool,
+                IntentConfidence.HIGH,
+                resolved_by="rule:pending",
+                evidence=["pending_tool_name"],
+                state=state,
+                projected_chain=projected_chain,
             )
 
         task_type = str(getattr(getattr(state, "file_context", None), "task_type", "") or "").strip()
@@ -49,6 +53,7 @@ class IntentResolver:
                 resolved_by="rule:file_task_type",
                 evidence=["file_task_type:macro_emission"],
                 state=state,
+                projected_chain=["calculate_macro_emission"],
             )
         if task_type == "micro_emission":
             return self._intent(
@@ -57,6 +62,7 @@ class IntentResolver:
                 resolved_by="rule:file_task_type",
                 evidence=["file_task_type:micro_emission"],
                 state=state,
+                projected_chain=["calculate_micro_emission"],
             )
 
         if hints.get("wants_factor"):
@@ -66,6 +72,7 @@ class IntentResolver:
                 resolved_by="rule:wants_factor_strict",
                 evidence=["wants_factor:true"],
                 state=state,
+                projected_chain=["query_emission_factors"],
             )
 
         parent_tool = self._revision_parent_tool(ao)
@@ -76,9 +83,17 @@ class IntentResolver:
                 resolved_by="rule:revision_parent",
                 evidence=[f"revision_parent_tool:{parent_tool}"],
                 state=state,
+                projected_chain=[parent_tool],
             )
 
-        return self._intent(None, IntentConfidence.NONE, resolved_by=None, evidence=[], state=state)
+        return self._intent(
+            None,
+            IntentConfidence.NONE,
+            resolved_by=None,
+            evidence=[],
+            state=state,
+            projected_chain=[],
+        )
 
     def resolve_with_llm_hint(self, state: Any, ao: Any, llm_hint: Optional[Dict[str, Any]]) -> ToolIntent:
         """Merge fast rules with an intent hint produced by the slot filler."""
@@ -92,6 +107,16 @@ class IntentResolver:
                     + ":"
                     + str(parsed_hint.get("intent_confidence") or "none")
                 )
+                parsed_chain = list(parsed_hint.get("projected_chain") or [])
+                if (
+                    parsed_chain
+                    and fast.resolved_tool == parsed_chain[0]
+                    and (
+                        not fast.projected_chain
+                        or len(parsed_chain) > len(fast.projected_chain)
+                    )
+                ):
+                    fast.projected_chain = parsed_chain
             return fast
 
         if not getattr(self.runtime_config, "enable_llm_intent_resolution", True):
@@ -112,6 +137,7 @@ class IntentResolver:
             resolved_by="llm_slot_filler" if confidence != IntentConfidence.NONE else None,
             evidence=evidence,
             state=state,
+            projected_chain=list(parsed_hint.get("projected_chain") or []),
         )
 
     def _extract_hints(self, state: Any) -> Dict[str, Any]:
@@ -123,11 +149,9 @@ class IntentResolver:
 
     @staticmethod
     def _pending_tool_name(ao: Any) -> Optional[str]:
-        tool_intent = getattr(ao, "tool_intent", None)
-        resolved_tool = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
-        confidence = getattr(tool_intent, "confidence", IntentConfidence.NONE)
-        if resolved_tool and confidence == IntentConfidence.HIGH:
-            return resolved_tool
+        continuation = load_execution_continuation(ao)
+        if continuation.pending_next_tool:
+            return str(continuation.pending_next_tool).strip() or None
         metadata = getattr(ao, "metadata", None)
         if not isinstance(metadata, dict):
             return None
@@ -136,6 +160,18 @@ class IntentResolver:
             return None
         pending_tool = str(contract_state.get("tool_name") or "").strip()
         return pending_tool or None
+
+    @staticmethod
+    def _projected_chain_from_ao(ao: Any) -> List[str]:
+        continuation = load_execution_continuation(ao)
+        if continuation.pending_tool_queue:
+            return [str(item) for item in continuation.pending_tool_queue if str(item).strip()]
+        tool_intent = getattr(ao, "tool_intent", None)
+        return [
+            str(item)
+            for item in list(getattr(tool_intent, "projected_chain", []) or [])
+            if str(item).strip()
+        ]
 
     def _revision_parent_tool(self, ao: Any) -> Optional[str]:
         if ao is None or getattr(ao, "relationship", None) != AORelationship.REVISION:
@@ -188,6 +224,15 @@ class IntentResolver:
             "confidence": confidence,
             "intent_confidence": confidence.value,
             "reasoning": llm_hint.get("reasoning"),
+            "projected_chain": [
+                str(item)
+                for item in list(
+                    llm_hint.get("projected_chain")
+                    or llm_hint.get("chain")
+                    or []
+                )
+                if str(item).strip()
+            ],
         }
 
     @staticmethod
@@ -198,6 +243,7 @@ class IntentResolver:
         resolved_by: Optional[str],
         evidence: list[str],
         state: Any,
+        projected_chain: Optional[List[str]] = None,
     ) -> ToolIntent:
         return ToolIntent(
             resolved_tool=resolved_tool,
@@ -205,4 +251,7 @@ class IntentResolver:
             evidence=list(evidence),
             resolved_at_turn=int(getattr(state, "turn_index", 0) or 0) or None,
             resolved_by=resolved_by,
+            projected_chain=[
+                str(item) for item in list(projected_chain or []) if str(item).strip()
+            ],
         )

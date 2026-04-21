@@ -731,6 +731,7 @@ class ClarificationContract(BaseContract):
                 "resolved_tool": raw.get("resolved_tool") or raw.get("tool"),
                 "intent_confidence": raw.get("intent_confidence") or raw.get("confidence") or raw.get("conf"),
                 "reasoning": raw.get("reasoning"),
+                "projected_chain": raw.get("projected_chain") or raw.get("chain") or llm_payload.get("chain") or [],
             }
             return hint, dict(raw), True
         if llm_payload.get("tool_name"):
@@ -738,6 +739,7 @@ class ClarificationContract(BaseContract):
                 "resolved_tool": llm_payload.get("tool_name"),
                 "intent_confidence": "high",
                 "reasoning": "legacy tool_name field",
+                "projected_chain": llm_payload.get("chain") or [],
             }
             return raw_hint, dict(raw_hint), True
         return None, None, False
@@ -853,6 +855,7 @@ class ClarificationContract(BaseContract):
         target.evidence = list(getattr(tool_intent, "evidence", []) or [])
         target.resolved_at_turn = getattr(tool_intent, "resolved_at_turn", None)
         target.resolved_by = getattr(tool_intent, "resolved_by", None)
+        target.projected_chain = list(getattr(tool_intent, "projected_chain", []) or [])
 
     def _persist_stance(self, ao: Any, resolution: StanceResolution) -> None:
         if ao is None or not getattr(self.runtime_config, "enable_conversational_stance", True):

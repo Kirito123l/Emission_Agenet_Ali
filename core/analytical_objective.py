@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from core.execution_continuation import ExecutionContinuation
+
 
 class AOStatus(Enum):
     CREATED = "created"
@@ -50,6 +52,7 @@ class ToolIntent:
     evidence: List[str] = field(default_factory=list)
     resolved_at_turn: Optional[int] = None
     resolved_by: Optional[str] = None
+    projected_chain: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -58,6 +61,9 @@ class ToolIntent:
             "evidence": list(self.evidence),
             "resolved_at_turn": self.resolved_at_turn,
             "resolved_by": self.resolved_by,
+            "projected_chain": [
+                str(item) for item in self.projected_chain if str(item).strip()
+            ],
         }
 
     @classmethod
@@ -86,6 +92,11 @@ class ToolIntent:
                 if payload.get("resolved_by") is not None
                 else None
             ),
+            projected_chain=[
+                str(item)
+                for item in list(payload.get("projected_chain") or [])
+                if str(item).strip()
+            ],
         )
 
 
@@ -357,6 +368,8 @@ class AnalyticalObjective:
             tool_intent.confidence = IntentConfidence.HIGH
             tool_intent.resolved_by = "migration:metadata"
             tool_intent.evidence.append("metadata.clarification_contract.tool_name")
+            if not tool_intent.projected_chain:
+                tool_intent.projected_chain = [pending_tool]
 
         if not parameter_state.collection_mode:
             parameter_state.collection_mode = bool(metadata.get("collection_mode", False))
@@ -379,6 +392,12 @@ class AnalyticalObjective:
             parameter_state.probe_turn_count = int(contract_state.get("probe_turn_count") or 0)
         if not parameter_state.probe_abandoned:
             parameter_state.probe_abandoned = bool(contract_state.get("probe_abandoned", False))
+
+        continuation_state = metadata.get("execution_continuation")
+        if isinstance(continuation_state, dict):
+            metadata["execution_continuation"] = ExecutionContinuation.from_dict(
+                continuation_state
+            ).to_dict()
 
 
 def _contract_split_enabled() -> bool:

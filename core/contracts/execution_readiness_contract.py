@@ -4,9 +4,19 @@ import copy
 from typing import Any, Dict, List, Optional
 
 from core.analytical_objective import ConversationalStance
+from core.continuation_signals import has_probe_abandon_marker, has_reversal_marker
 from core.contracts.base import ContractContext, ContractInterception
 from core.contracts.runtime_defaults import has_runtime_default
 from core.contracts.split_contract_utils import SplitContractSupport
+from core.execution_continuation import ExecutionContinuation, PendingObjective
+from core.execution_continuation_utils import (
+    clear_execution_continuation,
+    continuation_snapshot,
+    load_execution_continuation,
+    normalize_tool_queue,
+    save_execution_continuation,
+)
+from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
 
 
@@ -17,9 +27,12 @@ class ExecutionReadinessContract(SplitContractSupport):
 
     def __init__(self, inner_router: Any = None, ao_manager: Any = None, runtime_config: Any = None):
         super().__init__(inner_router=inner_router, ao_manager=ao_manager, runtime_config=runtime_config)
+        self.intent_resolver = IntentResolver(inner_router, ao_manager)
 
     async def before_turn(self, context: ContractContext) -> ContractInterception:
         if not getattr(self.runtime_config, "enable_contract_split", False):
+            return ContractInterception()
+        if not getattr(self.runtime_config, "enable_split_readiness_contract", True):
             return ContractInterception()
         state = context.state_snapshot
         oasc_state = dict(context.metadata.get("oasc") or {})
@@ -27,13 +40,29 @@ class ExecutionReadinessContract(SplitContractSupport):
         current_ao = self.ao_manager.get_current_ao() if self.ao_manager is not None else None
         if state is None or classification is None or current_ao is None:
             return ContractInterception()
+        continuation_before = load_execution_continuation(current_ao)
+        short_circuit_intent = bool(
+            (context.metadata.get("intent_resolution") or {}).get("short_circuit_intent")
+        )
         tool_intent = context.metadata.get("tool_intent") or getattr(current_ao, "tool_intent", None)
+        if (
+            (tool_intent is None or not str(getattr(tool_intent, "resolved_tool", "") or "").strip())
+            and not bool(getattr(self.runtime_config, "enable_split_intent_contract", True))
+        ):
+            tool_intent = self.intent_resolver.resolve_fast(state, current_ao)
+            context.metadata["tool_intent"] = tool_intent
+            self._persist_tool_intent(current_ao, tool_intent)
         tool_name = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
         if not tool_name:
             return ContractInterception()
         tool_spec = self._get_tool_spec(tool_name)
         if not tool_spec:
             return ContractInterception()
+        projected_chain = normalize_tool_queue(
+            list(getattr(tool_intent, "projected_chain", []) or [tool_name])
+        )
+        if not projected_chain:
+            projected_chain = [tool_name]
 
         snapshot = self._initial_snapshot(
             tool_name=tool_name,
@@ -69,8 +98,96 @@ class ExecutionReadinessContract(SplitContractSupport):
         )
         missing_required = self._missing_slots(snapshot, active_required_slots)
         optional_classification = self._classify_missing_optionals(tool_name, snapshot, tool_spec)
-        stance_value = getattr(getattr(current_ao, "stance", None), "value", None) or "directive"
+        if bool(getattr(self.runtime_config, "enable_split_stance_contract", True)):
+            stance_value = getattr(getattr(current_ao, "stance", None), "value", None) or "directive"
+        else:
+            stance_value = ConversationalStance.DIRECTIVE.value
         branch = stance_value if stance_value in {"directive", "deliberative", "exploratory"} else "directive"
+        transition_reason = "no_change"
+        continuation_after = continuation_before
+
+        reversal_detected = bool((context.metadata.get("stance") or {}).get("reversal_detected"))
+        if (
+            continuation_before.is_active()
+            and (reversal_detected or has_reversal_marker(context.effective_user_message))
+        ):
+            clear_execution_continuation(current_ao, updated_turn=self._current_turn_index())
+            continuation_after = load_execution_continuation(current_ao)
+            continuation_before = continuation_before
+            transition_reason = "reset_reversal"
+        elif (
+            continuation_before.pending_objective == PendingObjective.CHAIN_CONTINUATION
+            and continuation_before.pending_next_tool
+            and projected_chain
+            and projected_chain[0] != continuation_before.pending_next_tool
+        ):
+            continuation_after = ExecutionContinuation(
+                pending_objective=PendingObjective.CHAIN_CONTINUATION,
+                pending_next_tool=projected_chain[0],
+                pending_tool_queue=list(projected_chain),
+                updated_turn=self._current_turn_index(),
+            )
+            save_execution_continuation(current_ao, continuation_after)
+            transition_reason = "replace_queue_override"
+
+        if missing_required or rejected_slots:
+            pending_slot = (missing_required or rejected_slots or [None])[0]
+            question = self._build_question(
+                tool_name=tool_name,
+                snapshot=snapshot,
+                missing_slots=missing_required,
+                rejected_slots=rejected_slots,
+                llm_question=stage2_meta.get("stage2_clarification_question"),
+            )
+            self._persist_split_pending(current_ao, tool_name, pending_slot, snapshot)
+            continuation_after = ExecutionContinuation(
+                pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                pending_slot=pending_slot,
+                probe_count=int(
+                    continuation_before.probe_count
+                    if continuation_before.pending_slot == pending_slot
+                    else 0
+                ),
+                probe_limit=max(1, int(continuation_before.probe_limit or 2)),
+                abandoned=False,
+                updated_turn=self._current_turn_index(),
+            )
+            save_execution_continuation(current_ao, continuation_after)
+            if transition_reason == "no_change":
+                transition_reason = "initial_write"
+            telemetry = self._telemetry(
+                tool_name=tool_name,
+                decision="clarify",
+                branch=branch,
+                pending_slot=pending_slot,
+                stage1_filled=stage1_filled,
+                stage2_meta=stage2_meta,
+                normalizations=normalizations,
+                rejected_slots=rejected_slots,
+                runtime_defaults=[],
+                no_default_optionals_probed=[],
+                continuation_before=continuation_before,
+                continuation_after=continuation_after,
+                transition_reason=transition_reason,
+                short_circuit_intent=short_circuit_intent,
+            )
+            context.metadata["execution_continuation_transition"] = {
+                "continuation_before": continuation_snapshot(continuation_before),
+                "continuation_after": continuation_snapshot(continuation_after),
+                "transition_reason": transition_reason,
+                "short_circuit_intent": short_circuit_intent,
+            }
+            return ContractInterception(
+                proceed=False,
+                response=RouterResponse(
+                    text=question,
+                    trace_friendly=[{"step_type": "clarification", "summary": question}],
+                ),
+                metadata={"clarification": {"telemetry": telemetry}},
+            )
+
+        no_default_optionals = list(optional_classification["no_default"])
+        runtime_defaults = list(optional_classification["resolved_by_default"])
 
         if branch == ConversationalStance.EXPLORATORY.value:
             telemetry = self._telemetry(
@@ -84,7 +201,17 @@ class ExecutionReadinessContract(SplitContractSupport):
                 rejected_slots=rejected_slots,
                 runtime_defaults=[],
                 no_default_optionals_probed=[],
+                continuation_before=continuation_before,
+                continuation_after=continuation_after,
+                transition_reason=transition_reason,
+                short_circuit_intent=short_circuit_intent,
             )
+            context.metadata["execution_continuation_transition"] = {
+                "continuation_before": continuation_snapshot(continuation_before),
+                "continuation_after": continuation_snapshot(continuation_after),
+                "transition_reason": transition_reason,
+                "short_circuit_intent": short_circuit_intent,
+            }
             return ContractInterception(
                 proceed=False,
                 response=RouterResponse(
@@ -94,69 +221,85 @@ class ExecutionReadinessContract(SplitContractSupport):
                 metadata={"clarification": {"telemetry": telemetry}},
             )
 
-        if missing_required or rejected_slots:
-            pending_slot = (missing_required or rejected_slots or [None])[0]
-            question = self._build_question(
-                tool_name=tool_name,
-                snapshot=snapshot,
-                missing_slots=missing_required,
-                rejected_slots=rejected_slots,
-                llm_question=stage2_meta.get("stage2_clarification_question"),
-            )
-            self._persist_split_pending(current_ao, tool_name, pending_slot, snapshot)
-            telemetry = self._telemetry(
-                tool_name=tool_name,
-                decision="clarify",
-                branch=branch,
-                pending_slot=pending_slot,
-                stage1_filled=stage1_filled,
-                stage2_meta=stage2_meta,
-                normalizations=normalizations,
-                rejected_slots=rejected_slots,
-                runtime_defaults=[],
-                no_default_optionals_probed=[],
-            )
-            return ContractInterception(
-                proceed=False,
-                response=RouterResponse(
-                    text=question,
-                    trace_friendly=[{"step_type": "clarification", "summary": question}],
-                ),
-                metadata={"clarification": {"telemetry": telemetry}},
-            )
-
-        no_default_optionals = list(optional_classification["no_default"])
-        runtime_defaults = list(optional_classification["resolved_by_default"])
-
         if branch == ConversationalStance.DELIBERATIVE.value and no_default_optionals:
             pending_slot = no_default_optionals[0]
-            self._persist_split_pending(current_ao, tool_name, pending_slot, snapshot)
-            question = await self._build_probe_question(
-                tool_name=tool_name,
-                snapshot=snapshot,
-                slot_name=pending_slot,
-                current_ao=current_ao,
+            probe_count = (
+                continuation_before.probe_count + 1
+                if continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION
+                and continuation_before.pending_slot == pending_slot
+                else 1
             )
-            telemetry = self._telemetry(
-                tool_name=tool_name,
-                decision="clarify",
-                branch=branch,
-                pending_slot=pending_slot,
-                stage1_filled=stage1_filled,
-                stage2_meta=stage2_meta,
-                normalizations=normalizations,
-                rejected_slots=rejected_slots,
-                runtime_defaults=runtime_defaults,
-                no_default_optionals_probed=no_default_optionals,
+            probe_limit = max(1, int(continuation_before.probe_limit or 2))
+            if has_probe_abandon_marker(context.effective_user_message) or probe_count >= probe_limit:
+                continuation_after = ExecutionContinuation(
+                    pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                    pending_slot=pending_slot,
+                    probe_count=probe_count,
+                    probe_limit=probe_limit,
+                    abandoned=True,
+                    updated_turn=self._current_turn_index(),
+                )
+                save_execution_continuation(current_ao, continuation_after)
+                transition_reason = "abandon_probe_limit"
+            else:
+                self._persist_split_pending(current_ao, tool_name, pending_slot, snapshot)
+                continuation_after = ExecutionContinuation(
+                    pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                    pending_slot=pending_slot,
+                    probe_count=probe_count,
+                    probe_limit=probe_limit,
+                    abandoned=False,
+                    updated_turn=self._current_turn_index(),
+                )
+                save_execution_continuation(current_ao, continuation_after)
+                if transition_reason == "no_change":
+                    transition_reason = "initial_write"
+                question = await self._build_probe_question(
+                    tool_name=tool_name,
+                    snapshot=snapshot,
+                    slot_name=pending_slot,
+                    current_ao=current_ao,
+                )
+                telemetry = self._telemetry(
+                    tool_name=tool_name,
+                    decision="clarify",
+                    branch=branch,
+                    pending_slot=pending_slot,
+                    stage1_filled=stage1_filled,
+                    stage2_meta=stage2_meta,
+                    normalizations=normalizations,
+                    rejected_slots=rejected_slots,
+                    runtime_defaults=runtime_defaults,
+                    no_default_optionals_probed=no_default_optionals,
+                    continuation_before=continuation_before,
+                    continuation_after=continuation_after,
+                    transition_reason=transition_reason,
+                    short_circuit_intent=short_circuit_intent,
+                )
+                context.metadata["execution_continuation_transition"] = {
+                    "continuation_before": continuation_snapshot(continuation_before),
+                    "continuation_after": continuation_snapshot(continuation_after),
+                    "transition_reason": transition_reason,
+                    "short_circuit_intent": short_circuit_intent,
+                }
+                return ContractInterception(
+                    proceed=False,
+                    response=RouterResponse(
+                        text=question,
+                        trace_friendly=[{"step_type": "clarification", "summary": question}],
+                    ),
+                    metadata={"clarification": {"telemetry": telemetry}},
+                )
+
+        self._persist_split_pending(current_ao, tool_name, None, snapshot)
+        if continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+            continuation_after = ExecutionContinuation(
+                pending_objective=PendingObjective.NONE,
+                updated_turn=self._current_turn_index(),
             )
-            return ContractInterception(
-                proceed=False,
-                response=RouterResponse(
-                    text=question,
-                    trace_friendly=[{"step_type": "clarification", "summary": question}],
-                ),
-                metadata={"clarification": {"telemetry": telemetry}},
-            )
+            save_execution_continuation(current_ao, continuation_after)
+            if transition_reason == "no_change":
+                transition_reason = "advance"
 
         telemetry = self._telemetry(
             tool_name=tool_name,
@@ -169,27 +312,51 @@ class ExecutionReadinessContract(SplitContractSupport):
             rejected_slots=rejected_slots,
             runtime_defaults=runtime_defaults,
             no_default_optionals_probed=[],
+            continuation_before=continuation_before,
+            continuation_after=continuation_after,
+            transition_reason=transition_reason,
+            short_circuit_intent=short_circuit_intent,
         )
-        return ContractInterception(
-            metadata={
-                "clarification": {
-                    "telemetry": telemetry,
-                    "direct_execution": {
-                        "tool_name": tool_name,
-                        "parameter_snapshot": copy.deepcopy(snapshot),
-                        "confirm_first_detected": False,
-                        "trigger_mode": "fresh",
-                        "runtime_defaults_allowed": runtime_defaults,
-                    },
-                }
+        context.metadata["execution_continuation_transition"] = {
+            "continuation_before": continuation_snapshot(continuation_before),
+            "continuation_after": continuation_snapshot(continuation_after),
+            "transition_reason": transition_reason,
+            "short_circuit_intent": short_circuit_intent,
+        }
+        clarification_metadata: Dict[str, Any] = {"telemetry": telemetry}
+        if len(projected_chain) <= 1:
+            clarification_metadata["direct_execution"] = {
+                "tool_name": tool_name,
+                "parameter_snapshot": copy.deepcopy(snapshot),
+                "confirm_first_detected": False,
+                "trigger_mode": "fresh",
+                "runtime_defaults_allowed": runtime_defaults,
+                "projected_chain": list(projected_chain),
             }
-        )
+        context.metadata["execution_continuation_plan"] = {
+            "projected_chain": list(projected_chain),
+            "tool_name": tool_name,
+        }
+        return ContractInterception(metadata={"clarification": clarification_metadata})
 
     async def after_turn(self, context: ContractContext, result: RouterResponse) -> None:
         clarification_state = dict(context.metadata.get("clarification") or {})
         telemetry = clarification_state.get("telemetry")
         if telemetry is None:
             return
+        transition_meta = dict(context.metadata.get("execution_continuation_transition") or {})
+        telemetry["execution_continuation"] = {
+            "continuation_before": dict(
+                transition_meta.get("continuation_before")
+                or continuation_snapshot(load_execution_continuation(self.ao_manager.get_current_ao() if self.ao_manager else None))
+            ),
+            "continuation_after": dict(
+                transition_meta.get("continuation_after")
+                or continuation_snapshot(load_execution_continuation(self.ao_manager.get_current_ao() if self.ao_manager else None))
+            ),
+            "transition_reason": transition_meta.get("transition_reason") or "no_change",
+            "short_circuit_intent": bool(transition_meta.get("short_circuit_intent")),
+        }
         trace_obj = result.trace if isinstance(result.trace, dict) else None
         if trace_obj is None:
             trace_obj = {}
@@ -228,6 +395,10 @@ class ExecutionReadinessContract(SplitContractSupport):
         rejected_slots: List[str],
         runtime_defaults: List[str],
         no_default_optionals_probed: List[str],
+        continuation_before: ExecutionContinuation,
+        continuation_after: ExecutionContinuation,
+        transition_reason: str,
+        short_circuit_intent: bool,
     ) -> Dict[str, Any]:
         return {
             "turn": self._current_turn_index(),
@@ -259,6 +430,12 @@ class ExecutionReadinessContract(SplitContractSupport):
                 "runtime_defaults_resolved": list(runtime_defaults),
                 "no_default_optionals_probed": list(no_default_optionals_probed),
             },
+            "execution_continuation": {
+                "continuation_before": continuation_snapshot(continuation_before),
+                "continuation_after": continuation_snapshot(continuation_after),
+                "transition_reason": transition_reason,
+                "short_circuit_intent": bool(short_circuit_intent),
+            },
         }
 
     def _classify_missing_optionals(
@@ -277,7 +454,10 @@ class ExecutionReadinessContract(SplitContractSupport):
         for slot_name in optional_slots:
             if not self._snapshot_missing_value(snapshot, slot_name):
                 continue
-            if has_runtime_default(tool_name, slot_name):
+            if (
+                getattr(self.runtime_config, "enable_runtime_default_aware_readiness", True)
+                and has_runtime_default(tool_name, slot_name)
+            ):
                 resolved_by_default.append(slot_name)
             else:
                 no_default.append(slot_name)

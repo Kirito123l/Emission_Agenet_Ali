@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, Optional
 
 from config import get_config
+from core.analytical_objective import ConversationalStance, StanceConfidence
 from core.ao_manager import AOManager
 from core.contracts import (
     ClarificationContract,
@@ -48,21 +49,24 @@ class GovernedRouter:
         self.stance_resolution_contract = None
         self.execution_readiness_contract = None
         if self.contract_split_enabled:
-            self.intent_resolution_contract = IntentResolutionContract(
-                inner_router=self.inner_router,
-                ao_manager=self.ao_manager,
-                runtime_config=self.runtime_config,
-            )
-            self.stance_resolution_contract = StanceResolutionContract(
-                inner_router=self.inner_router,
-                ao_manager=self.ao_manager,
-                runtime_config=self.runtime_config,
-            )
-            self.execution_readiness_contract = ExecutionReadinessContract(
-                inner_router=self.inner_router,
-                ao_manager=self.ao_manager,
-                runtime_config=self.runtime_config,
-            )
+            if bool(getattr(self.runtime_config, "enable_split_intent_contract", True)):
+                self.intent_resolution_contract = IntentResolutionContract(
+                    inner_router=self.inner_router,
+                    ao_manager=self.ao_manager,
+                    runtime_config=self.runtime_config,
+                )
+            if bool(getattr(self.runtime_config, "enable_split_stance_contract", True)):
+                self.stance_resolution_contract = StanceResolutionContract(
+                    inner_router=self.inner_router,
+                    ao_manager=self.ao_manager,
+                    runtime_config=self.runtime_config,
+                )
+            if bool(getattr(self.runtime_config, "enable_split_readiness_contract", True)):
+                self.execution_readiness_contract = ExecutionReadinessContract(
+                    inner_router=self.inner_router,
+                    ao_manager=self.ao_manager,
+                    runtime_config=self.runtime_config,
+                )
         else:
             self.clarification_contract = ClarificationContract(
                 inner_router=self.inner_router,
@@ -74,9 +78,13 @@ class GovernedRouter:
         if self.contract_split_enabled:
             self.contracts.extend(
                 [
-                    self.intent_resolution_contract,
-                    self.stance_resolution_contract,
-                    self.execution_readiness_contract,
+                    contract
+                    for contract in (
+                        self.intent_resolution_contract,
+                        self.stance_resolution_contract,
+                        self.execution_readiness_contract,
+                    )
+                    if contract is not None
                 ]
             )
         else:
@@ -105,7 +113,11 @@ class GovernedRouter:
                 context.user_message_override = interception.user_message_override
             if interception.metadata:
                 context.metadata.update(interception.metadata)
-            if getattr(contract, "name", None) == "oasc":
+            if (
+                getattr(contract, "name", None) == "oasc"
+                and self.contract_split_enabled
+                and not bool(getattr(self.runtime_config, "enable_split_stance_contract", True))
+            ):
                 stance_metadata = self._apply_stance_resolution(context)
                 if stance_metadata:
                     context.metadata["stance"] = stance_metadata
@@ -339,6 +351,23 @@ class GovernedRouter:
         current_ao = self.ao_manager.get_current_ao()
         if current_ao is None:
             return {}
+        if self.contract_split_enabled and not bool(
+            getattr(self.runtime_config, "enable_split_stance_contract", True)
+        ):
+            turn = self._current_turn_index(pre_call=True)
+            resolution = StanceResolution(
+                stance=ConversationalStance.DIRECTIVE,
+                confidence=StanceConfidence.LOW,
+                evidence=["minimal_prior_directive"],
+                resolved_by="minimal_prior_directive",
+            )
+            self._write_stance(current_ao, resolution, turn)
+            return {
+                "reversal_detected": False,
+                "stance": resolution.stance.value,
+                "resolved_by": resolution.resolved_by,
+                "evidence": list(resolution.evidence),
+            }
         classification_value = str(getattr(getattr(classification, "classification", None), "value", "") or "")
         turn = self._current_turn_index(pre_call=True)
         if classification_value in {"new_ao", "revision"}:

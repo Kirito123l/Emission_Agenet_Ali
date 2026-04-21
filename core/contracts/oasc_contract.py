@@ -9,6 +9,14 @@ from core.analytical_objective import AORelationship, ToolCallRecord
 from core.ao_classifier import AOClassification, OAScopeClassifier
 from core.ao_manager import AOManager, TurnOutcome
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
+from core.execution_continuation import ExecutionContinuation, PendingObjective
+from core.execution_continuation_utils import (
+    advance_tool_queue,
+    build_chain_continuation,
+    continuation_snapshot,
+    load_execution_continuation,
+    save_execution_continuation,
+)
 from core.router import RouterResponse
 from core.task_state import ContinuationDecision, TaskState
 from services.llm_client import get_llm_client
@@ -81,6 +89,7 @@ class OASCContract(BaseContract):
             self._sync_ao_from_turn_result(result)
             current_ao = self.ao_manager.get_current_ao()
             if current_ao is not None:
+                self._refresh_split_execution_continuation(context, result, current_ao)
                 turn_outcome = self._build_turn_outcome(result)
                 self.ao_manager.complete_ao(
                     current_ao.ao_id,
@@ -95,6 +104,77 @@ class OASCContract(BaseContract):
             classifier_telemetry=self.classifier.telemetry_slice(classifier_telemetry_start),
             ao_lifecycle_events=self.ao_manager.telemetry_slice(ao_telemetry_start),
         )
+
+    def _refresh_split_execution_continuation(
+        self,
+        context: ContractContext,
+        result: RouterResponse,
+        current_ao: Any,
+    ) -> None:
+        if not bool(getattr(self.runtime_config, "enable_contract_split", False)):
+            return
+        if not bool(getattr(self.runtime_config, "enable_split_continuation_state", True)):
+            return
+
+        transition_meta = dict(context.metadata.get("execution_continuation_transition") or {})
+        continuation_before = load_execution_continuation(current_ao)
+        executed_tools = [
+            str(item.get("name") or "").strip()
+            for item in list(result.executed_tool_calls or [])
+            if isinstance(item, dict)
+            and str(item.get("name") or "").strip()
+            and bool((item.get("result") or {}).get("success"))
+        ]
+        continuation_after = continuation_before
+        transition_reason = str(transition_meta.get("transition_reason") or "no_change")
+
+        if executed_tools:
+            projected_chain = [
+                str(item)
+                for item in list(getattr(getattr(current_ao, "tool_intent", None), "projected_chain", []) or [])
+                if str(item).strip()
+            ]
+            if continuation_before.pending_objective == PendingObjective.CHAIN_CONTINUATION:
+                remaining = advance_tool_queue(
+                    list(continuation_before.pending_tool_queue or []),
+                    executed_tools,
+                )
+                continuation_after = ExecutionContinuation(
+                    pending_objective=(
+                        PendingObjective.CHAIN_CONTINUATION if remaining else PendingObjective.NONE
+                    ),
+                    pending_next_tool=remaining[0] if remaining else None,
+                    pending_tool_queue=remaining,
+                    probe_count=continuation_before.probe_count,
+                    probe_limit=continuation_before.probe_limit,
+                    abandoned=False,
+                    updated_turn=self._current_turn_index(),
+                )
+                transition_reason = "advance_queue" if remaining else "clear_queue_empty"
+            elif projected_chain and len(projected_chain) > 1:
+                continuation_after = build_chain_continuation(
+                    projected_chain,
+                    current_tool=executed_tools[0],
+                    updated_turn=self._current_turn_index(),
+                )
+                transition_reason = (
+                    "initial_write" if continuation_after.is_active() else "clear_queue_empty"
+                )
+            elif continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+                continuation_after = ExecutionContinuation(
+                    pending_objective=PendingObjective.NONE,
+                    updated_turn=self._current_turn_index(),
+                )
+                transition_reason = "clear_queue_empty"
+
+            save_execution_continuation(current_ao, continuation_after)
+
+        context.metadata["execution_continuation_transition"] = {
+            **transition_meta,
+            "continuation_before": continuation_snapshot(continuation_before),
+            "continuation_after": continuation_snapshot(continuation_after),
+            "transition_reason": transition_reason,
+        }
 
     def _get_recent_turns(self) -> List[Dict[str, str]]:
         turns = []

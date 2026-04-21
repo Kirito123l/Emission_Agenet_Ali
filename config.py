@@ -80,6 +80,21 @@ class Config:
         self.enable_contract_split = (
             os.getenv("ENABLE_CONTRACT_SPLIT", "false").lower() == "true"
         )
+        self.enable_split_intent_contract = (
+            os.getenv("ENABLE_SPLIT_INTENT_CONTRACT", "true").lower() == "true"
+        )
+        self.enable_split_stance_contract = (
+            os.getenv("ENABLE_SPLIT_STANCE_CONTRACT", "true").lower() == "true"
+        )
+        self.enable_split_readiness_contract = (
+            os.getenv("ENABLE_SPLIT_READINESS_CONTRACT", "true").lower() == "true"
+        )
+        self.enable_runtime_default_aware_readiness = (
+            os.getenv("ENABLE_RUNTIME_DEFAULT_AWARE_READINESS", "true").lower() == "true"
+        )
+        self.enable_split_continuation_state = (
+            os.getenv("ENABLE_SPLIT_CONTINUATION_STATE", "true").lower() == "true"
+        )
         self.enable_clarification_stage2_llm = (
             os.getenv("ENABLE_CLARIFICATION_STAGE2_LLM", "true").lower() == "true"
         )

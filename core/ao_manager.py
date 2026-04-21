@@ -12,6 +12,7 @@ from core.analytical_objective import (
     IntentConfidence,
     ToolCallRecord,
 )
+from core.execution_continuation_utils import load_execution_continuation
 
 logger = logging.getLogger(__name__)
 
@@ -375,11 +376,14 @@ class AOManager:
         check_results["completion_path"] = completion_path
 
         clarification_state = ao.metadata.get("clarification_contract") if isinstance(ao.metadata, dict) else None
+        continuation_state = load_execution_continuation(ao)
         if self._lifecycle_alignment_enabled():
             if not self._contract_split_enabled():
                 parameter_state = getattr(ao, "parameter_state", None)
                 if bool(getattr(parameter_state, "collection_mode", False)):
                     return False, "collection_mode_active", check_results
+            elif continuation_state.is_active():
+                return False, "execution_continuation_active", check_results
             tool_intent = getattr(ao, "tool_intent", None)
             if getattr(tool_intent, "confidence", IntentConfidence.NONE) == IntentConfidence.NONE:
                 return False, "intent_not_resolved", check_results
@@ -421,6 +425,8 @@ class AOManager:
                 getattr(getattr(ao, "tool_intent", None), "confidence", IntentConfidence.NONE)
                 != IntentConfidence.NONE
             ),
+            "execution_continuation_active": bool(load_execution_continuation(ao).is_active()),
+            "execution_continuation": load_execution_continuation(ao).to_dict(),
         }
         if turn_outcome is not None:
             check_results.update(

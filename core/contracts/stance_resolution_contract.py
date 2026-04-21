@@ -27,6 +27,8 @@ class StanceResolutionContract(BaseContract):
     async def before_turn(self, context: ContractContext) -> ContractInterception:
         if not getattr(self.runtime_config, "enable_contract_split", False):
             return ContractInterception()
+        if not getattr(self.runtime_config, "enable_split_stance_contract", True):
+            return ContractInterception()
         oasc_state = dict(context.metadata.get("oasc") or {})
         classification = oasc_state.get("classification")
         current_ao = self.ao_manager.get_current_ao() if self.ao_manager is not None else None
