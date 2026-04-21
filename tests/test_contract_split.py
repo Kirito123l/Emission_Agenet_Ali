@@ -997,3 +997,143 @@ async def test_probe_limit_abandons_optional_probe_and_proceeds():
     telemetry = interception.metadata["clarification"]["telemetry"]
     assert interception.proceed is True
     assert telemetry["execution_continuation"]["transition_reason"] in {"abandon_probe_limit", "advance"}
+
+
+@pytest.mark.anyio
+async def test_probe_limit_force_proceed_after_2_probes():
+    contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "road_type",
+        "probe_count": 2,
+        "probe_limit": 2,
+    }
+    ao.metadata["execution_readiness"] = {
+        "pending": True,
+        "tool_name": "query_emission_factors",
+        "pending_slot": "road_type",
+        "missing_slots": ["road_type"],
+        "followup_slots": ["model_year"],
+        "confirm_first_slots": ["road_type"],
+        "confirm_first_detected": False,
+        "needs_clarification": True,
+    }
+    context = _context("继续", kind=AOClassType.CONTINUATION)
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": "high"},
+            "pollutants": {"value": ["CO2"], "source": "user", "confidence": "high"},
+        },
+        "needs_clarification": True,
+        "missing_required": [],
+    }
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["execution_readiness"]["probe_count"] == 2
+    assert telemetry["execution_readiness"]["probe_limit"] == 2
+    assert telemetry["execution_readiness"]["force_proceed_reason"] == "probe_limit_reached"
+    assert ao.metadata["execution_continuation"]["pending_objective"] == "none"
+
+
+@pytest.mark.anyio
+async def test_probe_count_reset_on_new_ao():
+    contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "road_type",
+        "probe_count": 2,
+        "probe_limit": 2,
+    }
+    ao.metadata["execution_readiness"] = {
+        "pending": True,
+        "tool_name": "query_emission_factors",
+        "pending_slot": "road_type",
+        "missing_slots": ["road_type"],
+        "confirm_first_slots": ["road_type"],
+        "needs_clarification": True,
+    }
+    context = _context("继续", kind=AOClassType.NEW_AO)
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": "high"},
+            "pollutants": {"value": ["CO2"], "source": "user", "confidence": "high"},
+        },
+        "needs_clarification": True,
+        "missing_required": [],
+    }
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["execution_readiness"]["probe_count"] == 1
+    assert telemetry["execution_readiness"]["force_proceed_reason"] is None
+
+
+@pytest.mark.anyio
+async def test_probe_count_reset_on_revision():
+    contract, manager = _readiness_contract({"vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "road_type",
+        "probe_count": 2,
+        "probe_limit": 2,
+    }
+    ao.metadata["execution_readiness"] = {
+        "pending": True,
+        "tool_name": "query_emission_factors",
+        "pending_slot": "road_type",
+        "missing_slots": ["road_type"],
+        "confirm_first_slots": ["road_type"],
+        "needs_clarification": True,
+    }
+    context = _context("改一下", kind=AOClassType.REVISION)
+    context.metadata["stage2_payload"] = {
+        "slots": {
+            "vehicle_type": {"value": "Passenger Car", "source": "user", "confidence": "high"},
+            "pollutants": {"value": ["CO2"], "source": "user", "confidence": "high"},
+        },
+        "needs_clarification": True,
+        "missing_required": [],
+    }
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["execution_readiness"]["probe_count"] == 1
+    assert telemetry["execution_readiness"]["force_proceed_reason"] is None
+
+
+@pytest.mark.anyio
+async def test_required_slot_probes_not_counted_toward_limit():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "road_type",
+        "probe_count": 2,
+        "probe_limit": 2,
+    }
+
+    interception = await contract.before_turn(_context("查CO2因子", kind=AOClassType.CONTINUATION))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["execution_readiness"]["pending_slot"] == "vehicle_type"
+    assert telemetry["execution_readiness"]["probe_count"] == 0
+    assert telemetry["execution_readiness"]["force_proceed_reason"] is None
