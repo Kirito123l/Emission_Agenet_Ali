@@ -20,9 +20,12 @@ from core.analytical_objective import (
 from core.contracts.base import ContractContext
 from core.contracts.execution_readiness_contract import ExecutionReadinessContract
 from core.contracts.intent_resolution_contract import IntentResolutionContract
+from core.contracts.oasc_contract import OASCContract
 from core.contracts.stance_resolution_contract import StanceResolutionContract
+from core.execution_continuation import PendingObjective
 from core.governed_router import GovernedRouter
 from core.memory import FactMemory
+from core.router import RouterResponse
 from core.task_state import TaskState
 
 
@@ -54,9 +57,20 @@ class FakeInnerRouter:
         self.session_id = "split-session"
         self.memory = SimpleNamespace(fact_memory=FactMemory(session_id="split-session"), turn_counter=0)
         self._hints = hints
+        self._continuation_bundle = {"plan": None, "residual_plan_summary": None, "latest_repair_summary": None}
+        self.assembler = SimpleNamespace(last_telemetry={})
 
     def _extract_message_execution_hints(self, state):
         return dict(self._hints)
+
+    def _load_active_input_completion_request(self):
+        return None
+
+    def _load_active_parameter_negotiation_request(self):
+        return None
+
+    def _ensure_live_continuation_bundle(self):
+        return self._continuation_bundle
 
 
 def _config():
@@ -98,6 +112,16 @@ def _readiness_contract(hints: dict):
     contract = ExecutionReadinessContract(inner_router=inner, ao_manager=manager, runtime_config=config)
     contract.llm_client = AsyncMockLLM()
     return contract, manager
+
+
+def _oasc_contract():
+    config = _config()
+    config.enable_ao_classifier_llm_layer = False
+    inner = FakeInnerRouter({})
+    inner.memory.turn_counter = 1
+    manager = AOManager(inner.memory.fact_memory)
+    contract = OASCContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    return contract, manager, inner
 
 
 @pytest.mark.anyio
@@ -530,3 +554,316 @@ def test_split_serialization_excludes_pcm_fields():
     payload = ao.to_dict()
     assert "collection_mode" not in payload["parameter_state"]
     assert "probe_turn_count" not in payload["parameter_state"]
+
+
+@pytest.mark.anyio
+async def test_intent_contract_short_circuits_active_chain_continuation():
+    config = _config()
+    inner = FakeInnerRouter({})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = IntentResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("继续扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+    }
+
+    interception = await contract.before_turn(_context("继续", kind=AOClassType.CONTINUATION))
+
+    assert interception.proceed is True
+    assert ao.tool_intent.resolved_tool == "calculate_dispersion"
+    assert ao.tool_intent.projected_chain == ["calculate_dispersion", "render_spatial_map"]
+    assert ao.tool_intent.resolved_by == "continuation_state"
+
+
+@pytest.mark.anyio
+async def test_intent_contract_allows_queue_override_before_short_circuit():
+    config = _config()
+    inner = FakeInnerRouter({"desired_tool_chain": ["render_spatial_map"]})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = IntentResolutionContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    ao = manager.create_ao("继续扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+    }
+
+    interception = await contract.before_turn(_context("先画地图", kind=AOClassType.CONTINUATION))
+
+    assert interception.proceed is True
+    assert ao.tool_intent.resolved_tool == "render_spatial_map"
+    assert ao.tool_intent.projected_chain == ["render_spatial_map"]
+    assert ao.tool_intent.resolved_by == "rule:desired_chain"
+
+
+@pytest.mark.anyio
+async def test_readiness_missing_required_beats_exploratory_scope_framing():
+    contract, manager = _readiness_contract({})
+    ao = manager.create_ao("先确认", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.EXPLORATORY
+    context = _context("先看看", kind=AOClassType.CONTINUATION)
+    context.metadata["stage2_payload"] = {
+        "slots": {},
+        "stance": {"value": "exploratory", "conf": "high"},
+        "missing_required": ["vehicle_type", "pollutants"],
+        "clarification_question": "请补充车型和污染物。",
+    }
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is False
+    assert telemetry["execution_readiness"]["pending_slot"] == "vehicle_type"
+    assert "scope" not in interception.response.text
+
+
+@pytest.mark.anyio
+async def test_readiness_multistep_projected_chain_skips_snapshot_direct():
+    contract, manager = _readiness_contract({"pollutants": ["NOx"]})
+    ao = manager.create_ao("算排放再扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent(
+        "calculate_macro_emission",
+        IntentConfidence.HIGH,
+        projected_chain=["calculate_macro_emission", "calculate_dispersion"],
+    )
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("先算 NOx 排放，再扩散"))
+
+    assert interception.proceed is True
+    assert "direct_execution" not in interception.metadata["clarification"]
+    assert interception.metadata["clarification"]["telemetry"]["final_decision"] == "proceed"
+
+
+@pytest.mark.anyio
+async def test_readiness_writes_parameter_collection_continuation_telemetry():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+
+    interception = await contract.before_turn(_context("查 CO2 因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert telemetry["execution_continuation"]["transition_reason"] == "initial_write"
+    assert telemetry["execution_continuation"]["continuation_after"]["pending_objective"] == "parameter_collection"
+    assert ao.metadata["execution_continuation"]["pending_slot"] == "vehicle_type"
+
+
+@pytest.mark.anyio
+async def test_readiness_reversal_clears_active_continuation():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"]})
+    ao = manager.create_ao("继续扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DELIBERATIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+    }
+    context = _context("等等，先确认", kind=AOClassType.CONTINUATION)
+    context.metadata["stance"] = {"reversal_detected": True}
+
+    interception = await contract.before_turn(context)
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert telemetry["execution_continuation"]["transition_reason"] == "reset_reversal"
+    assert ao.metadata["execution_continuation"]["pending_objective"] == "parameter_collection"
+
+
+@pytest.mark.anyio
+async def test_readiness_replace_queue_override_telemetry():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"]})
+    ao = manager.create_ao("继续扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("render_spatial_map", IntentConfidence.HIGH, projected_chain=["render_spatial_map"])
+    ao.stance = ConversationalStance.DIRECTIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+    }
+
+    interception = await contract.before_turn(_context("先画地图", kind=AOClassType.CONTINUATION))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert telemetry["execution_continuation"]["transition_reason"] == "replace_queue_override"
+    assert ao.metadata["execution_continuation"]["pending_next_tool"] == "render_spatial_map"
+
+
+@pytest.mark.anyio
+async def test_readiness_uses_minimal_priors_when_split_intent_and_stance_disabled():
+    os.environ["ENABLE_SPLIT_INTENT_CONTRACT"] = "false"
+    os.environ["ENABLE_SPLIT_STANCE_CONTRACT"] = "false"
+    config = _config()
+    inner = FakeInnerRouter({"wants_factor": True, "vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = ExecutionReadinessContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    contract.llm_client = AsyncMockLLM()
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+
+    interception = await contract.before_turn(_context("排放因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["execution_readiness"]["readiness_branch"] == "directive"
+
+
+@pytest.mark.anyio
+async def test_readiness_runtime_default_aware_off_suppresses_runtime_default_resolution():
+    os.environ["ENABLE_RUNTIME_DEFAULT_AWARE_READINESS"] = "false"
+    config = _config()
+    inner = FakeInnerRouter({"vehicle_type": "Passenger Car", "pollutants": ["CO2"]})
+    manager = AOManager(inner.memory.fact_memory)
+    contract = ExecutionReadinessContract(inner_router=inner, ao_manager=manager, runtime_config=config)
+    contract.llm_client = AsyncMockLLM()
+    ao = manager.create_ao("先确认参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DELIBERATIVE
+
+    interception = await contract.before_turn(_context("先确认小汽车 CO2 因子"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert interception.metadata["clarification"]["direct_execution"]["runtime_defaults_allowed"] == []
+
+
+@pytest.mark.anyio
+async def test_oasc_writes_chain_continuation_after_first_success():
+    contract, manager, _inner = _oasc_contract()
+    ao = manager.create_ao("算排放再扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent(
+        "calculate_macro_emission",
+        IntentConfidence.HIGH,
+        projected_chain=["calculate_macro_emission", "calculate_dispersion", "render_spatial_map"],
+    )
+    context = _context("先算排放再扩散")
+    context.router_executed = True
+    result = RouterResponse(
+        text="ok",
+        executed_tool_calls=[
+            {
+                "name": "calculate_macro_emission",
+                "arguments": {"pollutants": ["NOx"]},
+                "result": {"success": True, "summary": "ok"},
+            }
+        ],
+        trace={},
+    )
+
+    await contract.after_turn(context, result)
+
+    continuation = ao.metadata["execution_continuation"]
+    assert continuation["pending_objective"] == "chain_continuation"
+    assert continuation["pending_tool_queue"] == ["calculate_dispersion", "render_spatial_map"]
+
+
+@pytest.mark.anyio
+async def test_oasc_advances_chain_queue_on_subsequent_success():
+    contract, manager, _inner = _oasc_contract()
+    ao = manager.create_ao("继续扩散", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent(
+        "calculate_dispersion",
+        IntentConfidence.HIGH,
+        projected_chain=["calculate_macro_emission", "calculate_dispersion", "render_spatial_map"],
+    )
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+    }
+    context = _context("继续扩散", kind=AOClassType.CONTINUATION)
+    context.router_executed = True
+    result = RouterResponse(
+        text="ok",
+        executed_tool_calls=[
+            {
+                "name": "calculate_dispersion",
+                "arguments": {"pollutant": "NOx"},
+                "result": {"success": True, "summary": "ok"},
+            }
+        ],
+        trace={},
+    )
+
+    await contract.after_turn(context, result)
+
+    continuation = ao.metadata["execution_continuation"]
+    assert continuation["pending_tool_queue"] == ["render_spatial_map"]
+    assert continuation["pending_next_tool"] == "render_spatial_map"
+
+
+@pytest.mark.anyio
+async def test_oasc_clears_chain_queue_when_final_tool_executes():
+    contract, manager, _inner = _oasc_contract()
+    ao = manager.create_ao("继续出图", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent(
+        "render_spatial_map",
+        IntentConfidence.HIGH,
+        projected_chain=["calculate_macro_emission", "calculate_dispersion", "render_spatial_map"],
+    )
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "render_spatial_map",
+        "pending_tool_queue": ["render_spatial_map"],
+    }
+    context = _context("继续出图", kind=AOClassType.CONTINUATION)
+    context.router_executed = True
+    result = RouterResponse(
+        text="ok",
+        executed_tool_calls=[
+            {
+                "name": "render_spatial_map",
+                "arguments": {"layer_type": "dispersion"},
+                "result": {"success": True, "summary": "ok"},
+            }
+        ],
+        trace={},
+    )
+
+    await contract.after_turn(context, result)
+
+    continuation = ao.metadata["execution_continuation"]
+    assert continuation["pending_objective"] == "none"
+    assert continuation["pending_tool_queue"] == []
+
+
+@pytest.mark.anyio
+async def test_readiness_after_turn_emits_continuation_block():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"]})
+    ao = manager.create_ao("查因子", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("query_emission_factors", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DIRECTIVE
+    context = _context("查 CO2 因子")
+
+    interception = await contract.before_turn(context)
+    context.metadata.update(interception.metadata)
+    result = RouterResponse(text="请补充车型", trace={})
+
+    await contract.after_turn(context, result)
+
+    telemetry = result.trace["clarification_telemetry"][0]
+    assert "execution_continuation" in telemetry
+    assert telemetry["execution_continuation"]["transition_reason"] == "initial_write"
+
+
+@pytest.mark.anyio
+async def test_probe_limit_abandons_optional_probe_and_proceeds():
+    contract, manager = _readiness_contract({"pollutants": ["CO2"], "stability_class": "D"})
+    ao = manager.create_ao("先确认扩散参数", AORelationship.INDEPENDENT, current_turn=1)
+    ao.tool_intent = ToolIntent("calculate_dispersion", IntentConfidence.HIGH)
+    ao.stance = ConversationalStance.DELIBERATIVE
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "parameter_collection",
+        "pending_slot": "meteorology",
+        "probe_count": 1,
+        "probe_limit": 2,
+    }
+
+    interception = await contract.before_turn(_context("继续"))
+
+    telemetry = interception.metadata["clarification"]["telemetry"]
+    assert interception.proceed is True
+    assert telemetry["execution_continuation"]["transition_reason"] in {"abandon_probe_limit", "advance"}

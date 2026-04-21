@@ -195,3 +195,78 @@ def test_ao_from_metadata_migrates_first_class_state():
     assert restored.parameter_state.collection_mode_reason == "missing_required_at_first_turn"
     assert restored.parameter_state.awaiting_slot == "model_year"
     assert restored.parameter_state.probe_turn_count == 1
+
+
+def test_tool_intent_projected_chain_round_trip():
+    ao = AnalyticalObjective(
+        ao_id="AO#chain",
+        session_id="s1",
+        objective_text="先算再扩散",
+        status=AOStatus.ACTIVE,
+        start_turn=1,
+        tool_intent=ToolIntent(
+            resolved_tool="calculate_macro_emission",
+            confidence=IntentConfidence.HIGH,
+            projected_chain=["calculate_macro_emission", "calculate_dispersion", "render_spatial_map"],
+        ),
+        stance=ConversationalStance.DIRECTIVE,
+        stance_confidence=StanceConfidence.HIGH,
+    )
+
+    restored = AnalyticalObjective.from_dict(ao.to_dict())
+
+    assert restored.tool_intent.projected_chain == [
+        "calculate_macro_emission",
+        "calculate_dispersion",
+        "render_spatial_map",
+    ]
+
+
+def test_execution_continuation_metadata_round_trip():
+    ao = AnalyticalObjective(
+        ao_id="AO#continuation",
+        session_id="s1",
+        objective_text="继续做链路",
+        status=AOStatus.ACTIVE,
+        start_turn=1,
+        stance=ConversationalStance.DIRECTIVE,
+        stance_confidence=StanceConfidence.HIGH,
+        metadata={
+            "execution_continuation": {
+                "pending_objective": "chain_continuation",
+                "pending_next_tool": "calculate_dispersion",
+                "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+                "updated_turn": 2,
+            }
+        },
+    )
+
+    restored = AnalyticalObjective.from_dict(ao.to_dict())
+
+    assert restored.metadata["execution_continuation"]["pending_objective"] == "chain_continuation"
+    assert restored.metadata["execution_continuation"]["pending_tool_queue"] == [
+        "calculate_dispersion",
+        "render_spatial_map",
+    ]
+
+
+def test_metadata_continuation_normalizes_invalid_payload():
+    restored = AnalyticalObjective.from_dict(
+        {
+            "ao_id": "AO#metadata-continuation",
+            "session_id": "legacy-session",
+            "objective_text": "继续",
+            "status": "active",
+            "start_turn": 1,
+            "stance": "directive",
+            "stance_confidence": "low",
+            "metadata": {
+                "execution_continuation": {
+                    "pending_objective": "unexpected",
+                    "pending_tool_queue": ["calculate_dispersion"],
+                }
+            },
+        }
+    )
+
+    assert restored.metadata["execution_continuation"]["pending_objective"] == "none"

@@ -1,5 +1,8 @@
+import os
+
 from core.analytical_objective import AORelationship, AOStatus, IntentConfidence, ToolCallRecord
 from core.ao_manager import AOManager, TurnOutcome
+from config import reset_config
 from core.memory import FactMemory
 
 
@@ -382,3 +385,118 @@ def test_satisfied_active_ao_completes_on_implicit_create():
     assert created.ao_id == "AO#2"
     assert complete_events[-1]["completion_path"] == "create_ao_implicit"
     assert complete_events[-1]["block_reason"] is None
+
+
+def test_execution_continuation_blocks_completion_under_split():
+    os.environ["ENABLE_CONTRACT_SPLIT"] = "true"
+    reset_config()
+    manager = _make_manager()
+    ao = manager.create_ao(
+        objective_text="先算再扩散",
+        relationship=AORelationship.INDEPENDENT,
+        current_turn=1,
+    )
+    ao.tool_intent.confidence = IntentConfidence.HIGH
+    ao.tool_intent.resolved_tool = "calculate_macro_emission"
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion"],
+    }
+    manager.append_tool_call(
+        ao.ao_id,
+        ToolCallRecord(
+            turn=1,
+            tool="calculate_macro_emission",
+            args_compact={"pollutants": ["NOx"]},
+            success=True,
+            result_ref="emission:baseline",
+            summary="ok",
+        ),
+    )
+
+    completed = manager.complete_ao(
+        ao.ao_id,
+        end_turn=1,
+        turn_outcome=TurnOutcome(
+            tool_chain_succeeded=True,
+            final_response_delivered=True,
+            is_clarification=False,
+            is_parameter_negotiation=False,
+            is_partial_delivery=False,
+        ),
+    )
+
+    assert completed is False
+    blocked = [event for event in manager.telemetry_slice() if event["event_type"] == "complete_blocked"]
+    assert blocked[-1]["block_reason"] == "execution_continuation_active"
+    assert blocked[-1]["complete_check_results"]["execution_continuation_active"] is True
+    os.environ.pop("ENABLE_CONTRACT_SPLIT", None)
+    reset_config()
+
+
+def test_execution_continuation_blocks_implicit_create_completion():
+    os.environ["ENABLE_CONTRACT_SPLIT"] = "true"
+    reset_config()
+    manager = _make_manager()
+    active = manager.create_ao(
+        objective_text="先算再扩散",
+        relationship=AORelationship.INDEPENDENT,
+        current_turn=1,
+    )
+    active.tool_intent.confidence = IntentConfidence.HIGH
+    active.tool_intent.resolved_tool = "calculate_macro_emission"
+    active.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "calculate_dispersion",
+        "pending_tool_queue": ["calculate_dispersion", "render_spatial_map"],
+    }
+    manager.append_tool_call(
+        active.ao_id,
+        ToolCallRecord(
+            turn=1,
+            tool="calculate_macro_emission",
+            args_compact={"pollutants": ["NOx"]},
+            success=True,
+            result_ref="emission:baseline",
+            summary="ok",
+        ),
+    )
+
+    created = manager.create_ao(
+        objective_text="新任务",
+        relationship=AORelationship.INDEPENDENT,
+        current_turn=2,
+    )
+
+    blocked = [event for event in manager.telemetry_slice() if event["event_type"] == "complete_blocked"]
+    assert active.status == AOStatus.ACTIVE
+    assert created.ao_id == "AO#2"
+    assert blocked[-1]["block_reason"] == "execution_continuation_active"
+    os.environ.pop("ENABLE_CONTRACT_SPLIT", None)
+    reset_config()
+
+
+def test_complete_check_results_include_execution_continuation_snapshot():
+    os.environ["ENABLE_CONTRACT_SPLIT"] = "true"
+    reset_config()
+    manager = _make_manager()
+    ao = manager.create_ao(
+        objective_text="继续做图",
+        relationship=AORelationship.INDEPENDENT,
+        current_turn=1,
+    )
+    ao.tool_intent.confidence = IntentConfidence.HIGH
+    ao.tool_intent.resolved_tool = "render_spatial_map"
+    ao.metadata["execution_continuation"] = {
+        "pending_objective": "chain_continuation",
+        "pending_next_tool": "render_spatial_map",
+        "pending_tool_queue": ["render_spatial_map"],
+    }
+
+    check_results = manager._build_complete_check_results(ao, turn_outcome=None)
+
+    assert check_results["execution_continuation_active"] is True
+    assert check_results["execution_continuation"]["pending_next_tool"] == "render_spatial_map"
+    os.environ.pop("ENABLE_CONTRACT_SPLIT", None)
+    reset_config()

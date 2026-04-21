@@ -149,6 +149,7 @@ class AOManager:
                 "collection_mode_active",
                 "intent_not_resolved",
                 "metadata_clarification_pending",
+                "execution_continuation_active",
             }:
                 self._record_event(
                     turn=max(active.start_turn, int(current_turn or 0) - 1),
