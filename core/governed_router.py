@@ -43,11 +43,16 @@ class GovernedRouter:
             ao_manager=self.ao_manager,
             runtime_config=self.runtime_config,
         )
+        self.dependency_contract = DependencyContract()
+        self._build_contracts()
+
+    def _build_contracts(self) -> None:
         self.contract_split_enabled = bool(getattr(self.runtime_config, "enable_contract_split", False))
         self.clarification_contract = None
         self.intent_resolution_contract = None
         self.stance_resolution_contract = None
         self.execution_readiness_contract = None
+        self.contracts = [self.oasc_contract]
         if self.contract_split_enabled:
             if bool(getattr(self.runtime_config, "enable_split_intent_contract", True)):
                 self.intent_resolution_contract = IntentResolutionContract(
@@ -55,39 +60,27 @@ class GovernedRouter:
                     ao_manager=self.ao_manager,
                     runtime_config=self.runtime_config,
                 )
+                self.contracts.append(self.intent_resolution_contract)
             if bool(getattr(self.runtime_config, "enable_split_stance_contract", True)):
                 self.stance_resolution_contract = StanceResolutionContract(
                     inner_router=self.inner_router,
                     ao_manager=self.ao_manager,
                     runtime_config=self.runtime_config,
                 )
+                self.contracts.append(self.stance_resolution_contract)
             if bool(getattr(self.runtime_config, "enable_split_readiness_contract", True)):
                 self.execution_readiness_contract = ExecutionReadinessContract(
                     inner_router=self.inner_router,
                     ao_manager=self.ao_manager,
                     runtime_config=self.runtime_config,
                 )
+                self.contracts.append(self.execution_readiness_contract)
         else:
             self.clarification_contract = ClarificationContract(
                 inner_router=self.inner_router,
                 ao_manager=self.ao_manager,
                 runtime_config=self.runtime_config,
             )
-        self.dependency_contract = DependencyContract()
-        self.contracts = [self.oasc_contract]
-        if self.contract_split_enabled:
-            self.contracts.extend(
-                [
-                    contract
-                    for contract in (
-                        self.intent_resolution_contract,
-                        self.stance_resolution_contract,
-                        self.execution_readiness_contract,
-                    )
-                    if contract is not None
-                ]
-            )
-        else:
             self.contracts.append(self.clarification_contract)
         self.contracts.append(self.dependency_contract)
 
@@ -544,16 +537,7 @@ class GovernedRouter:
             ao_manager=self.ao_manager,
             runtime_config=self.runtime_config,
         )
-        self.clarification_contract = ClarificationContract(
-            inner_router=self.inner_router,
-            ao_manager=self.ao_manager,
-            runtime_config=self.runtime_config,
-        )
-        self.contracts = [
-            self.oasc_contract,
-            self.clarification_contract,
-            self.dependency_contract,
-        ]
+        self._build_contracts()
 
 
 def build_router(
