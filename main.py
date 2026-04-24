@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 from config import get_config
-from core.router import UnifiedRouter
+from core.governed_router import build_router
 from tools.registry import init_tools, get_registry
 
 console = Console()
@@ -25,7 +25,7 @@ def chat():
     get_config()
     console.print(Panel.fit("[green]Emission Calculation Agent[/green]\nType 'quit' to exit"))
 
-    router = UnifiedRouter(session_id="cli_session")
+    router = build_router(session_id="cli_session", router_mode="full")
 
     async def chat_loop():
         while True:

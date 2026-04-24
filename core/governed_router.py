@@ -546,9 +546,9 @@ def build_router(
     memory_storage_dir: Optional[str | Path] = None,
     router_mode: str = "router",
 ) -> Any:
-    config = get_config()
-    if router_mode == "governed_v2" or (
-        router_mode == "router" and getattr(config, "enable_governed_router", False)
-    ):
+    normalized_mode = str(router_mode or "router").strip().lower()
+    if normalized_mode in {"full", "governed_v2", "router"}:
         return GovernedRouter(session_id=session_id, memory_storage_dir=memory_storage_dir)
-    return UnifiedRouter(session_id=session_id, memory_storage_dir=memory_storage_dir)
+    if normalized_mode == "naive":
+        raise ValueError("router_mode='naive' must construct NaiveRouter directly")
+    raise ValueError(f"Unsupported router_mode: {router_mode}")

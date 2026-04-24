@@ -1,10 +1,17 @@
 import json
 
-from core.analytical_objective import AOStatus
+import pytest
+
+from core.analytical_objective import (
+    AOStatus,
+    AnalyticalObjective,
+    IncompatibleSessionError,
+    ToolCallRecord,
+)
 from core.memory import FactMemory, MemoryManager
 
 
-def test_legacy_session_file_loads_into_ao_history(tmp_path):
+def test_legacy_session_file_without_ao_history_is_incompatible(tmp_path):
     payload = {
         "session_id": "legacy-session",
         "turn_counter": 2,
@@ -24,11 +31,8 @@ def test_legacy_session_file_loads_into_ao_history(tmp_path):
     }
     (tmp_path / "legacy-session.json").write_text(json.dumps(payload), encoding="utf-8")
 
-    memory = MemoryManager("legacy-session", storage_dir=tmp_path)
-
-    assert len(memory.fact_memory.ao_history) == 1
-    assert memory.fact_memory.ao_history[0].ao_id == "AO#legacy"
-    assert memory.fact_memory.ao_history[0].status == AOStatus.COMPLETED
+    with pytest.raises(IncompatibleSessionError, match="Session format incompatible"):
+        MemoryManager("legacy-session", storage_dir=tmp_path)
 
 
 def test_ao_history_round_trip_persistence(tmp_path):
@@ -38,13 +42,24 @@ def test_ao_history_round_trip_persistence(tmp_path):
     memory.fact_memory._ao_counter = 1
     memory.fact_memory.files_in_session = []
     memory.fact_memory.session_confirmed_parameters = {"season": "冬季"}
-    memory.fact_memory.append_tool_call_log(
+    record = memory.fact_memory.append_tool_call_log(
         1,
         "query_emission_factors",
         {"pollutant": "CO2"},
         {"success": True, "summary": "ok", "data": {"scenario_label": "baseline"}},
     )
-    memory._migrate_legacy_fact_memory_if_needed()
+    memory.fact_memory.ao_history = [
+        AnalyticalObjective(
+            ao_id="AO#1",
+            session_id="ao-round-trip",
+            objective_text="Round-trip AO",
+            status=AOStatus.COMPLETED,
+            start_turn=1,
+            end_turn=1,
+            tool_call_log=[ToolCallRecord.from_dict(record)],
+            artifacts_produced={"emission_factors": "emission_factors:baseline"},
+        )
+    ]
     memory._save()
 
     restored = MemoryManager("ao-round-trip", storage_dir=tmp_path)

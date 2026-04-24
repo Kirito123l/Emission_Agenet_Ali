@@ -9,7 +9,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from core.analytical_objective import AOStatus, AnalyticalObjective, ToolCallRecord
+from core.analytical_objective import AnalyticalObjective, IncompatibleSessionError
 
 logger = logging.getLogger(__name__)
 
@@ -821,34 +821,6 @@ class MemoryManager:
         self._sync_legacy_compressed_memory()
         logger.info("Cleared topic memory")
 
-    def _migrate_legacy_fact_memory_if_needed(self) -> None:
-        """One-time migration from Phase 1 session-level tool log to one legacy AO."""
-        if self.fact_memory.ao_history:
-            return
-        if not self.fact_memory.tool_call_log:
-            return
-
-        legacy_ao = AnalyticalObjective(
-            ao_id="AO#legacy",
-            session_id=self.session_id,
-            objective_text="Legacy migrated analytical objective",
-            status=AOStatus.COMPLETED,
-            start_turn=1,
-            end_turn=self.turn_counter or self.fact_memory.last_turn_index or 0,
-            metadata={"migration_source": "phase1_session_state_contract"},
-        )
-        for item in self.fact_memory.tool_call_log:
-            if not isinstance(item, dict):
-                continue
-            legacy_ao.tool_call_log.append(ToolCallRecord.from_dict(item))
-            result_ref = str(item.get("result_ref") or "").strip()
-            if result_ref:
-                result_type = result_ref.split(":", 1)[0]
-                legacy_ao.artifacts_produced[result_type] = result_ref
-        self.fact_memory.ao_history = [legacy_ao]
-        self.fact_memory.current_ao_id = None
-        self.fact_memory._ao_counter = 1
-
     def _save(self):
         """Persist memory to disk"""
         data = {
@@ -985,6 +957,10 @@ class MemoryManager:
                     for item in list(fm.get("ao_history", []))
                     if isinstance(item, dict)
                 ]
+                if self.fact_memory.tool_call_log and not self.fact_memory.ao_history:
+                    raise IncompatibleSessionError(
+                        "Session format incompatible. Please create a new session or run migration script."
+                    )
                 self.fact_memory.current_ao_id = (
                     str(fm.get("current_ao_id")).strip()
                     if fm.get("current_ao_id") is not None
@@ -1043,10 +1019,11 @@ class MemoryManager:
                 max_summary_turn = max((segment.end_turn or 0) for segment in self.mid_term_memory) if self.mid_term_memory else 0
                 self.turn_counter = max(max_working_turn, max_summary_turn, len(self.working_memory))
             self.fact_memory.last_turn_index = max(self.fact_memory.last_turn_index, self.turn_counter)
-            self._migrate_legacy_fact_memory_if_needed()
 
             logger.info(f"Loaded memory for session {self.session_id}")
 
+        except IncompatibleSessionError:
+            raise
         except Exception as e:
             logger.warning(f"Failed to load memory: {e}")
             # Continue with empty memory

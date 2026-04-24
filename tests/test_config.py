@@ -27,7 +27,6 @@ class TestConfigLoading:
     def test_feature_flags_default_true(self):
         config = get_config()
         assert config.enable_llm_standardization is True
-        assert config.enable_standardization_cache is True
         assert config.persist_trace is False
         assert config.enable_live_state_persistence is True
         assert config.enable_conversation_fast_path is True

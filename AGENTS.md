@@ -23,3 +23,27 @@ Current history is minimal, so use clear imperative commit subjects (for example
 
 ## Security & Configuration Tips
 Never commit secrets from `.env`. Keep API keys local and rotate if exposed. Avoid committing large generated artifacts from `outputs/` or runtime logs unless needed for debugging and explicitly noted in the PR.
+
+## Long Session / Handoff Rule
+
+For long-running Codex tasks, do not rely only on remote compaction or very long resume/fork chains.
+
+At every major checkpoint, create a local handoff file under `docs/`:
+
+`docs/codex_handoff_<task>.md`
+
+The handoff must include:
+- completed changes
+- files changed
+- tests already passed
+- current blocker
+- exact next commands
+- benchmark/smoke/evaluation status if relevant
+- risks
+- things not to repeat
+
+After writing the handoff, stop and wait for the user.
+
+A fresh Codex session should continue by reading the handoff file instead of resuming or forking a very long old session.
+
+If a previous session failed during remote compact, do not resume or fork it. Create or read a local handoff file instead.
