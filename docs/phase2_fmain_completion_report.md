@@ -3,7 +3,7 @@
 **Feature branch**: `f-main-governed-router-migration`
 **Base commit**: `7c20689` (F-bugfix)
 **Smoke subset**: `evaluation/results/migration_smoke/smoke_36.jsonl` (36 tasks, 9 categories)
-**Smoke verdict**: PASS(见 `evaluation/results/migration_smoke/comparison.md`)
+**Smoke verdict**: PASS(见 `docs/phase2_fmain_smoke_comparison.md`)
 
 ## 1. 改动清单
 
@@ -87,7 +87,7 @@ WIP: F-main complete + post smoke (pre-smoke rerun checkpoint)
 
 ## 5. Smoke 对比核心数据
 
-完整对比见 `evaluation/results/migration_smoke/comparison.md`。关键数字:
+完整对比见 `docs/phase2_fmain_smoke_comparison.md`。关键数字:
 
 | Metric | Pre | Post | Δ |
 |---|---|---|---|
@@ -130,7 +130,7 @@ git status --short
 git status --short evaluation/results/migration_smoke/
 
 # 6. 如果 comparison.md 和 completion_report.md 还没放进去,加进来
-git add evaluation/results/migration_smoke/comparison.md
+git add docs/phase2_fmain_smoke_comparison.md
 git add docs/phase2_fmain_completion_report.md
 
 # 7. 正式 commit
@@ -148,7 +148,7 @@ Phase 2 Task Pack F-main. Migration 让 mode=\"full\" 在 API 和 CLI 中
 - 新增 tests/test_migration_session_routing.py (5 cases) + tests/test_main_cli.py
 - Smoke 36-task comparison PASS: overall +2.78pp, multi_step 能力激活 +25pp
 
-See evaluation/results/migration_smoke/comparison.md
+See docs/phase2_fmain_smoke_comparison.md
 See docs/phase2_fmain_completion_report.md"
 ```
 
