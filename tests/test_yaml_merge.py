@@ -16,7 +16,7 @@ MIGRATED_TOOLS = (
     "query_knowledge",
 )
 
-EMPTY_SLOT_METADATA_TOOLS = ("analyze_file", "compare_scenarios")
+EMPTY_SLOT_METADATA_TOOLS = ("analyze_file", "compare_scenarios", "clean_dataframe")
 
 
 def test_registry_loads_yaml_merge_fields_for_all_contract_tools() -> None:

@@ -113,6 +113,12 @@ def init_tools():
         logger.error(f"Failed to register file_analyzer tool: {e}")
 
     try:
+        from tools.clean_dataframe import CleanDataFrameTool
+        register_tool("clean_dataframe", CleanDataFrameTool())
+    except Exception as e:
+        logger.error(f"Failed to register clean_dataframe tool: {e}")
+
+    try:
         from tools.knowledge import KnowledgeTool
         register_tool("query_knowledge", KnowledgeTool())
     except Exception as e:

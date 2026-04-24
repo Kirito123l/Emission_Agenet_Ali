@@ -4,6 +4,7 @@ tool_definition_order:
   - calculate_micro_emission
   - calculate_macro_emission
   - analyze_file
+  - clean_dataframe
   - query_knowledge
   - calculate_dispersion
   - analyze_hotspots
@@ -342,6 +343,35 @@ tools:
       requires_geometry_support: false
       required_task_types: []
     continuation_keywords: []
+  clean_dataframe:
+    display_name: 数据清洗
+    description: Inspect and summarize an uploaded CSV file for data quality. Returns row/column counts, column types, sample values, numeric describe statistics, and missing value summary. Use only for CSV data quality inspection or cleaning requests; it does not calculate emissions or dispersion.
+    required_slots: []
+    optional_slots: []
+    defaults: {}
+    clarification_followup_slots: []
+    confirm_first_slots: []
+    parameters:
+      file_path:
+        required: true
+        standardization: null
+        schema:
+          type: string
+          description: Path to the uploaded CSV file to inspect
+    dependencies:
+      requires: []
+      provides:
+        - data_quality_report
+    readiness:
+      required_result_tokens: []
+      requires_geometry_support: false
+      required_task_types: []
+    continuation_keywords:
+      - 清洗
+      - 数据清洗
+      - 清理
+      - clean
+      - data quality
   query_knowledge:
     display_name: 知识查询
     description: Search emission knowledge base for standards, regulations, and technical concepts.

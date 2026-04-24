@@ -324,7 +324,8 @@ class TestToolRegistration:
     def test_total_tool_count(self, registry):
         init_tools()
 
-        assert len(registry.list_tools()) == 9
+        assert len(registry.list_tools()) == 10
+        assert registry.get("clean_dataframe") is not None
 
 
 class TestRouterSpatialDataSave:

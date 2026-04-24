@@ -59,6 +59,7 @@ def test_naive_router_uses_only_the_seven_baseline_tool_schemas(tmp_path):
 
     assert _tool_names(router.tool_definitions) == list(NAIVE_TOOL_NAMES)
     assert "analyze_file" not in _tool_names(router.tool_definitions)
+    assert "clean_dataframe" not in _tool_names(router.tool_definitions)
     assert "compare_scenarios" not in _tool_names(router.tool_definitions)
 
 
