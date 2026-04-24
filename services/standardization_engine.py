@@ -1003,4 +1003,5 @@ class StandardizationEngine:
             "violation_type": violation.violation_type,
             "reason": violation.reason,
             "suggestions": list(violation.suggestions),
+            "constraint_violation": violation.to_dict(),
         }

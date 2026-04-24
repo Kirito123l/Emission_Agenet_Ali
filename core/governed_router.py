@@ -8,6 +8,11 @@ from typing import Any, Dict, Optional
 from config import get_config
 from core.analytical_objective import ConversationalStance, StanceConfidence
 from core.ao_manager import AOManager
+from core.constraint_violation_writer import (
+    ConstraintViolationWriter,
+    normalize_cross_constraint_violation,
+)
+from core.context_store import SessionContextStore
 from core.contracts import (
     ClarificationContract,
     ContractContext,
@@ -37,6 +42,7 @@ class GovernedRouter:
             memory_storage_dir=memory_storage_dir,
         )
         self.ao_manager = AOManager(self.inner_router.memory.fact_memory)
+        self.constraint_violation_writer = self._build_constraint_violation_writer()
         self.stance_resolver = StanceResolver(runtime_config=self.runtime_config)
         self.oasc_contract = OASCContract(
             inner_router=self.inner_router,
@@ -136,10 +142,124 @@ class GovernedRouter:
             else:
                 context.router_executed = True
 
+        self._record_constraint_violations_from_trace(
+            result,
+            trace,
+            source_turn=self._current_turn_index() or self._current_turn_index(pre_call=True),
+        )
+
         for contract in self.contracts:
             await contract.after_turn(context, result)
 
         return result
+
+    def _build_constraint_violation_writer(self) -> ConstraintViolationWriter:
+        return ConstraintViolationWriter(
+            self.ao_manager,
+            self._context_store_for_writer(),
+        )
+
+    def _context_store_for_writer(self) -> SessionContextStore:
+        if hasattr(self.inner_router, "_ensure_context_store"):
+            return self.inner_router._ensure_context_store()
+        context_store = getattr(self.inner_router, "context_store", None)
+        if context_store is None:
+            context_store = SessionContextStore()
+            setattr(self.inner_router, "context_store", context_store)
+        return context_store
+
+    def _record_constraint_violations_from_trace(
+        self,
+        result: RouterResponse,
+        trace: Optional[Dict[str, Any]],
+        *,
+        source_turn: int,
+    ) -> None:
+        steps = self._trace_steps(result, trace)
+        if not steps:
+            return
+
+        seen = set()
+        for severity, payload, timestamp in self._iter_constraint_violation_events(steps):
+            try:
+                record = normalize_cross_constraint_violation(
+                    payload,
+                    severity=severity,
+                    source_turn=source_turn,
+                    timestamp=timestamp,
+                )
+            except (TypeError, ValueError):
+                logger.debug("Skipped malformed constraint violation payload: %s", payload)
+                continue
+
+            signature = (
+                record.violation_type,
+                record.severity,
+                tuple(sorted((key, repr(value)) for key, value in record.involved_params.items())),
+                record.source_turn,
+            )
+            if signature in seen:
+                continue
+            seen.add(signature)
+            self.constraint_violation_writer.record(record)
+
+    @staticmethod
+    def _trace_steps(
+        result: RouterResponse,
+        trace: Optional[Dict[str, Any]],
+    ) -> list[Dict[str, Any]]:
+        result_trace = getattr(result, "trace", None)
+        if isinstance(result_trace, dict) and isinstance(result_trace.get("steps"), list):
+            return [item for item in result_trace.get("steps", []) if isinstance(item, dict)]
+        if isinstance(trace, dict) and isinstance(trace.get("steps"), list):
+            return [item for item in trace.get("steps", []) if isinstance(item, dict)]
+        return []
+
+    def _iter_constraint_violation_events(
+        self,
+        steps: list[Dict[str, Any]],
+    ) -> list[tuple[str, Dict[str, Any], Optional[str]]]:
+        events: list[tuple[str, Dict[str, Any], Optional[str]]] = []
+        for step in steps:
+            step_type = str(step.get("step_type") or "")
+            timestamp = str(step.get("timestamp")) if step.get("timestamp") is not None else None
+            if step_type == "cross_constraint_violation":
+                for payload in self._extract_step_constraint_payloads(step):
+                    events.append(("reject", payload, timestamp))
+                continue
+            if step_type == "cross_constraint_warning":
+                for payload in self._extract_step_constraint_payloads(step):
+                    events.append(("warn", payload, timestamp))
+                continue
+
+            for record in list(step.get("standardization_records") or []):
+                if not isinstance(record, dict):
+                    continue
+                record_type = str(record.get("record_type") or record.get("strategy") or "")
+                if record_type == "cross_constraint_violation":
+                    events.append(("negotiate", record, timestamp))
+                elif record_type == "cross_constraint_warning":
+                    events.append(("warn", record, timestamp))
+        return events
+
+    @staticmethod
+    def _extract_step_constraint_payloads(step: Dict[str, Any]) -> list[Dict[str, Any]]:
+        payloads: list[Dict[str, Any]] = []
+        for container_name in ("input_summary", "output_summary"):
+            container = step.get(container_name)
+            if not isinstance(container, dict):
+                continue
+            for key in ("cross_constraint_violations", "violations", "warnings"):
+                values = container.get(key)
+                if isinstance(values, list):
+                    payloads.extend(item for item in values if isinstance(item, dict))
+
+        for record in list(step.get("standardization_records") or []):
+            if not isinstance(record, dict):
+                continue
+            nested = record.get("constraint_violation")
+            payloads.append(nested if isinstance(nested, dict) else record)
+        return payloads
 
     async def _maybe_execute_from_snapshot(self, context: ContractContext) -> Optional[RouterResponse]:
         clarification_state = dict(context.metadata.get("clarification") or {})
@@ -531,6 +651,7 @@ class GovernedRouter:
     def restore_persisted_state(self, payload: Dict[str, Any]) -> None:
         self.inner_router.restore_persisted_state(payload)
         self.ao_manager = AOManager(self.inner_router.memory.fact_memory)
+        self.constraint_violation_writer = self._build_constraint_violation_writer()
         self.stance_resolver = StanceResolver(runtime_config=self.runtime_config)
         self.oasc_contract = OASCContract(
             inner_router=self.inner_router,
