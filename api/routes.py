@@ -36,6 +36,7 @@ from .response_utils import (
 
 
 from .session import SessionRegistry
+from core.analytical_objective import IncompatibleSessionError
 from services.llm_client import LLMClientService
 from services.chat_session_service import (
     TEMP_DIR,
@@ -89,6 +90,9 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 router = APIRouter()
+INCOMPATIBLE_SESSION_MESSAGE = (
+    "Session format incompatible. Please create a new session or run migration script."
+)
 
 LEGACY_UPLOADED_FILE_RE = re.compile(
     r"(?P<content>.*?)(?:\n\n文件已上传，路径:\s*(?P<file_path>.+?)\n请使用 input_file 参数处理此文件。\s*)$",
@@ -257,6 +261,9 @@ async def chat(
         logger.info(f"=== 请求处理完成 ===")
         return ChatResponse(**turn.to_api_response())
 
+    except IncompatibleSessionError as e:
+        logger.error("Session format incompatible: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=400, detail=INCOMPATIBLE_SESSION_MESSAGE) from e
     except Exception as e:
         logger.error(f"处理请求时出错: {str(e)}", exc_info=True)
 
@@ -290,6 +297,12 @@ async def chat_stream(
         router_mode = normalize_router_mode(mode or request.query_params.get("mode"))
     except UnsupportedRouterMode as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if session_id and router_mode != "naive":
+        try:
+            mgr.get_or_create_session(session_id).agent_router
+        except IncompatibleSessionError as exc:
+            raise HTTPException(status_code=400, detail=INCOMPATIBLE_SESSION_MESSAGE) from exc
 
     async def generate():
         try:
@@ -402,6 +415,12 @@ async def chat_stream(
                 "trace_friendly": turn.trace_friendly,
             }, ensure_ascii=False) + "\n"
 
+        except IncompatibleSessionError:
+            logger.error("流式处理出错: incompatible session", exc_info=True)
+            yield json.dumps({
+                "type": "error",
+                "content": INCOMPATIBLE_SESSION_MESSAGE
+            }, ensure_ascii=False) + "\n"
         except Exception as e:
             logger.error(f"流式处理出错: {str(e)}", exc_info=True)
             yield json.dumps({

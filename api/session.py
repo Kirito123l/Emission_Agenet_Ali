@@ -7,10 +7,10 @@ from pathlib import Path
 
 # Import new architecture components
 from config import get_config
+from core.analytical_objective import IncompatibleSessionError
 from core.context_store import SessionContextStore
 from core.governed_router import build_router
 from core.naive_router import NaiveRouter
-from core.router import UnifiedRouter
 
 
 class Session:
@@ -38,36 +38,33 @@ class Session:
         self._memory_dir.mkdir(parents=True, exist_ok=True)
 
         # Router对象延迟创建，不序列化
-        self._router: Optional[UnifiedRouter] = None
-        self._governed_router: Optional[Any] = None
+        self._agent_router: Optional[Any] = None
         self._naive_router: Optional[NaiveRouter] = None
 
         # 对话历史缓存（用于持久化）
         self._history: List[Dict] = []
 
     @property
-    def router(self) -> UnifiedRouter:
-        """延迟创建Router"""
-        if self._router is None:
-            self._router = build_router(
+    def agent_router(self) -> Any:
+        """延迟创建生产 Agent Router。"""
+        if self._agent_router is None:
+            self._agent_router = build_router(
                 session_id=self.session_id,
                 memory_storage_dir=self._memory_dir,
                 router_mode="full",
             )
-            self._restore_router_state()
-        return self._router
+            self._restore_router_state(router_obj=self._agent_router)
+        return self._agent_router
 
     @property
-    def governed_router(self):
-        """延迟创建 GovernedRouter wrapper."""
-        if self._governed_router is None:
-            self._governed_router = build_router(
-                session_id=self.session_id,
-                memory_storage_dir=self._memory_dir,
-                router_mode="governed_v2",
-            )
-            self._restore_router_state(router_obj=self._governed_router)
-        return self._governed_router
+    def router(self) -> Any:
+        """Backward-compatible alias for the production Agent Router."""
+        return self.agent_router
+
+    @property
+    def governed_router(self) -> Any:
+        """Backward-compatible alias for the production Agent Router."""
+        return self.agent_router
 
     @property
     def naive_router(self) -> NaiveRouter:
@@ -91,12 +88,9 @@ class Session:
         if mode == "naive":
             result = await self.naive_router.chat(user_message=message, file_path=file_path, trace=trace)
             self.save_naive_router_state()
-        elif mode == "governed_v2":
-            result = await self.governed_router.chat(user_message=message, file_path=file_path, trace=trace)
-            self.save_router_state(router_obj=self.governed_router)
         else:
-            result = await self.router.chat(user_message=message, file_path=file_path, trace=trace)
-            self.save_router_state(router_obj=self.router)
+            result = await self.agent_router.chat(user_message=message, file_path=file_path, trace=trace)
+            self.save_router_state(router_obj=self.agent_router)
 
         return {
             "text": result.text,
@@ -111,7 +105,7 @@ class Session:
 
     def save_router_state(self, router_obj: Optional[Any] = None) -> None:
         """Persist router state required for follow-up turns after process restarts."""
-        router_obj = router_obj or self._router or self._governed_router
+        router_obj = router_obj or self._agent_router
         if router_obj is None:
             return
 
@@ -146,7 +140,7 @@ class Session:
 
     def _restore_router_state(self, router_obj: Optional[Any] = None) -> None:
         """Restore persisted router state for an existing session."""
-        router_obj = router_obj or self._router or self._governed_router
+        router_obj = router_obj or self._agent_router
         if router_obj is None:
             return
 
@@ -163,6 +157,8 @@ class Session:
                 context_payload = payload.get("context_store")
                 if isinstance(context_payload, dict):
                     router_obj.context_store = SessionContextStore.from_persisted_dict(context_payload)
+        except IncompatibleSessionError:
+            raise
         except Exception as exc:
             print(f"Warning: Failed to restore router state for session {self.session_id}: {exc}")
 

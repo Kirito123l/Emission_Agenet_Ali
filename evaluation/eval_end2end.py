@@ -1,7 +1,7 @@
 """Evaluate end-to-end routing and execution over structured benchmark tasks.
 
 Notes:
-- `router` mode exercises `UnifiedRouter.chat()` and is the primary end-to-end path.
+- `router` and `full` modes exercise the production governed router path.
 - `naive` mode exercises `NaiveRouter.chat()` as the paper baseline path.
 - `tool` mode remains available for offline validation and smoke-style checks.
 - Router-mode evaluation may require provider/API access depending on the configured LLM stack.
@@ -1377,7 +1377,7 @@ async def _run_single_task_async(
     executor = ToolExecutor() if mode == "tool" else None
 
     async def _execute_task_payload() -> tuple[Dict[str, Any], List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        if mode == "router":
+        if mode in {"router", "full"}:
             response, tool_calls, trace = await _run_router_task(
                 task,
                 file_path=file_path,
@@ -1714,7 +1714,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate end-to-end benchmark tasks.")
     parser.add_argument("--samples", type=Path, default=DEFAULT_SAMPLES)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR / f"end2end_{now_ts()}")
-    parser.add_argument("--mode", choices=["router", "naive", "tool"], default="router")
+    parser.add_argument("--mode", choices=["router", "full", "naive", "tool"], default="router")
     parser.add_argument("--parallel", type=int, default=8)
     parser.add_argument("--qps-limit", type=float, default=15.0)
     parser.add_argument("--smoke", action="store_true")

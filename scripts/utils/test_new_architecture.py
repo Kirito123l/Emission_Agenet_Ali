@@ -40,7 +40,7 @@ class ArchitectureTest:
         try:
             # Import and initialize components
             from tools.registry import init_tools
-            from core.router import UnifiedRouter
+            from core.governed_router import build_router
             from services.config_loader import ConfigLoader
 
             # Initialize tools
@@ -59,7 +59,7 @@ class ArchitectureTest:
 
             # Create router
             logger.info("Creating unified router...")
-            self.router = UnifiedRouter(session_id="test_session")
+            self.router = build_router(session_id="test_session", router_mode="full")
 
             logger.info("✅ Setup complete\n")
             return True

@@ -42,7 +42,6 @@ class Config:
         )
 
         self.enable_llm_standardization = os.getenv("ENABLE_LLM_STANDARDIZATION", "true").lower() == "true"
-        self.enable_standardization_cache = os.getenv("ENABLE_STANDARDIZATION_CACHE", "true").lower() == "true"
         self.enable_data_collection = os.getenv("ENABLE_DATA_COLLECTION", "true").lower() == "true"
         self.enable_file_analyzer = os.getenv("ENABLE_FILE_ANALYZER", "true").lower() == "true"
         self.enable_file_context_injection = os.getenv("ENABLE_FILE_CONTEXT_INJECTION", "true").lower() == "true"
@@ -149,9 +148,6 @@ class Config:
         self.stance_signals_path = os.getenv(
             "STANCE_SIGNALS_PATH",
             str(PROJECT_ROOT / "config" / "stance_signals.yaml"),
-        )
-        self.enable_dependency_contract = (
-            os.getenv("ENABLE_DEPENDENCY_CONTRACT", "false").lower() == "true"
         )
         self.ao_block_token_budget = int(os.getenv("AO_BLOCK_TOKEN_BUDGET", "1200"))
         self.enable_governed_router = os.getenv("ENABLE_GOVERNED_ROUTER", "true").lower() == "true"

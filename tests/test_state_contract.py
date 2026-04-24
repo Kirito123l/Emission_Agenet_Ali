@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from core.analytical_objective import AOStatus, AnalyticalObjective, ToolCallRecord
 from core.assembler import ContextAssembler
 from core.context_store import SessionContextStore
 from core.memory import FactMemory, MemoryManager
@@ -68,6 +69,22 @@ def test_fact_memory_state_contract_fields_write_and_persist(tmp_path):
         {"vehicle_type": "Motorcycle", "road_type": "高速公路"},
         True,
     )
+    memory.fact_memory.ao_history = [
+        AnalyticalObjective(
+            ao_id="AO#1",
+            session_id="state-contract",
+            objective_text="calculate emissions",
+            status=AOStatus.COMPLETED,
+            start_turn=1,
+            end_turn=1,
+            tool_call_log=[
+                ToolCallRecord.from_dict(memory.fact_memory.tool_call_log[0])
+            ],
+            artifacts_produced={"emission": "emission:default"},
+        )
+    ]
+    memory.fact_memory.current_ao_id = None
+    memory.fact_memory._ao_counter = 1
     memory._save()
 
     restored = MemoryManager("state-contract", storage_dir=tmp_path)

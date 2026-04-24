@@ -17,8 +17,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from config import get_config  # noqa: E402
 from core.ao_manager import AOManager  # noqa: E402
 from core.contracts.clarification_contract import ClarificationContract  # noqa: E402
+from core.governed_router import build_router  # noqa: E402
 from core.memory import FactMemory  # noqa: E402
-from core.router import UnifiedRouter  # noqa: E402
 from core.task_state import TaskState  # noqa: E402
 from tools.file_analyzer import FileAnalyzerTool  # noqa: E402
 
@@ -193,7 +193,7 @@ def hit_step_for(
 async def build_rows() -> tuple[List[ResolverRow], List[Dict[str, str]]]:
     config = get_config()
     tasks = load_tasks()
-    router = UnifiedRouter(session_id="phase2_4_resolver_dump")
+    router = build_router(session_id="phase2_4_resolver_dump", router_mode="full")
     analyzer = FileAnalyzerTool()
     analyzer_errors: List[Dict[str, str]] = []
     rows: List[ResolverRow] = []

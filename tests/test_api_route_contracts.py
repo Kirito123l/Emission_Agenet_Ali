@@ -141,6 +141,54 @@ async def test_chat_route_uses_shared_chat_session_service(api_app, monkeypatch)
 
 
 @pytest.mark.anyio
+async def test_chat_route_returns_400_for_incompatible_session(api_app, monkeypatch):
+    from core.analytical_objective import IncompatibleSessionError
+    from services.chat_session_service import ChatSessionService
+
+    async def fake_process_turn(self, *, message, session_id=None, upload=None, mode="full"):
+        raise IncompatibleSessionError("old session")
+
+    monkeypatch.setattr(ChatSessionService, "process_turn", fake_process_turn)
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        response = await api_client.post(
+            "/api/chat",
+            data={"message": "hello", "mode": "full", "session_id": "legacy-session"},
+            headers={"X-User-ID": "incompatible-user"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "Session format incompatible. Please create a new session or run migration script."
+        )
+
+
+@pytest.mark.anyio
+async def test_chat_stream_route_returns_400_for_incompatible_session_preflight(api_app, monkeypatch):
+    from api import session as session_mod
+    from core.analytical_objective import IncompatibleSessionError
+
+    def raise_incompatible(self):
+        raise IncompatibleSessionError("old session")
+
+    monkeypatch.setattr(session_mod.Session, "agent_router", property(raise_incompatible))
+    transport = ASGITransport(app=api_app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+        response = await api_client.post(
+            "/api/chat/stream",
+            data={"message": "hello", "mode": "full", "session_id": "legacy-session"},
+            headers={"X-User-ID": "incompatible-stream-user"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "Session format incompatible. Please create a new session or run migration script."
+        )
+
+
+@pytest.mark.anyio
 async def test_session_routes_create_list_and_history_backfill_legacy_download_metadata(api_app):
     from api.session import SessionRegistry
     from config import get_config

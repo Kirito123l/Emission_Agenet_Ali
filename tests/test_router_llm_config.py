@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from core.router import UnifiedRouter
+from core.governed_router import build_router
 
 
 def test_router_uses_configured_agent_llm_without_model_override(monkeypatch, tmp_path):
@@ -14,7 +14,8 @@ def test_router_uses_configured_agent_llm_without_model_override(monkeypatch, tm
 
     monkeypatch.setattr("core.router.get_llm_client", fake_get_llm_client)
 
-    router = UnifiedRouter("model-config-test", memory_storage_dir=tmp_path)
+    router = build_router("model-config-test", memory_storage_dir=tmp_path, router_mode="full")
 
-    assert router.llm.model == "configured-agent-model"
+    assert router.__class__.__name__ == "GovernedRouter"
+    assert router.inner_router.llm.model == "configured-agent-model"
     assert calls == [(("agent",), {})]
