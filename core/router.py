@@ -2160,6 +2160,7 @@ class UnifiedRouter:
             "violation_type": violation.violation_type,
             "reason": violation.reason,
             "suggestions": list(violation.suggestions),
+            "constraint_violation": violation.to_dict() if hasattr(violation, "to_dict") else None,
         }
 
     def _evaluate_cross_constraint_preflight(
@@ -2247,7 +2248,13 @@ class UnifiedRouter:
                 step_type=TraceStepType.CROSS_CONSTRAINT_WARNING,
                 stage_before=TaskStage.EXECUTING.value,
                 action=tool_name,
-                input_summary={"standardized_params": dict(standardized_params)},
+                input_summary={
+                    "standardized_params": dict(standardized_params),
+                    "cross_constraint_violations": [
+                        warning.to_dict() if hasattr(warning, "to_dict") else dict(warning)
+                        for warning in constraint_result.warnings
+                    ],
+                },
                 standardization_records=[
                     self._build_cross_constraint_record(warning, success=True)
                     for warning in constraint_result.warnings
@@ -2285,7 +2292,13 @@ class UnifiedRouter:
                 stage_before=TaskStage.EXECUTING.value,
                 stage_after=TaskStage.DONE.value,
                 action=tool_name,
-                input_summary={"standardized_params": dict(standardized_params)},
+                input_summary={
+                    "standardized_params": dict(standardized_params),
+                    "cross_constraint_violations": [
+                        item.to_dict() if hasattr(item, "to_dict") else dict(item)
+                        for item in constraint_result.violations
+                    ],
+                },
                 standardization_records=[
                     self._build_cross_constraint_record(violation, success=False)
                 ],

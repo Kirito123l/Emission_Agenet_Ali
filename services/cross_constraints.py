@@ -41,6 +41,10 @@ class CrossConstraintViolation:
         return {
             "constraint_name": self.constraint_name,
             "description": self.description,
+            "param_a_name": self.param_a_name,
+            "param_a_value": self.param_a_value,
+            "param_b_name": self.param_b_name,
+            "param_b_value": self.param_b_value,
             "param_a": f"{self.param_a_name}={self.param_a_value}",
             "param_b": f"{self.param_b_name}={self.param_b_value}",
             "violation_type": self.violation_type,

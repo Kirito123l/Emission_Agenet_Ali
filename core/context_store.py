@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import copy
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -105,6 +106,7 @@ class SessionContextStore:
         self._current_turn_results: List[Dict[str, Any]] = []
         self._dispersion_results: Dict[str, StoredResult] = {}
         self._last_dispersion_result: Optional[StoredResult] = None
+        self._latest_constraint_violations: List[Dict[str, Any]] = []
 
     def store_result(self, tool_name: str, result: Dict[str, Any]) -> Optional[StoredResult]:
         """Store one successful tool result under semantic type + scenario label."""
@@ -462,16 +464,28 @@ class SessionContextStore:
     def clear_current_turn(self) -> None:
         self._current_turn_results = []
 
+    def set_latest_constraint_violations(self, records: List[Dict[str, Any]]) -> None:
+        self._latest_constraint_violations = [
+            copy.deepcopy(item)
+            for item in list(records or [])
+            if isinstance(item, dict)
+        ]
+
+    def get_latest_constraint_violations(self) -> List[Dict[str, Any]]:
+        return copy.deepcopy(self._latest_constraint_violations)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "results": {key: value.compact() for key, value in self._store.items()},
             "history_count": len(self._history),
+            "latest_constraint_violations": self.get_latest_constraint_violations(),
         }
 
     def to_persisted_dict(self) -> Dict[str, Any]:
         return {
             "store": {key: value.to_persisted_dict() for key, value in self._store.items()},
             "history": [value.to_persisted_dict() for value in self._history],
+            "latest_constraint_violations": self.get_latest_constraint_violations(),
         }
 
     @classmethod
@@ -499,6 +513,11 @@ class SessionContextStore:
                 data=compact.get("data") if isinstance(compact.get("data"), dict) else {},
                 metadata=compact.get("metadata", {}) if isinstance(compact.get("metadata"), dict) else {},
             )
+        store.set_latest_constraint_violations(
+            data.get("latest_constraint_violations")
+            if isinstance(data.get("latest_constraint_violations"), list)
+            else []
+        )
         store._rebuild_secondary_indexes()
         return store
 
@@ -523,6 +542,11 @@ class SessionContextStore:
 
         if not store._history and store._store:
             store._history = list(store._store.values())
+        store.set_latest_constraint_violations(
+            data.get("latest_constraint_violations")
+            if isinstance(data.get("latest_constraint_violations"), list)
+            else []
+        )
         store._rebuild_secondary_indexes()
         return store
 
