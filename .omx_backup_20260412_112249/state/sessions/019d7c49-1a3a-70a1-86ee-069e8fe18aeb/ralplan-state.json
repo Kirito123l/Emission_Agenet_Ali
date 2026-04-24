@@ -1,8 +1,0 @@
-{
-  "active": false,
-  "current_phase": "complete",
-  "task_description": "Benchmark auto-generation pipeline upgrade completed: diagnostic report, pipeline_v2 implementation, benchmark curation, and verification smoke tests",
-  "iteration": 2,
-  "last_turn_at": "2026-04-11T12:24:10.304Z",
-  "completed_at": "2026-04-11T20:40:00+08:00"
-}
