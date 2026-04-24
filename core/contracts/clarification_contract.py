@@ -6,7 +6,6 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -21,10 +20,10 @@ from core.stance_resolver import StanceResolution, StanceResolver
 from services.llm_client import get_llm_client
 from services.standardization_engine import StandardizationEngine
 from tools.file_analyzer import FileAnalyzerTool
+from tools.contract_loader import get_tool_contract_registry
 
 logger = logging.getLogger(__name__)
 
-TOOLS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "unified_mappings.yaml"
 YEAR_RANGE_MIN = 1995
 YEAR_RANGE_MAX = 2025
 _SENTINEL_VALUES = {"missing", "unknown", "none", "n/a", "null", ""}
@@ -1370,9 +1369,21 @@ class ClarificationContract(BaseContract):
     def _load_tools_config(cls) -> Dict[str, Any]:
         if cls._tools_cache is not None:
             return cls._tools_cache
-        with TOOLS_CONFIG_PATH.open("r", encoding="utf-8") as handle:
-            payload = yaml.safe_load(handle) or {}
-        cls._tools_cache = dict(payload.get("tools") or {})
+        registry = get_tool_contract_registry()
+        tools: Dict[str, Any] = {}
+        for definition in registry.get_tool_definitions():
+            function = definition.get("function") if isinstance(definition, dict) else None
+            tool_name = str((function or {}).get("name") or "").strip()
+            if not tool_name:
+                continue
+            tools[tool_name] = {
+                "required_slots": registry.get_required_slots(tool_name),
+                "optional_slots": registry.get_optional_slots(tool_name),
+                "defaults": registry.get_defaults(tool_name),
+                "clarification_followup_slots": registry.get_clarification_followup_slots(tool_name),
+                "confirm_first_slots": registry.get_confirm_first_slots(tool_name),
+            }
+        cls._tools_cache = tools
         return cls._tools_cache
 
     def _get_tool_spec(self, tool_name: Optional[str]) -> Dict[str, Any]:

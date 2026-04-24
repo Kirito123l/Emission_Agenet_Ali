@@ -26,6 +26,20 @@ tools:
   query_emission_factors:
     display_name: 排放因子查询
     description: Query vehicle emission factor curves by speed. Returns chart and data table.
+    required_slots:
+      - vehicle_type
+      - pollutants
+    optional_slots:
+      - model_year
+      - season
+      - road_type
+    defaults:
+      season: "夏季"
+      road_type: "快速路"
+    clarification_followup_slots:
+      - model_year
+    confirm_first_slots:
+      - road_type
     parameters:
       vehicle_type:
         required: true
@@ -79,6 +93,17 @@ tools:
   calculate_micro_emission:
     display_name: 微观排放计算
     description: Calculate second-by-second emissions from vehicle trajectory data (time + speed). Use file_path for uploaded files.
+    required_slots:
+      - vehicle_type
+      - pollutants
+    optional_slots:
+      - season
+      - model_year
+    defaults:
+      season: "夏季"
+    clarification_followup_slots: []
+    confirm_first_slots:
+      - season
     parameters:
       file_path:
         required: false
@@ -156,6 +181,16 @@ tools:
   calculate_macro_emission:
     display_name: 宏观排放计算
     description: Calculate road link emissions from traffic data (length + flow + speed). Use file_path for uploaded files. The resulting pollutants can be passed to calculate_dispersion individually, or run sequentially when the user asks to disperse all computed pollutants.
+    required_slots:
+      - pollutants
+    optional_slots:
+      - season
+      - scenario_label
+    defaults:
+      season: "夏季"
+    clarification_followup_slots: []
+    confirm_first_slots:
+      - season
     parameters:
       file_path:
         required: false
@@ -310,6 +345,11 @@ tools:
   query_knowledge:
     display_name: 知识查询
     description: Search emission knowledge base for standards, regulations, and technical concepts.
+    required_slots: []
+    optional_slots: []
+    defaults: {}
+    clarification_followup_slots: []
+    confirm_first_slots: []
     parameters:
       query:
         required: true
@@ -347,6 +387,14 @@ tools:
   calculate_dispersion:
     display_name: 扩散模拟
     description: Calculate pollutant dispersion/concentration distribution from vehicle emissions using the PS-XGB-RLINE surrogate model. Requires emission results (typically from calculate_macro_emission). Produces a spatial concentration raster field. Supports meteorology presets, custom parameters, or .sfc files.
+    required_slots: []
+    optional_slots:
+      - meteorology
+      - pollutant
+      - scenario_label
+    defaults: {}
+    clarification_followup_slots: []
+    confirm_first_slots: []
     parameters:
       emission_source:
         required: false
@@ -471,6 +519,13 @@ tools:
   analyze_hotspots:
     display_name: 热点分析
     description: Identify pollution hotspot areas and trace contributing road sources from dispersion results. Supports percentile or threshold methods. Does not re-run dispersion - analyzes stored results instantly.
+    required_slots: []
+    optional_slots:
+      - method
+      - percentile
+    defaults: {}
+    clarification_followup_slots: []
+    confirm_first_slots: []
     parameters:
       method:
         required: false
@@ -557,6 +612,13 @@ tools:
   render_spatial_map:
     display_name: 空间地图渲染
     description: Render spatial data as an interactive map. Use this to visualize emission results, dispersion results, or any geo-referenced data on a map. Can use data from the previous calculation step.
+    required_slots: []
+    optional_slots:
+      - pollutant
+      - scenario_label
+    defaults: {}
+    clarification_followup_slots: []
+    confirm_first_slots: []
     parameters:
       data_source:
         required: false

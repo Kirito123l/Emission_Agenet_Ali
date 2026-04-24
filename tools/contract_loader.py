@@ -152,6 +152,42 @@ class ToolContractRegistry:
                 result[tool_name] = param_map
         return result
 
+    def get_required_slots(self, tool_name: str) -> List[str]:
+        """Return conversation-layer required slots for a tool."""
+        return self._get_string_list(tool_name, "required_slots")
+
+    def get_optional_slots(self, tool_name: str) -> List[str]:
+        """Return conversation-layer optional slots for a tool."""
+        return self._get_string_list(tool_name, "optional_slots")
+
+    def get_defaults(self, tool_name: str) -> Dict[str, Any]:
+        """Return declarative defaults for a tool."""
+        value = self._get_contract_value(tool_name, "defaults")
+        return deepcopy(value) if isinstance(value, dict) else {}
+
+    def get_clarification_followup_slots(self, tool_name: str) -> List[str]:
+        """Return slots to ask again for clarification resumes."""
+        return self._get_string_list(tool_name, "clarification_followup_slots")
+
+    def get_confirm_first_slots(self, tool_name: str) -> List[str]:
+        """Return slots that should trigger confirm-first behavior."""
+        return self._get_string_list(tool_name, "confirm_first_slots")
+
+    def _get_contract_value(self, tool_name: str, field_name: str) -> Any:
+        tool = str(tool_name or "").strip()
+        if not tool:
+            return None
+        contract = self._contracts.get(tool)
+        if not isinstance(contract, dict):
+            return None
+        return contract.get(field_name)
+
+    def _get_string_list(self, tool_name: str, field_name: str) -> List[str]:
+        value = self._get_contract_value(tool_name, field_name)
+        if not isinstance(value, list):
+            return []
+        return [str(item) for item in value if str(item).strip()]
+
     def _build_json_schema(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
         properties: Dict[str, Any] = {}
         required: List[str] = []
