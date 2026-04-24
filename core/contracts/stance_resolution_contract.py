@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, Optional
-
-import yaml
+from typing import Any, Dict
 
 from core.analytical_objective import ConversationalStance, StanceConfidence
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.stance_resolver import StanceResolution, StanceResolver
-
-TOOLS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "unified_mappings.yaml"
+from tools.contract_loader import get_tool_contract_registry
 
 
 class StanceResolutionContract(BaseContract):
     """Wave 2 split contract for conversational stance resolution."""
 
     name = "stance_resolution"
-    _tools_cache: Optional[Dict[str, Any]] = None
 
     def __init__(self, inner_router: Any = None, ao_manager: Any = None, runtime_config: Any = None):
         self.inner_router = inner_router
@@ -176,14 +171,7 @@ class StanceResolutionContract(BaseContract):
 
     @classmethod
     def _required_slots_for_tool(cls, tool_name: str) -> list[str]:
-        if cls._tools_cache is None:
-            with TOOLS_CONFIG_PATH.open("r", encoding="utf-8") as handle:
-                payload = yaml.safe_load(handle) or {}
-            cls._tools_cache = dict(payload.get("tools") or {})
-        spec = cls._tools_cache.get(tool_name) if isinstance(cls._tools_cache, dict) else None
-        if not isinstance(spec, dict):
-            return []
-        return [str(slot) for slot in list(spec.get("required_slots") or []) if str(slot).strip()]
+        return get_tool_contract_registry().get_required_slots(tool_name)
 
     def _current_turn_index(self, *, pre_call: bool = False) -> int:
         turn_counter = int(getattr(getattr(self.inner_router, "memory", None), "turn_counter", 0) or 0)
