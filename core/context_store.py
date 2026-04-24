@@ -82,6 +82,7 @@ class SessionContextStore:
         "render_spatial_map": "visualization",
         "compare_scenarios": "scenario_comparison",
         "analyze_file": "file_analysis",
+        "clean_dataframe": "data_quality_report",
         "query_emission_factors": "emission_factors",
         "query_knowledge": "knowledge",
     }
