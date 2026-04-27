@@ -5,6 +5,7 @@ import logging
 
 import pytest
 
+from config import reset_config
 from services.llm_client import LLMClientService
 
 
@@ -107,3 +108,20 @@ def test_request_with_failover_does_not_retry_non_connection_errors():
 
     assert calls["count"] == 1
     assert client._retry_sleep_calls == []
+
+
+def test_deepseek_pro_adds_thinking_request_options(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_ENABLE_THINKING", "true")
+    monkeypatch.setenv("DEEPSEEK_REASONING_EFFORT", "high")
+    monkeypatch.setenv("DEEPSEEK_THINKING_MODELS", "deepseek-v4-pro")
+    reset_config()
+    client = object.__new__(LLMClientService)
+    client.provider_name = "deepseek"
+    client.model = "deepseek-v4-pro"
+
+    assert client._provider_extra_kwargs() == {
+        "extra_body": {
+            "thinking": {"type": "enabled"},
+            "reasoning_effort": "high",
+        }
+    }

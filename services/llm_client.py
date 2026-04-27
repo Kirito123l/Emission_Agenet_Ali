@@ -60,6 +60,7 @@ class LLMResponse:
     tool_calls: Optional[List[ToolCall]] = None
     finish_reason: Optional[str] = None
     usage: Optional[Dict[str, Any]] = None
+    reasoning_content: Optional[str] = None
 
 
 class LLMClientService:
@@ -89,7 +90,8 @@ class LLMClientService:
         self.assignment = assignment
         self.model = model or assignment.model
         self.temperature = assignment.temperature if temperature is None else temperature
-        provider = config.providers[assignment.provider]
+        self.provider_name = assignment.provider
+        provider = config.providers[self.provider_name]
         self._api_key = provider["api_key"]
         self._base_url = provider["base_url"]
         self._proxy = config.https_proxy or config.http_proxy
@@ -108,7 +110,7 @@ class LLMClientService:
         if not self._api_key:
             raise ValueError(
                 "LLM API key not configured. "
-                "Please set QWEN_API_KEY environment variable."
+                f"Please set {self.provider_name.upper()}_API_KEY environment variable."
             )
         http_client = None
         if use_proxy and self._proxy:
@@ -137,6 +139,23 @@ class LLMClientService:
             "tls",
         ]
         return any(k in text for k in keywords)
+
+    def _provider_extra_kwargs(self) -> Dict[str, Any]:
+        """Return provider-specific request parameters for OpenAI-compatible APIs."""
+        if getattr(self, "provider_name", "") != "deepseek":
+            return {}
+
+        config = get_config()
+        if not getattr(config, "deepseek_enable_thinking", False):
+            return {}
+        if self.model not in getattr(config, "deepseek_thinking_models", ()):
+            return {}
+
+        extra_body: Dict[str, Any] = {"thinking": {"type": "enabled"}}
+        reasoning_effort = getattr(config, "deepseek_reasoning_effort", "")
+        if reasoning_effort:
+            extra_body["reasoning_effort"] = reasoning_effort
+        return {"extra_body": extra_body}
 
     def _request_with_failover(self, request_fn, operation: str):
         """
@@ -198,6 +217,23 @@ class LLMClientService:
         if last_error:
             raise last_error
         raise RuntimeError(f"{operation} failed with unknown error")
+
+    def _extract_reasoning_content(self, message: Any) -> Optional[str]:
+        """Return provider thinking metadata that must be replayed in tool histories."""
+        if getattr(self, "provider_name", "") not in ("deepseek", "qwen"):
+            return None
+
+        reasoning_content = getattr(message, "reasoning_content", None)
+        if reasoning_content is not None:
+            return reasoning_content
+
+        if hasattr(message, "model_dump"):
+            payload = message.model_dump(exclude_none=True)
+            value = payload.get("reasoning_content")
+            if value is not None:
+                return value
+
+        return None
 
     @staticmethod
     def _extract_usage(response: Any) -> Optional[Dict[str, Any]]:
@@ -261,6 +297,7 @@ class LLMClientService:
                     messages=full_messages,
                     temperature=temperature or self.temperature,
                     **({"seed": seed} if seed is not None else {}),
+                    **self._provider_extra_kwargs(),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM chat"
@@ -315,6 +352,7 @@ class LLMClientService:
                     tool_choice="auto",  # Let LLM decide
                     temperature=temperature or self.temperature,
                     **({"seed": seed} if seed is not None else {}),
+                    **self._provider_extra_kwargs(),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM chat with tools"
@@ -324,6 +362,7 @@ class LLMClientService:
             message = response.choices[0].message
             content = message.content or ""
             finish_reason = response.choices[0].finish_reason
+            reasoning_content = self._extract_reasoning_content(message)
 
             # Parse tool calls if present
             tool_calls = None
@@ -347,6 +386,7 @@ class LLMClientService:
                 tool_calls=tool_calls,
                 finish_reason=finish_reason,
                 usage=usage,
+                reasoning_content=reasoning_content,
             )
 
         except Exception as e:
@@ -384,6 +424,7 @@ class LLMClientService:
                     temperature=0.0 if temperature is None else temperature,
                     response_format={"type": "json_object"},
                     **({"seed": seed} if seed is not None else {}),
+                    **self._provider_extra_kwargs(),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM async JSON chat",
@@ -421,6 +462,7 @@ class LLMClientService:
                     temperature=0.0 if temperature is None else temperature,
                     response_format={"type": "json_object"},
                     **({"seed": seed} if seed is not None else {}),
+                    **self._provider_extra_kwargs(),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM async JSON chat",
@@ -466,6 +508,7 @@ class LLMClientService:
                     model=self.model,
                     messages=messages,
                     temperature=temperature or self.temperature,
+                    **self._provider_extra_kwargs(),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM sync chat"
@@ -503,6 +546,7 @@ class LLMClientService:
                     messages=messages,
                     temperature=0.3,
                     response_format={"type": "json_object"},
+                    **self._provider_extra_kwargs(),
                     max_tokens=self.max_tokens,
                 ),
                 operation="LLM JSON chat"

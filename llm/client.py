@@ -32,7 +32,8 @@ logger = logging.getLogger(__name__)
 class LLMClient:
     def __init__(self, assignment, purpose: str):
         config = get_config()
-        provider = config.providers[assignment.provider]
+        self.provider_name = assignment.provider
+        provider = config.providers[self.provider_name]
         self.purpose = purpose
         self.assignment = assignment
         self._api_key = provider["api_key"]
@@ -48,7 +49,7 @@ class LLMClient:
         if not self._api_key:
             raise ValueError(
                 "LLM API key not configured. "
-                "Please set QWEN_API_KEY environment variable."
+                f"Please set {self.provider_name.upper()}_API_KEY environment variable."
             )
         http_client = None
         if use_proxy and self._proxy:
@@ -66,6 +67,23 @@ class LLMClient:
             return True
         text = str(exc).lower()
         return any(k in text for k in ["connection error", "unexpected eof", "ssl", "tls", "timed out"])
+
+    def _provider_extra_kwargs(self) -> Dict[str, Any]:
+        """Return provider-specific request parameters for OpenAI-compatible APIs."""
+        if self.provider_name != "deepseek":
+            return {}
+
+        config = get_config()
+        if not getattr(config, "deepseek_enable_thinking", False):
+            return {}
+        if self.assignment.model not in getattr(config, "deepseek_thinking_models", ()):
+            return {}
+
+        extra_body: Dict[str, Any] = {"thinking": {"type": "enabled"}}
+        reasoning_effort = getattr(config, "deepseek_reasoning_effort", "")
+        if reasoning_effort:
+            extra_body["reasoning_effort"] = reasoning_effort
+        return {"extra_body": extra_body}
 
     def _request_with_failover(self, request_fn, op_name: str):
         clients = []
@@ -103,6 +121,7 @@ class LLMClient:
                 model=self.assignment.model,
                 messages=messages,
                 temperature=temperature or self.assignment.temperature,
+                **self._provider_extra_kwargs(),
                 max_tokens=self.assignment.max_tokens,
             ),
             "LLM chat"
@@ -121,6 +140,7 @@ class LLMClient:
                 messages=messages,
                 temperature=0.3,
                 response_format={"type": "json_object"},
+                **self._provider_extra_kwargs(),
             ),
             "LLM chat_json"
         )
@@ -134,6 +154,7 @@ class LLMClient:
                 messages=messages,
                 temperature=0.3,
                 response_format={"type": "json_object"},
+                **self._provider_extra_kwargs(),
             ),
             "LLM chat_json_with_history"
         )

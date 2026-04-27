@@ -9637,13 +9637,17 @@ class UnifiedRouter:
                 }
             )
 
-        messages.append(
-            {
-                "role": "assistant",
-                "content": response.content or "",
-                "tool_calls": assistant_tool_calls,
-            }
-        )
+        assistant_message = {
+            "role": "assistant",
+            "content": response.content or "",
+            "tool_calls": assistant_tool_calls,
+        }
+        if (
+            getattr(self.llm, "provider_name", "") in ("deepseek", "qwen")
+            and getattr(response, "reasoning_content", None) is not None
+        ):
+            assistant_message["reasoning_content"] = response.reasoning_content
+        messages.append(assistant_message)
 
         for tool_call in response.tool_calls or []:
             tool_result = tool_results_by_id.get(tool_call.id)

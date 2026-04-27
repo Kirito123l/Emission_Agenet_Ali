@@ -9,6 +9,7 @@ from services.llm_client import (
 
 
 def test_sync_llm_package_export_uses_purpose_assignment(monkeypatch):
+    monkeypatch.setenv("LLM_USE_GLOBAL_DEFAULTS", "false")
     monkeypatch.setenv("STANDARDIZER_LLM_MODEL", "standardizer-test-model")
     reset_config()
     reset_llm_manager()
@@ -21,6 +22,7 @@ def test_sync_llm_package_export_uses_purpose_assignment(monkeypatch):
 
 
 def test_async_llm_service_uses_purpose_assignment(monkeypatch):
+    monkeypatch.setenv("LLM_USE_GLOBAL_DEFAULTS", "false")
     monkeypatch.setenv("SYNTHESIS_LLM_MODEL", "synthesis-test-model")
     reset_config()
 
@@ -32,6 +34,7 @@ def test_async_llm_service_uses_purpose_assignment(monkeypatch):
 
 
 def test_async_llm_factory_uses_purpose_default_model(monkeypatch):
+    monkeypatch.setenv("LLM_USE_GLOBAL_DEFAULTS", "false")
     monkeypatch.setenv("AGENT_LLM_MODEL", "agent-test-model")
     monkeypatch.setenv("SYNTHESIS_LLM_MODEL", "synthesis-test-model")
     reset_config()
@@ -46,6 +49,7 @@ def test_async_llm_factory_uses_purpose_default_model(monkeypatch):
 
 
 def test_async_llm_factory_preserves_explicit_model_override(monkeypatch):
+    monkeypatch.setenv("LLM_USE_GLOBAL_DEFAULTS", "false")
     monkeypatch.setenv("SYNTHESIS_LLM_MODEL", "configured-synthesis-model")
     reset_config()
     reset_llm_client_cache()
