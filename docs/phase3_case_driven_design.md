@@ -1222,36 +1222,62 @@ atomic unit. When OFF, the system falls through to existing hard-rule paths unch
 
 ---
 
-### Step 2: TASK-3 + TASK-4 — LLM-First Classification + Substring Downgrade
+### Step 2: Decision Field Recalibration + LLM-First Classification (EXPANDED SCOPE)
 
-- **Type**: Independent (can run and ship after Step 1 baseline is stable).
-- **Entry prerequisite**: Step 1 complete + smoke baseline stable for 3+ runs
-  (feature flag OFF and ON both measured).
-- **Exit verification**: Multi-turn clarification smoke (e2e_clarification_101
-  category) passes with LLM classifier. Substring-disagreement telemetry shows
-  LLM winning disputes. No regression in single-turn tasks.
-- **Effort**: M + M.
-- **Risk**: Medium — more LLM calls per turn; substring removal may change
-  production continuation behavior.
+**Step 2 scope expanded based on Step 1 dual smoke evidence (2026-04-27).** Decision field
+implementation is complete (Step 1.B) but disabled by default due to fast-model
+calibration insufficiency: qwen-turbo-latest over-clarifies on simple directive
+tasks, causing -6.67pp regression on 30-task smoke when enabled
+(ON=80.00% vs OFF=86.67%).
 
-#### 6.3.1 TASK-3: AO Classifier LLM-First
+Step 2 must address this jointly with TASK-3 (AOClassifier LLM-first):
+- Both AOClassifier and Stage 2 decision field require reasoning model capacity
+  (qwen3-max), not fast model
+- Consolidate into single per-turn LLM call producing both turn classification
+  AND execution decision (slots/intent/stance/decision in one output)
+- This is a step toward TASK-6 (Stage 2 axis separation) but motivated by
+  calibration evidence rather than pure refactor
+
+- **Type**: Independent (can run and ship after Step 1.B baseline is understood).
+- **Entry prerequisite**: Step 1.A committed (knowledge injection proven +10pp);
+  Step 1.B committed but disabled.
+- **Exit verification**: Dual smoke (30-task + 11-task); ON >= OFF. Multi-turn
+  clarification smoke passes. No regression in single-turn directive tasks.
+- **Effort**: L (expanded from original M+M).
+- **Risk**: Medium-High — model switch increases latency; consolidated LLM call
+  changes prompt architecture.
+
+#### 6.3.1 Model Switch + Prompt Consolidation (NEW)
 
 | # | Description | Files | Effort |
 |---|-------------|-------|--------|
-| 2.1 | Delete `_is_short_clarification_reply` and `_detect_revision_target` branches from `_rule_layer1()` | `core/ao_classifier.py:202-269` | M |
-| 2.2 | Keep only structural rules in rule layer: `first_message_in_session → NEW_AO`, `pure_file_upload → CONTINUATION` | `core/ao_classifier.py:202-269` | S |
-| 2.3 | For all other cases, `_rule_layer1()` returns `None` → falls through to `_llm_layer2()` | `core/ao_classifier.py:283-289` | S |
-| 2.4 | Lower AO classifier confidence fallback threshold from 0.7 → 0.5 (match decision field F1 threshold) | `core/ao_classifier.py:154-158` | S |
-| 2.5 | Add unit tests: short pollutant reply, `重新查询`, `改成冬季`, file-only supplement classified correctly by LLM | `tests/test_ao_classifier.py` | S |
+| 2.1 | Switch AOClassifier LLM layer and Stage 2 LLM from fast model (qwen-turbo-latest) to reasoning model (qwen3-max) | `core/ao_classifier.py`, `core/contracts/clarification_contract.py`, `core/contracts/split_contract_utils.py` | M |
+| 2.2 | Consolidate AOClassifier + Stage 2 into single LLM call: one prompt producing turn classification (AO action, classification, confidence) + execution decision (slots, intent, stance, decision) in unified output | `core/ao_classifier.py`, `core/contracts/clarification_contract.py` | L |
+| 2.3 | Re-enable decision field: set `enable_llm_decision_field` default to `true` | `config.py` | S |
 
-#### 6.3.2 TASK-4 Partial: Substring Matchers → Advisory
+#### 6.3.2 TASK-3 Remnant: Rule Layer Simplification
 
 | # | Description | Files | Effort |
 |---|-------------|-------|--------|
-| 2.6 | `_detect_confirm_first()`: log match result as trace evidence; LLM stance/intent leads | `core/contracts/clarification_contract.py:1447-1508` | M |
-| 2.7 | `has_reversal_marker()`: log match result; LLM classification leads | `core/continuation_signals.py:4-37` | S |
-| 2.8 | `has_probe_abandon_marker()`: log match result; LLM decision leads | `core/contracts/stance_resolution_contract.py:32-52` | S |
-| 2.9 | Add arbitration function: when substring and LLM disagree, log the disagreement + LLM wins (unless domain-hard constraint applies) | New helper in `clarification_contract.py` | S |
+| 2.4 | Delete `_is_short_clarification_reply` and `_detect_revision_target` branches from `_rule_layer1()`; keep only structural rules (`first_message_in_session → NEW_AO`, `pure_file_upload → CONTINUATION`) | `core/ao_classifier.py:202-269` | M |
+| 2.5 | For all other cases, `_rule_layer1()` returns `None` → falls through to LLM (now unified call from 2.2) | `core/ao_classifier.py:283-289` | S |
+| 2.6 | Lower AO classifier confidence fallback threshold from 0.7 → 0.5 | `core/ao_classifier.py:154-158` | S |
+
+#### 6.3.3 TASK-4 Partial: Substring Matchers → Advisory
+
+| # | Description | Files | Effort |
+|---|-------------|-------|--------|
+| 2.7 | `_detect_confirm_first()`: log match result as trace evidence; LLM stance/intent leads | `core/contracts/clarification_contract.py:1447-1508` | M |
+| 2.8 | `has_reversal_marker()`: log match result; LLM classification leads | `core/continuation_signals.py:4-37` | S |
+| 2.9 | `has_probe_abandon_marker()`: log match result; LLM decision leads | `core/contracts/stance_resolution_contract.py:32-52` | S |
+| 2.10 | Add arbitration function: when substring and LLM disagree, log the disagreement + LLM wins (unless domain-hard constraint applies) | New helper in `clarification_contract.py` | S |
+
+#### 6.3.4 Verification
+
+| # | Description | Effort |
+|---|-------------|--------|
+| 2.11 | Repeat dual smoke (30-task + 11-task); expect ON >= OFF on 30-task completion | S |
+| 2.12 | Add unit tests: short pollutant reply, `重新查询`, `改成冬季`, file-only supplement classified correctly by unified LLM call | `tests/test_ao_classifier.py` | S |
 
 ---
 
@@ -1301,17 +1327,31 @@ Step 0 (TASK-8: Hardcoded Text → LLM)
   │  Independent. No dependencies.
   │  Exit: smoke unchanged, text fluent.
   ↓
-Step 1 (Knowledge Injection + Decision Field) ← ATOMIC
-  ├── 1.1-1.7: K4, K6, K7, K8 injection
-  ├── 1.8-1.14: decision field + validation + GovernedRouter + feature flag
+Step 1.A (Knowledge Injection: K1/K4/K6/K7/K8)
   │  Depends on: Step 0 (ReplyContext structure)
-  │  Exit: all 4 cases pass with flag ON; flag OFF = no regression.
+  │  Exit: +10pp over Step 0 (86.67% vs 76.67% on 30-task smoke).
+  │  Commit: knowledge injection code, flag default false, harness fixes.
   ↓
-Step 2 (TASK-3 + TASK-4: LLM-First Classification)
-  ├── 2.1-2.5: AO classifier rule layer deletion
-  ├── 2.6-2.9: substring matchers → advisory
-  │  Depends on: Step 1 baseline stable (3+ smoke runs)
-  │  Exit: multi-turn clarification passes; substring disputes logged.
+Step 1.B (Decision Field: disabled by default)
+  │  Depends on: Step 1.A (flag entry, knowledge injection)
+  │  Exit: code complete; flag OFF = no regression, flag ON = -6.67pp (known issue).
+  │  Commit: decision field code (3-way branch, Q3 gates, F1 validator, few-shot YAML).
+  ↓
+Step 2 (Decision Recalibration + LLM-First Classification) ← EXPANDED SCOPE
+  ├── 2.1-2.3: Model switch (reasoning model), consolidate AO + Stage 2, re-enable decision field
+  ├── 2.4-2.6: TASK-3 remnant (rule layer simplification)
+  ├── 2.7-2.10: TASK-4 partial (substring → advisory)
+  ├── 2.11-2.12: Verification (dual smoke, unit tests)
+  │  Depends on: Step 1.A + 1.B
+  │  Exit: ON >= OFF; no regression on directive tasks.
+  ↓
+Step 2 (Decision Recalibration + LLM-First Classification) ← EXPANDED SCOPE
+  ├── 2.1-2.3: Model switch + consolidate AO + Stage 2 + re-enable decision field
+  ├── 2.4-2.6: TASK-3 remnant (rule layer simplification)
+  ├── 2.7-2.10: TASK-4 partial (substring matchers → advisory)
+  ├── 2.11-2.12: Verification (dual smoke, unit tests)
+  │  Depends on: Step 1.A + 1.B
+  │  Exit: ON >= OFF on 30-task; no regression on single-turn directives.
   ↓
 Step 3 (TASK-6: Separate Stage 2 Axes)
   │  Depends on: Step 2 baseline stable 7+ days + 4 cases passing
