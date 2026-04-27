@@ -298,6 +298,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                     "transition_reason": transition_reason,
                     "short_circuit_intent": short_circuit_intent,
                 }
+                # Q3 gate: defer to decision field when active
+                if self._split_decision_field_active(context):
+                    return ContractInterception(
+                        metadata={
+                            "clarification": {"telemetry": telemetry},
+                            "hardcoded_recommendation": "clarify",
+                            "hardcoded_reason": question,
+                        }
+                    )
                 return ContractInterception(
                     proceed=False,
                     response=RouterResponse(
@@ -336,6 +345,19 @@ class ExecutionReadinessContract(SplitContractSupport):
                 "transition_reason": transition_reason,
                 "short_circuit_intent": short_circuit_intent,
             }
+            # Q3 gate: defer to decision field when active
+            if self._split_decision_field_active(context):
+                return ContractInterception(
+                    metadata={
+                        "clarification": {"telemetry": telemetry},
+                        "stance": "exploratory",
+                        "available_capabilities": [
+                            "排放因子查询", "微观排放计算", "宏观排放计算", "扩散影响分析",
+                        ],
+                        "hardcoded_recommendation": "deliberate",
+                        "hardcoded_reason": "exploratory stance detected",
+                    }
+                )
             return ContractInterception(
                 proceed=False,
                 response=RouterResponse(
@@ -428,6 +450,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                     "transition_reason": transition_reason,
                     "short_circuit_intent": short_circuit_intent,
                 }
+                # Q3 gate: defer to decision field when active
+                if self._split_decision_field_active(context):
+                    return ContractInterception(
+                        metadata={
+                            "clarification": {"telemetry": telemetry},
+                            "hardcoded_recommendation": "clarify",
+                            "hardcoded_reason": question,
+                        }
+                    )
                 return ContractInterception(
                     proceed=False,
                     response=RouterResponse(

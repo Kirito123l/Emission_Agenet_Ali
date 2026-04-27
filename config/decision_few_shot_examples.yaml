@@ -1,0 +1,92 @@
+# Phase 3 Step 1: Decision field few-shot examples for Stage 2 LLM.
+# Injected into user payload as "decision_examples" key.
+# NOTE: confidence uses descriptive labels, NOT concrete numbers, to avoid
+# anchoring the LLM to specific float values.
+
+examples:
+  # --- 3 proceed examples ---
+  - scenario: "slots_filled_with_runtime_defaults"
+    user_message: "帮我算一下这辆轻型汽油车的CO2和NOx排放"
+    tool_name: "query_emission_factors"
+    context: |
+      已有参数: vehicle_type=轻型汽油车, pollutants=[CO2,NOx]。
+      model_year 未提供但 runtime_defaults 中有默认值 2020。
+    expected_decision:
+      value: "proceed"
+      confidence: "<high: required slots filled, runtime defaults cover the rest>"
+      reasoning: "所有必需槽位已填充（vehicle_type + pollutants），model_year 有运行时默认值，可以直接执行。"
+      clarification_question: null
+
+  - scenario: "clean_directive_simple"
+    user_message: "查询2020年轻型汽油车CO2排放因子"
+    tool_name: "query_emission_factors"
+    context: |
+      已有参数: vehicle_type=轻型汽油车, model_year=2020, pollutants=[CO2]。
+      所有必需槽位已完整。
+    expected_decision:
+      value: "proceed"
+      confidence: "<very high: all required slots explicitly provided by user>"
+      reasoning: "参数完整无缺，用户表达清晰指令，直接执行。"
+      clarification_question: null
+
+  - scenario: "user_corrected_after_violation"
+    user_message: "我改成2022年，帮我查一下"
+    tool_name: "query_emission_factors"
+    context: |
+      上一轮 model_year=2026 触发了 cross_constraint_violation(reject) 并记录在 prior_violations 中。
+      用户本轮改为 2022（合法年份），其余参数 vehicle_type=轻型汽油车, pollutants=[CO2] 已确认。
+    expected_decision:
+      value: "proceed"
+      confidence: "<medium-high: user corrected the violation, slots now legal>"
+      reasoning: "用户已纠正之前违规的参数，当前所有槽位合法且完整，可以执行。"
+      clarification_question: null
+
+  # --- 2 clarify examples ---
+  - scenario: "vague_initial_query"
+    user_message: "帮我算一下排放"
+    tool_name: null
+    context: |
+      用户首次消息极其模糊，无车辆类型、无污染物、无年份、无工具指向。
+      available_tools 列出 4 个可选工具。
+    expected_decision:
+      value: "clarify"
+      confidence: "<high: user intent is clearly ambiguous, strong evidence of missing information>"
+      reasoning: "用户意图过于模糊，需要至少澄清分析类型和关键参数。"
+      clarification_question: "您想分析哪种排放？我可以帮您查询排放因子、计算微观/宏观排放或者检索排放知识库。请告诉我您关注的车辆类型和污染物。"
+
+  - scenario: "downstream_goal_missing_upstream"
+    user_message: "我想做扩散分析"
+    tool_name: "calculate_dispersion"
+    context: |
+      tool_graph 显示 calculate_dispersion 需要 emission 上游结果。
+      available_results 中 emission=false（尚未计算排放）。
+      已有参数: pollutant=CO2（但不完整）。
+    expected_decision:
+      value: "clarify"
+      confidence: "<high: tool dependency chain broken, upstream result required>"
+      reasoning: "扩散分析依赖上游 emission 结果，但当前无排放数据。需要先执行排放计算。"
+      clarification_question: "扩散分析需要先有排放计算结果。您想先做哪种排放计算（宏观路段排放或微观逐秒排放）？您是否已有包含车流量和路网信息的数据文件？"
+
+  # --- 2 deliberate examples ---
+  - scenario: "user_comparing_options"
+    user_message: "宏观和微观排放计算有什么区别？我该用哪个？"
+    tool_name: null
+    context: |
+      用户处于探索模式，比较两个工具的能力边界。
+    expected_decision:
+      value: "deliberate"
+      confidence: "<high: explicit comparison question, no execution directive>"
+      reasoning: "用户在比较工具选择而非请求执行。需要给出比较性建议帮助用户缩小范围。"
+      clarification_question: null
+
+  - scenario: "multi_tool_comparison_no_directive"
+    user_message: "有没有办法同时看排放和扩散的影响？"
+    tool_name: null
+    context: |
+      用户提出了多工具组合的分析场景，但未给出具体指令。
+      tool_graph 显示 calculate_macro_emission → calculate_dispersion 是一条可行链。
+    expected_decision:
+      value: "deliberate"
+      confidence: "<medium-high: exploratory question, user hasn't committed to execution>"
+      reasoning: "用户提出了多步骤分析的探索性问题，需要先了解其具体目标再规划工具链。"
+      clarification_question: null

@@ -7,13 +7,28 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from core.contracts.clarification_contract import ClarificationContract
+from core.contracts.clarification_contract import ClarificationContract, _load_decision_examples
 from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS
 from core.tool_dependencies import _build_tool_graph_for_prompt
 
 
 class SplitContractSupport(ClarificationContract):
     """Shared Wave 2 helpers while the legacy ClarificationContract remains intact."""
+
+    @staticmethod
+    def _split_decision_field_active(context) -> bool:
+        """Return True when the LLM decision field should gate hardcoded routing in split contracts."""
+        from config import get_config
+        if not getattr(get_config(), "enable_llm_decision_field", False):
+            return False
+        stage2 = context.metadata.get("stage2_payload") if isinstance(context.metadata, dict) else None
+        if not isinstance(stage2, dict):
+            return False
+        decision = stage2.get("decision")
+        if not isinstance(decision, dict):
+            return False
+        value = str(decision.get("value") or "").strip().lower()
+        return value in {"proceed", "clarify", "deliberate"}
 
     @staticmethod
     def _stage2_system_prompt() -> str:
@@ -30,6 +45,9 @@ class SplitContractSupport(ClarificationContract):
             "(K6) tool_graph: 工具间 requires/provides/upstream_tools，规划多步链时确保依赖顺序。\n"
             "(K7) prior_violations: 本轮之前的约束冲突记录，相同参数组合再次尝试时需反映约束。\n"
             "(K8) available_results: 已完成的结果类型，规划时避免重复已存在结果。\n"
+            "(DECISION) 额外输出 decision:{value:proceed|clarify|deliberate,confidence:0-1,reasoning,clarification_question}。"
+            "proceed=信息足够可执行,clarify=需询问用户,deliberate=用户在探索/比较。"
+            "confidence≥0.5;clarify时clarification_question非空;deliberate时reasoning非空。"
         )
 
     async def _run_stage2_llm_with_telemetry(
@@ -66,6 +84,7 @@ class SplitContractSupport(ClarificationContract):
             "tool_graph": _build_tool_graph_for_prompt(),
             "prior_violations": self._get_prior_violations(),
             "available_results": self._build_available_results(),
+            "decision_examples": _load_decision_examples(),
         }
         user_content = yaml.safe_dump(prompt_payload, allow_unicode=True, sort_keys=False)
         system_prompt = self._stage2_system_prompt()

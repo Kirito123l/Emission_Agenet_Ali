@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from core.analytical_objective import IntentConfidence
+from config import get_config
 from core.contracts.base import ContractContext, ContractInterception
 from core.contracts.split_contract_utils import SplitContractSupport
 from core.continuation_signals import has_reversal_marker
@@ -129,6 +130,20 @@ class IntentResolutionContract(SplitContractSupport):
                 pending_slot="tool_intent",
                 stage2_meta=dict(context.metadata.get("stage2_telemetry") or {}),
             )
+            # Q3 gate: defer to decision field when active
+            if self._split_decision_field_active(context):
+                return ContractInterception(
+                    metadata={
+                        "clarification": {"telemetry": telemetry},
+                        "intent_unresolved": True,
+                        "available_tools": [
+                            "query_emission_factors", "calculate_micro_emission",
+                            "calculate_macro_emission", "query_knowledge",
+                        ],
+                        "hardcoded_recommendation": "clarify",
+                        "hardcoded_reason": "intent unresolved",
+                    }
+                )
             return ContractInterception(
                 proceed=False,
                 response=RouterResponse(

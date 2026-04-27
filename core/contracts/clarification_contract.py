@@ -16,8 +16,8 @@ from core.ao_classifier import AOClassType
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
-from core.stance_resolver import StanceResolution, StanceResolver
 from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS
+from core.stance_resolver import StanceResolution, StanceResolver
 from core.tool_dependencies import _build_tool_graph_for_prompt
 from services.llm_client import get_llm_client
 from services.standardization_engine import StandardizationEngine
@@ -29,6 +29,22 @@ logger = logging.getLogger(__name__)
 YEAR_RANGE_MIN = 1995
 YEAR_RANGE_MAX = 2025
 _SENTINEL_VALUES = {"missing", "unknown", "none", "n/a", "null", ""}
+_DECISION_EXAMPLES: Optional[list] = None
+
+
+def _load_decision_examples() -> list:
+    global _DECISION_EXAMPLES
+    if _DECISION_EXAMPLES is not None:
+        return _DECISION_EXAMPLES
+    import os as _os
+    path = _os.path.join(_os.path.dirname(__file__), "..", "..", "config", "decision_few_shot_examples.yaml")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+        _DECISION_EXAMPLES = list(data.get("examples") or []) if isinstance(data, dict) else []
+    except Exception:
+        _DECISION_EXAMPLES = []
+    return _DECISION_EXAMPLES
 
 
 @dataclass
@@ -66,6 +82,7 @@ class ClarificationTelemetry:
     stance_reversal_detected: bool
     stance_llm_hint_raw: Optional[Dict[str, Any]]
     stance_llm_hint_parse_success: bool
+    stage2_decision: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -106,6 +123,7 @@ class ClarificationTelemetry:
                 else None
             ),
             "stance_llm_hint_parse_success": self.stance_llm_hint_parse_success,
+            "stage2_decision": dict(self.stage2_decision) if isinstance(self.stage2_decision, dict) else None,
         }
 
 
@@ -231,6 +249,8 @@ class ClarificationContract(BaseContract):
                 telemetry.stage2_missing_required = list(prefetched_stage2_payload.get("missing_required") or [])
                 llm_question = str(prefetched_stage2_payload.get("clarification_question") or "").strip() or None
                 telemetry.stage2_clarification_question = llm_question
+                if isinstance(prefetched_stage2_payload.get("decision"), dict):
+                    telemetry.stage2_decision = dict(prefetched_stage2_payload["decision"])
                 llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(prefetched_stage2_payload)
                 telemetry.llm_intent_raw = llm_raw
                 telemetry.llm_intent_parse_success = parse_success
@@ -303,6 +323,8 @@ class ClarificationContract(BaseContract):
                 telemetry.stage2_missing_required = list(llm_payload.get("missing_required") or [])
                 llm_question = str(llm_payload.get("clarification_question") or "").strip() or None
                 telemetry.stage2_clarification_question = llm_question
+                if isinstance(llm_payload.get("decision"), dict):
+                    telemetry.stage2_decision = dict(llm_payload["decision"])
                 llm_hint, llm_raw, parse_success = self._extract_llm_intent_hint(llm_payload)
                 telemetry.llm_intent_raw = llm_raw
                 telemetry.llm_intent_parse_success = parse_success
@@ -405,11 +427,37 @@ class ClarificationContract(BaseContract):
         )
 
         if not should_proceed:
-            legal_map: Dict[str, list] = {}
-            for slot_name in pending_slots:
-                values = self._valid_values_list(slot_name)
-                if values:
-                    legal_map[slot_name] = values
+            # Q3 gate: when decision field is active, store hardcoded recommendation
+            # but let GovernedRouter._consume_decision_field control routing.
+            if self._decision_field_active(telemetry):
+                telemetry.final_decision = "deferred_to_decision_field"
+                self._persist_snapshot_state(
+                    ao=current_ao,
+                    tool_name=tool_name,
+                    snapshot=snapshot,
+                    clarification_question=question or "",
+                    pending=not should_proceed,
+                    missing_slots=pending_slots,
+                    rejected_slots=rejected_slots,
+                    followup_slots=list(tool_spec.get("clarification_followup_slots") or []),
+                    confirm_first_detected=confirm_first_detected,
+                    collection_mode=collection_mode,
+                    pcm_trigger_reason=pcm_trigger_reason,
+                    pending_decision=pending_decision,
+                    probe_optional_slot=probe_optional_slot,
+                    probe_turn_count=telemetry.probe_turn_count,
+                    probe_abandoned=telemetry.probe_abandoned,
+                )
+                return ContractInterception(
+                    metadata={
+                        "clarification": {
+                            "telemetry": telemetry.to_dict(),
+                            "hardcoded_recommendation": "clarify",
+                            "hardcoded_reason": question or "",
+                            "hardcoded_pending_slots": pending_slots,
+                        }
+                    }
+                )
             telemetry.final_decision = "clarify"
             structured_pending: List[Dict[str, Any]] = []
             for slot_name in pending_slots:
@@ -439,6 +487,11 @@ class ClarificationContract(BaseContract):
                 ),
                 trace_friendly=[{"step_type": "clarification", "summary": question or ""}],
             )
+            legal_map: Dict[str, list] = {}
+            for slot_name in pending_slots:
+                values = self._valid_values_list(slot_name)
+                if values:
+                    legal_map[slot_name] = values
             return ContractInterception(
                 proceed=False,
                 response=response,
@@ -710,6 +763,7 @@ class ClarificationContract(BaseContract):
             "tool_graph": _build_tool_graph_for_prompt(),
             "prior_violations": self._get_prior_violations(),
             "available_results": self._build_available_results(),
+            "decision_examples": _load_decision_examples(),
         }
         return await asyncio.wait_for(
             self.llm_client.chat_json(
@@ -752,6 +806,12 @@ class ClarificationContract(BaseContract):
             "你应该在 stance 或 clarification_question 中反映这些约束。\n"
             "16. (K8) available_results 字段列出了当前会话中已完成的工具结果类型。"
             "在规划工具链时避免重复已存在的结果；如果用户请求的结果已存在，告知用户可复用。\n"
+            "17. (DECISION FIELD) 额外输出 decision 字段表达你对当前对话的执行判断。"
+            "格式: {value: \"proceed\"|\"clarify\"|\"deliberate\", confidence: 0-1, reasoning: string, clarification_question: string|null}。"
+            "proceed=信息足够可执行工具（missing_required=[]且参数完整）；"
+            "clarify=需要询问用户具体问题（填 clarification_question）；"
+            "deliberate=用户在探索/比较，不直接执行而给出建议（填 reasoning）。"
+            "confidence≥0.5；当 value=clarify 时 clarification_question 非空；当 value=deliberate 时 reasoning 非空。"
         )
 
     @staticmethod
@@ -1341,7 +1401,6 @@ class ClarificationContract(BaseContract):
             return previous_count + 1
         return 1
 
-
     @staticmethod
     def _decision_field_active(telemetry: ClarificationTelemetry) -> bool:
         """Return True when the LLM decision field should gate hardcoded routing."""
@@ -1354,6 +1413,7 @@ class ClarificationContract(BaseContract):
             return False
         value = str(decision.get("value") or "").strip().lower()
         return value in {"proceed", "clarify", "deliberate"}
+
     def _first_class_state_enabled(self) -> bool:
         return bool(getattr(self.runtime_config, "enable_ao_first_class_state", True))
 
@@ -1493,8 +1553,6 @@ class ClarificationContract(BaseContract):
             "raw_text": copy.deepcopy(raw_text),
         }
 
-
-
     def _get_prior_violations(self) -> list:
         context_store = getattr(self.inner_router, "context_store", None)
         if context_store is None and hasattr(self.inner_router, "_ensure_context_store"):
@@ -1502,6 +1560,7 @@ class ClarificationContract(BaseContract):
         if context_store is not None:
             return context_store.get_session_violations()
         return []
+
     def _build_available_results(self) -> dict:
         context_store = getattr(self.inner_router, "context_store", None)
         if context_store is None and hasattr(self.inner_router, "_ensure_context_store"):
@@ -1515,6 +1574,7 @@ class ClarificationContract(BaseContract):
         for token in known_tokens:
             result[token] = context_store.has_result(token)
         return result
+
     def _current_turn_index(self) -> int:
         turn_counter = int(getattr(self.inner_router.memory, "turn_counter", 0) or 0)
         return turn_counter + 1

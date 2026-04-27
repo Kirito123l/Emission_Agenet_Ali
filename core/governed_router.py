@@ -22,6 +22,8 @@ from core.contracts import (
     OASCContract,
     StanceResolutionContract,
 )
+from core.contracts.decision_validator import validate_decision
+from services.cross_constraints import get_cross_constraint_validator
 from core.reply import LLMReplyError, LLMReplyParser, LLMReplyTimeout, ReplyContextBuilder
 from core.router import RouterResponse, UnifiedRouter
 from core.stance_resolver import StanceResolution, StanceResolver
@@ -128,22 +130,28 @@ class GovernedRouter:
                 break
 
         if result is None:
-            result = await self._maybe_execute_from_snapshot(context)
+            if bool(getattr(get_config(), "enable_llm_decision_field", False)):
+                decision_result = self._consume_decision_field(context, trace)
+                if decision_result is not None:
+                    result = decision_result
+                    context.router_executed = True
             if result is None:
-                clarification_state = dict(context.metadata.get("clarification") or {})
-                telemetry = clarification_state.get("telemetry")
-                if isinstance(telemetry, dict) and telemetry.get("final_decision") == "proceed":
-                    telemetry["proceed_mode"] = "fallback"
-                    clarification_state["telemetry"] = telemetry
-                    context.metadata["clarification"] = clarification_state
-                result = await self.inner_router.chat(
-                    user_message=context.effective_user_message,
-                    file_path=file_path,
-                    trace=trace,
-                )
-                context.router_executed = True
-            else:
-                context.router_executed = True
+                result = await self._maybe_execute_from_snapshot(context)
+                if result is None:
+                    clarification_state = dict(context.metadata.get("clarification") or {})
+                    telemetry = clarification_state.get("telemetry")
+                    if isinstance(telemetry, dict) and telemetry.get("final_decision") == "proceed":
+                        telemetry["proceed_mode"] = "fallback"
+                        clarification_state["telemetry"] = telemetry
+                        context.metadata["clarification"] = clarification_state
+                    result = await self.inner_router.chat(
+                        user_message=context.effective_user_message,
+                        file_path=file_path,
+                        trace=trace,
+                    )
+                    context.router_executed = True
+                else:
+                    context.router_executed = True
 
         self._record_constraint_violations_from_trace(
             result,
@@ -154,7 +162,7 @@ class GovernedRouter:
         for contract in self.contracts:
             await contract.after_turn(context, result)
 
-        if bool(getattr(self.runtime_config, "enable_reply_pipeline", True)):
+        if bool(getattr(get_config(), "enable_reply_pipeline", True)):
             reply_context_builder = self.__dict__.get("reply_context_builder") or ReplyContextBuilder()
             reply_context = reply_context_builder.build(
                 user_message=context.effective_user_message,
@@ -545,6 +553,152 @@ class GovernedRouter:
         parameter_state.awaiting_slot = None
         parameter_state.probe_turn_count = 0
         parameter_state.probe_abandoned = False
+
+    def _consume_decision_field(
+        self,
+        context: ContractContext,
+        trace: Optional[Dict[str, Any]] = None,
+    ) -> Optional[RouterResponse]:
+        """Three-way decision field consumption (Step 1.11).
+
+        Returns a RouterResponse for clarify/deliberate decisions, or None for
+        proceed (which falls through to existing execution path).
+        """
+        stage2_payload = context.metadata.get("stage2_payload")
+        decision = None
+        if isinstance(stage2_payload, dict):
+            decision = stage2_payload.get("decision")
+        if not isinstance(decision, dict):
+            clarification_state = dict(context.metadata.get("clarification") or {})
+            telemetry = clarification_state.get("telemetry")
+            if isinstance(telemetry, dict):
+                decision = telemetry.get("stage2_decision")
+        if not isinstance(decision, dict):
+            return None
+
+        # Build a minimal payload for validate_decision (it checks decision + missing_required)
+        validation_payload = {"decision": decision}
+        if isinstance(stage2_payload, dict):
+            validation_payload["missing_required"] = stage2_payload.get("missing_required", [])
+        is_valid, fallback_reason = validate_decision(validation_payload)
+        if not is_valid:
+            logger.debug("Decision field validation failed: %s — falling back", fallback_reason)
+            return None
+
+        value = str(decision.get("value") or "").strip().lower()
+        if value == "proceed":
+            # Cross-constraint preflight (design §5.2):
+            # validate parameter combination before allowing execution.
+            # On violation → inject ConstraintViolation into prior_violations
+            # and return a RouterResponse describing the violation (no fall through).
+            snapshot = self._extract_snapshot_from_context(context)
+            if snapshot:
+                tool_name = self._extract_tool_name_from_context(context) or ""
+                validator = get_cross_constraint_validator()
+                cc_result = validator.validate(
+                    snapshot,
+                    tool_name=tool_name or None,
+                    context={"user_message": context.effective_user_message},
+                )
+                if cc_result.violations:
+                    # Record violation for next turn's Stage 2 LLM feedback
+                    for v in cc_result.violations:
+                        try:
+                            record = normalize_cross_constraint_violation(
+                                v,
+                                severity="reject",
+                                source_turn=self._current_turn_index(),
+                            )
+                            self.constraint_violation_writer.record(record)
+                        except (TypeError, ValueError):
+                            logger.debug("Skipped malformed cross-constraint in proceed: %s", v)
+                    # Build a user-facing violation description
+                    violation_msgs = []
+                    for v in cc_result.violations[:3]:
+                        reason = getattr(v, "reason", None) or str(v)
+                        violation_msgs.append(f"- {reason}")
+                    violation_text = (
+                        "参数组合存在冲突：\n" + "\n".join(violation_msgs)
+                        + "\n\n请调整参数后重试。"
+                    )
+                    trace_friendly = [{"step_type": "cross_constraint_violation", "summary": violation_text[:200]}]
+                    if trace is not None:
+                        trace.setdefault("steps", []).append({
+                            "step_type": "cross_constraint_violation",
+                            "action": "decision_field_proceed_gate",
+                            "output_summary": {"decision": "proceed", "violations": violation_msgs},
+                        })
+                    return RouterResponse(
+                        text=violation_text,
+                        executed_tool_calls=[],
+                        trace_friendly=trace_friendly,
+                        trace=trace,
+                    )
+                # Cross-constraint clean, fall through to execution
+            return None  # Falls through to snapshot / inner router
+
+        if value == "clarify":
+            question = str(decision.get("clarification_question") or "").strip()
+            if not question:
+                return None
+            trace_friendly = [{"step_type": "clarification", "summary": question}]
+            if trace is not None:
+                trace.setdefault("steps", []).append({
+                    "step_type": "decision_field_clarify",
+                    "action": "llm_decision_field",
+                    "output_summary": {"decision": value, "question": question},
+                })
+            return RouterResponse(
+                text=question,
+                executed_tool_calls=[],
+                trace_friendly=trace_friendly,
+                trace=trace,
+            )
+
+        if value == "deliberate":
+            reasoning = str(decision.get("reasoning") or "").strip()
+            trace_friendly = [{"step_type": "clarification", "summary": reasoning}]
+            if trace is not None:
+                trace.setdefault("steps", []).append({
+                    "step_type": "decision_field_deliberate",
+                    "action": "llm_decision_field",
+                    "output_summary": {"decision": value, "reasoning": reasoning[:200]},
+                })
+            return RouterResponse(
+                text=reasoning,
+                executed_tool_calls=[],
+                trace_friendly=trace_friendly,
+                trace=trace,
+            )
+
+        return None
+
+    @staticmethod
+    def _extract_snapshot_from_context(context: ContractContext) -> Dict[str, Any]:
+        """Extract flattened parameter snapshot from contract metadata for cross-constraint validation."""
+        # Try clarification contract metadata first
+        clarification_state = dict(context.metadata.get("clarification") or {})
+        direct = clarification_state.get("direct_execution")
+        if isinstance(direct, dict) and isinstance(direct.get("parameter_snapshot"), dict):
+            snapshot = direct["parameter_snapshot"]
+            # Flatten: snapshot is {slot: {value, source, ...}} → {slot: value}
+            return {
+                str(k): v.get("value")
+                for k, v in snapshot.items()
+                if isinstance(v, dict) and v.get("value") is not None
+            }
+        return {}
+
+    @staticmethod
+    def _extract_tool_name_from_context(context: ContractContext) -> Optional[str]:
+        clarification_state = dict(context.metadata.get("clarification") or {})
+        direct = clarification_state.get("direct_execution")
+        if isinstance(direct, dict):
+            return str(direct.get("tool_name") or "")
+        telemetry = clarification_state.get("telemetry")
+        if isinstance(telemetry, dict):
+            return str(telemetry.get("tool_name") or "")
+        return None
 
     def _apply_stance_resolution(self, context: ContractContext) -> Dict[str, Any]:
         if not getattr(self.runtime_config, "enable_conversational_stance", True):
