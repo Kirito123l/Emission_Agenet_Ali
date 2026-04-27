@@ -36,6 +36,7 @@ class IntentResolutionContract(SplitContractSupport):
         short_circuit_intent = False
         continuation = load_execution_continuation(current_ao)
         tool_intent = None
+        bound_tool = ""
         if (
             getattr(self.runtime_config, "enable_split_continuation_state", True)
             and getattr(classification, "classification", None) is not None
@@ -111,6 +112,13 @@ class IntentResolutionContract(SplitContractSupport):
                 **dict(context.metadata.get("intent_resolution") or {}),
                 "short_circuit_intent": short_circuit_intent,
             }
+        if short_circuit_intent and continuation is not None:
+            context.metadata["continuation_state"] = {
+                "objective": str(getattr(current_ao, "objective_text", "") or ""),
+                "pending_slots": [str(continuation.pending_slot)] if continuation.pending_slot else [],
+                "prior_tool": str(continuation.pending_next_tool or bound_tool or ""),
+                "pending_objective": str(continuation.pending_objective.value if hasattr(continuation.pending_objective, "value") else continuation.pending_objective),
+            }
         self._persist_tool_intent(current_ao, tool_intent)
         context.metadata["tool_intent"] = tool_intent
         if tool_intent.confidence == IntentConfidence.NONE:
@@ -124,10 +132,19 @@ class IntentResolutionContract(SplitContractSupport):
             return ContractInterception(
                 proceed=False,
                 response=RouterResponse(
-                    text="请先说明您想执行哪类交通排放分析：排放因子查询、微观排放、宏观排放或知识库问答。",
+                    text="",
                     trace_friendly=[{"step_type": "clarification", "summary": "clarify tool intent"}],
                 ),
-                metadata={"clarification": {"telemetry": telemetry}},
+                metadata={
+                    "clarification": {"telemetry": telemetry},
+                    "intent_unresolved": True,
+                    "available_tools": [
+                        "query_emission_factors",
+                        "calculate_micro_emission",
+                        "calculate_macro_emission",
+                        "query_knowledge",
+                    ],
+                },
             )
         return ContractInterception()
 

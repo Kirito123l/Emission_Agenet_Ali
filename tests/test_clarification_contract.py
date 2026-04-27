@@ -319,8 +319,11 @@ async def test_pending_factor_snapshot_asks_for_model_year_before_proceed():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert "车型年份" in interception.response.text
     assert interception.metadata["clarification"]["telemetry"]["probe_optional_slot"] == "model_year"
+    pending = interception.metadata.get("pending_clarifications") or []
+    assert any(p.get("slot") == "model_year" for p in pending), (
+        f"expected model_year in pending_clarifications, got {pending}"
+    )
 
 
 @pytest.mark.anyio
@@ -472,8 +475,11 @@ async def test_resume_pending_missing_slots_remain_required_until_filled():
     interception = await contract.before_turn(context)
 
     assert interception.proceed is False
-    assert "车型年份" in interception.response.text
     assert interception.metadata["clarification"]["telemetry"]["probe_optional_slot"] == "model_year"
+    pending = interception.metadata.get("pending_clarifications") or []
+    assert any(p.get("slot") == "model_year" for p in pending), (
+        f"expected model_year in pending_clarifications, got {pending}"
+    )
 
 
 @pytest.mark.anyio

@@ -404,6 +404,23 @@ class ClarificationContract(BaseContract):
 
         if not should_proceed:
             telemetry.final_decision = "clarify"
+            structured_pending: List[Dict[str, Any]] = []
+            for slot_name in pending_slots:
+                entry: Dict[str, Any] = {
+                    "slot": slot_name,
+                    "label": self._slot_display_name(slot_name),
+                    "tool": tool_name,
+                    "examples": self._valid_values_list(slot_name),
+                }
+                if slot_name in rejected_slots:
+                    slot_payload = snapshot.get(slot_name) or {}
+                    raw = slot_payload.get("raw_text")
+                    suggestions = slot_payload.get("suggestions") if isinstance(slot_payload.get("suggestions"), list) else []
+                    entry["reason"] = f"无法识别 '{raw or slot_name}'"
+                    entry["options"] = [str(s) for s in suggestions[:5]] if suggestions else ["请换一种更标准的说法"]
+                else:
+                    entry["reason"] = f"缺少必要参数 {self._slot_display_name(slot_name)}"
+                structured_pending.append(entry)
             response = RouterResponse(
                 text=question or "我还需要补充一个关键参数后才能继续，请直接告诉我缺失的参数值。",
                 executed_tool_calls=[],
@@ -418,7 +435,10 @@ class ClarificationContract(BaseContract):
             return ContractInterception(
                 proceed=False,
                 response=response,
-                metadata={"clarification": {"telemetry": telemetry.to_dict()}},
+                metadata={
+                    "clarification": {"telemetry": telemetry.to_dict()},
+                    "pending_clarifications": structured_pending,
+                },
             )
 
         self._inject_snapshot_into_context(snapshot, current_ao)
@@ -1011,17 +1031,11 @@ class ClarificationContract(BaseContract):
         if llm_question:
             return llm_question
         slot_name = missing_slots[0] if missing_slots else ""
-        if tool_name == "query_emission_factors" and slot_name == "vehicle_type":
-            return "请告诉我车辆类型，例如 Passenger Car、Transit Bus、Motorcycle。"
-        if tool_name == "query_emission_factors" and slot_name == "pollutants":
-            return "请告诉我污染物类型，例如 CO2、NOx、PM2.5。"
-        if tool_name == "query_emission_factors" and slot_name == "model_year":
-            return "请问您需要查询哪一年的车型？范围 1995-2025。"
-        if tool_name in {"calculate_macro_emission", "calculate_micro_emission"} and slot_name == "pollutants":
-            return "请告诉我需要计算哪些污染物，例如 CO2、NOx、PM2.5。"
-        if tool_name == "calculate_micro_emission" and slot_name == "vehicle_type":
-            return "请告诉我轨迹对应的车型，例如 Passenger Car、Transit Bus、Motorcycle。"
-        return "我还需要补充一个关键参数后才能继续，请直接告诉我缺失的参数值。"
+        if not slot_name:
+            return "我还需要补充一个关键参数后才能继续，请直接告诉我缺失的参数值。"
+        label = self._slot_display_name(slot_name)
+        desc = self._valid_values_description(slot_name)
+        return f"请提供{label}（{desc}）。"
 
     async def _build_probe_question(
         self,
@@ -1039,9 +1053,7 @@ class ClarificationContract(BaseContract):
         )
         if llm_question:
             return llm_question
-        slot_display_name = self._slot_display_name(slot_name)
-        valid_values_description = self._valid_values_description(slot_name)
-        return f"请指定{slot_display_name}（{valid_values_description}）。"
+        return ""
 
     async def _run_probe_question_llm(
         self,
@@ -1096,8 +1108,14 @@ class ClarificationContract(BaseContract):
         return mapping.get(slot_name, slot_name)
 
     def _valid_values_description(self, slot_name: str) -> str:
+        values = self._valid_values_list(slot_name)
+        if not values:
+            return "请提供合法值"
+        return " / ".join(str(item) for item in values[:6])
+
+    def _valid_values_list(self, slot_name: str) -> List[str]:
         if slot_name == "model_year":
-            return f"{YEAR_RANGE_MIN}-{YEAR_RANGE_MAX}"
+            return [str(y) for y in range(YEAR_RANGE_MIN, YEAR_RANGE_MAX + 1, 5)]
         if slot_name == "pollutants" or slot_name == "pollutant":
             values = self.stage3_engine.get_candidates("pollutant")
         else:
@@ -1110,8 +1128,8 @@ class ClarificationContract(BaseContract):
             }.get(slot_name)
             values = self.stage3_engine.get_candidates(param_type) if param_type else []
         if not values:
-            return "请提供合法值"
-        return " / ".join(str(item) for item in values[:6])
+            return []
+        return [str(item) for item in values[:6]]
 
     def _persist_snapshot_state(
         self,

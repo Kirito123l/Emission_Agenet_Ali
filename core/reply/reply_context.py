@@ -45,12 +45,16 @@ class ClarificationRequest:
     target_field: str
     reason: str
     options: List[str] = field(default_factory=list)
+    label: str = ""
+    tool: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "target_field": self.target_field,
             "reason": self.reason,
             "options": list(self.options),
+            "label": self.label,
+            "tool": self.tool,
         }
 
     @classmethod
@@ -60,6 +64,8 @@ class ClarificationRequest:
             target_field=str(payload["target_field"]),
             reason=str(payload["reason"] or ""),
             options=[str(item) for item in list(payload.get("options") or [])],
+            label=str(payload.get("label") or ""),
+            tool=str(payload.get("tool") or ""),
         )
 
 
@@ -87,6 +93,32 @@ class AOStatusSummary:
 
 
 @dataclass
+class ContinuationState:
+    objective: str = ""
+    pending_slots: List[str] = field(default_factory=list)
+    prior_tool: str = ""
+    pending_objective: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "objective": self.objective,
+            "pending_slots": list(self.pending_slots),
+            "prior_tool": self.prior_tool,
+            "pending_objective": self.pending_objective,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ContinuationState":
+        payload = _strict_payload(cls, data)
+        return cls(
+            objective=str(payload["objective"] or ""),
+            pending_slots=[str(item) for item in list(payload.get("pending_slots") or [])],
+            prior_tool=str(payload["prior_tool"] or ""),
+            pending_objective=str(payload["pending_objective"] or ""),
+        )
+
+
+@dataclass
 class ReplyContext:
     user_message: str
     router_text: str
@@ -96,6 +128,13 @@ class ReplyContext:
     ao_status: Optional[AOStatusSummary] = None
     trace_highlights: List[Dict[str, Any]] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
+    intent_unresolved: bool = False
+    stance: str = ""
+    continuation_state: Optional[ContinuationState] = None
+    available_tools: List[str] = field(default_factory=list)
+    available_capabilities: List[str] = field(default_factory=list)
+    tool_executed: bool = False
+    executed_tool_names: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -109,6 +148,13 @@ class ReplyContext:
             "ao_status": self.ao_status.to_dict() if self.ao_status else None,
             "trace_highlights": [dict(item) for item in self.trace_highlights],
             "extra": dict(self.extra),
+            "intent_unresolved": self.intent_unresolved,
+            "stance": self.stance,
+            "continuation_state": self.continuation_state.to_dict() if self.continuation_state else None,
+            "available_tools": list(self.available_tools),
+            "available_capabilities": list(self.available_capabilities),
+            "tool_executed": self.tool_executed,
+            "executed_tool_names": list(self.executed_tool_names),
         }
 
     @classmethod
@@ -141,6 +187,17 @@ class ReplyContext:
                 if isinstance(item, dict)
             ],
             extra=dict(payload.get("extra") or {}),
+            intent_unresolved=bool(payload.get("intent_unresolved", False)),
+            stance=str(payload.get("stance") or ""),
+            continuation_state=(
+                ContinuationState.from_dict(payload["continuation_state"])
+                if isinstance(payload.get("continuation_state"), dict)
+                else None
+            ),
+            available_tools=[str(item) for item in list(payload.get("available_tools") or [])],
+            available_capabilities=[str(item) for item in list(payload.get("available_capabilities") or [])],
+            tool_executed=bool(payload.get("tool_executed", False)),
+            executed_tool_names=[str(item) for item in list(payload.get("executed_tool_names") or [])],
         )
 
 

@@ -339,10 +339,19 @@ class ExecutionReadinessContract(SplitContractSupport):
             return ContractInterception(
                 proceed=False,
                 response=RouterResponse(
-                    text="您想先比较哪类交通排放分析目标？可以指定排放因子、微观排放、宏观排放或扩散影响。",
+                    text="",
                     trace_friendly=[{"step_type": "clarification", "summary": "scope framing"}],
                 ),
-                metadata={"clarification": {"telemetry": telemetry}},
+                metadata={
+                    "clarification": {"telemetry": telemetry},
+                    "stance": "exploratory",
+                    "available_capabilities": [
+                        "排放因子查询",
+                        "微观排放计算",
+                        "宏观排放计算",
+                        "扩散影响分析",
+                    ],
+                },
             )
 
         if branch == ConversationalStance.DELIBERATIVE.value and no_default_optionals:

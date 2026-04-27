@@ -2267,19 +2267,14 @@ class UnifiedRouter:
 
         violation = constraint_result.violations[0]
         suggestions = list(violation.suggestions or [])
-        suggestion_text = (
-            "\n\nDid you mean one of these? " + ", ".join(suggestions[:5])
-            if suggestions
-            else ""
-        )
-        message = f"参数组合不合法: {violation.reason}{suggestion_text}"
         state.execution.blocked_info = {
-            "message": message,
             "constraint_name": violation.constraint_name,
+            "violation_type": getattr(violation, "violation_type", violation.constraint_name),
+            "reason": violation.reason,
             "suggestions": suggestions,
         }
         state.execution.last_error = violation.reason
-        setattr(state, "_final_response_text", message)
+        setattr(state, "_final_response_text", "")
         self._transition_state(
             state,
             TaskStage.DONE,

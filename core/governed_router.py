@@ -163,6 +163,7 @@ class GovernedRouter:
                 ao_manager=self.__dict__.get("ao_manager"),
                 violation_writer=self.__dict__.get("constraint_violation_writer"),
                 context_store=self._context_store_for_writer(),
+                governance_metadata=context.metadata,
             )
             original_text = result.text
             result.text, reply_metadata = await self._generate_final_reply(reply_context)

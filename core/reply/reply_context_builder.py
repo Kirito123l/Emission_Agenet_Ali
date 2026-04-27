@@ -10,6 +10,7 @@ from core.context_store import SessionContextStore
 from core.reply.reply_context import (
     AOStatusSummary,
     ClarificationRequest,
+    ContinuationState,
     ReplyContext,
     ToolExecutionSummary,
 )
@@ -42,17 +43,27 @@ class ReplyContextBuilder:
         ao_manager: Optional[AOManager],
         violation_writer: Optional[ConstraintViolationWriter],
         context_store: Optional[SessionContextStore],
+        governance_metadata: Optional[Dict[str, Any]] = None,
     ) -> ReplyContext:
         step_dicts = [self._step_to_dict(step) for step in list(trace_steps or [])]
+        meta = dict(governance_metadata or {})
+        tool_execs = self._tool_executions(step_dicts)
         return ReplyContext(
             user_message=str(user_message or ""),
             router_text=str(router_text or ""),
-            tool_executions=self._tool_executions(step_dicts),
+            tool_executions=tool_execs,
             violations=violation_writer.get_latest() if violation_writer is not None else [],
-            pending_clarifications=self._pending_clarifications(step_dicts),
+            pending_clarifications=self._pending_clarifications(step_dicts, meta),
             ao_status=self._ao_status(ao_manager),
             trace_highlights=self._trace_highlights(step_dicts),
             extra=self._extra(context_store),
+            intent_unresolved=bool(meta.get("intent_unresolved", False)),
+            stance=str(meta.get("stance") or ""),
+            continuation_state=self._continuation_state(meta),
+            available_tools=self._str_list(meta.get("available_tools")),
+            available_capabilities=self._str_list(meta.get("available_capabilities")),
+            tool_executed=bool(tool_execs),
+            executed_tool_names=[t.tool_name for t in tool_execs if t.success],
         )
 
     @staticmethod
@@ -91,8 +102,26 @@ class ReplyContextBuilder:
             )
         return executions
 
-    def _pending_clarifications(self, steps: List[Dict[str, Any]]) -> List[ClarificationRequest]:
+    def _pending_clarifications(self, steps: List[Dict[str, Any]], meta: Dict[str, Any]) -> List[ClarificationRequest]:
         pending: List[ClarificationRequest] = []
+        seen_targets: set[str] = set()
+        # First, collect structured pending_clarifications from governance metadata.
+        gov_pending = meta.get("pending_clarifications")
+        if isinstance(gov_pending, list):
+            for item in gov_pending:
+                if not isinstance(item, dict):
+                    continue
+                cr = ClarificationRequest(
+                    target_field=str(item.get("target_field") or item.get("slot") or ""),
+                    reason=str(item.get("reason") or ""),
+                    options=[str(o) for o in list(item.get("options") or item.get("examples") or [])],
+                    label=str(item.get("label") or ""),
+                    tool=str(item.get("tool") or ""),
+                )
+                if cr.target_field and cr.target_field not in seen_targets:
+                    pending.append(cr)
+                    seen_targets.add(cr.target_field)
+        # Then collect from trace steps as before.
         for step in steps:
             step_type = str(step.get("step_type") or "")
             if step_type not in {
@@ -187,6 +216,24 @@ class ReplyContextBuilder:
         for key, item in list(value.items())[:4]:
             parts.append(f"{key}={item}")
         return ", ".join(parts)
+
+    @staticmethod
+    def _continuation_state(meta: Dict[str, Any]) -> Optional[ContinuationState]:
+        cs = meta.get("continuation_state")
+        if isinstance(cs, dict):
+            return ContinuationState(
+                objective=str(cs.get("objective") or ""),
+                pending_slots=[str(item) for item in list(cs.get("pending_slots") or [])],
+                prior_tool=str(cs.get("prior_tool") or ""),
+                pending_objective=str(cs.get("pending_objective") or ""),
+            )
+        return None
+
+    @staticmethod
+    def _str_list(value: Any) -> List[str]:
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        return []
 
     @staticmethod
     def _truncate(value: Any, limit: int = 200) -> str:
