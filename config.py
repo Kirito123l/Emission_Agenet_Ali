@@ -170,8 +170,8 @@ class Config:
         )
         self.ao_block_token_budget = int(os.getenv("AO_BLOCK_TOKEN_BUDGET", "1200"))
         self.enable_governed_router = os.getenv("ENABLE_GOVERNED_ROUTER", "true").lower() == "true"
-        self.enable_reply_pipeline = os.getenv("ENABLE_REPLY_PIPELINE", "false").lower() == "true"
-        self.enable_llm_reply_parser = os.getenv("ENABLE_LLM_REPLY_PARSER", "false").lower() == "true"
+        self.enable_reply_pipeline = os.getenv("ENABLE_REPLY_PIPELINE", "true").lower() == "true"
+        self.enable_llm_reply_parser = os.getenv("ENABLE_LLM_REPLY_PARSER", "true").lower() == "true"
         self.enable_llm_retry_backoff = os.getenv("ENABLE_LLM_RETRY_BACKOFF", "true").lower() == "true"
         self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
         self.contour_interp_resolution_m = float(

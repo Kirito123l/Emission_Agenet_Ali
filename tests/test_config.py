@@ -42,7 +42,8 @@ class TestConfigLoading:
         assert config.enable_ao_persistent_facts is True
         assert config.ao_block_token_budget == 1200
         assert config.enable_governed_router is True
-        assert config.enable_llm_reply_parser is False
+        assert config.enable_reply_pipeline is True
+        assert config.enable_llm_reply_parser is True
         assert config.enable_llm_retry_backoff is True
         assert config.enable_contour_output is True
         assert config.contour_interp_resolution_m == 10.0
