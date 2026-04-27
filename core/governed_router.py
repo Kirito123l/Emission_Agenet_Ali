@@ -22,6 +22,7 @@ from core.contracts import (
     OASCContract,
     StanceResolutionContract,
 )
+from core.reply import LLMReplyError, LLMReplyParser, LLMReplyTimeout, ReplyContextBuilder
 from core.router import RouterResponse, UnifiedRouter
 from core.stance_resolver import StanceResolution, StanceResolver
 from core.task_state import TaskStage, TaskState
@@ -43,6 +44,8 @@ class GovernedRouter:
         )
         self.ao_manager = AOManager(self.inner_router.memory.fact_memory)
         self.constraint_violation_writer = self._build_constraint_violation_writer()
+        self.reply_context_builder = ReplyContextBuilder()
+        self._reply_parser = LLMReplyParser(timeout_seconds=20.0)
         self.stance_resolver = StanceResolver(runtime_config=self.runtime_config)
         self.oasc_contract = OASCContract(
             inner_router=self.inner_router,
@@ -151,7 +154,95 @@ class GovernedRouter:
         for contract in self.contracts:
             await contract.after_turn(context, result)
 
+        if bool(getattr(self.runtime_config, "enable_reply_pipeline", True)):
+            reply_context_builder = self.__dict__.get("reply_context_builder") or ReplyContextBuilder()
+            reply_context = reply_context_builder.build(
+                user_message=context.effective_user_message,
+                router_text=result.text,
+                trace_steps=self._trace_steps(result, trace),
+                ao_manager=self.__dict__.get("ao_manager"),
+                violation_writer=self.__dict__.get("constraint_violation_writer"),
+                context_store=self._context_store_for_writer(),
+            )
+            original_text = result.text
+            result.text, reply_metadata = await self._generate_final_reply(reply_context)
+            self._record_reply_generation_trace(
+                result,
+                trace,
+                metadata=reply_metadata,
+                router_text=original_text,
+                final_text=result.text,
+            )
+
         return result
+
+    async def _generate_final_reply(self, ctx: Any) -> tuple[str, Dict[str, Any]]:
+        runtime_config = self.__dict__.get("runtime_config") or get_config()
+        if not bool(getattr(runtime_config, "enable_llm_reply_parser", True)):
+            return ctx.router_text, {"mode": "legacy_render"}
+        parser = self.__dict__.get("_reply_parser")
+        if parser is None:
+            return ctx.router_text, {
+                "mode": "legacy_render",
+                "reason": "reply_parser_uninitialized",
+            }
+        try:
+            return await parser.parse(ctx)
+        except (LLMReplyTimeout, LLMReplyError) as exc:
+            logger.warning(
+                "LLM reply parser failed (%s: %s), keeping router_text",
+                type(exc).__name__,
+                exc,
+            )
+            return ctx.router_text, {
+                "mode": "fallback",
+                "fallback": True,
+                "reason": f"{type(exc).__name__}: {exc}",
+            }
+
+    @staticmethod
+    def _record_reply_generation_trace(
+        result: RouterResponse,
+        trace: Optional[Dict[str, Any]],
+        *,
+        metadata: Dict[str, Any],
+        router_text: str,
+        final_text: str,
+    ) -> None:
+        trace_target = result.trace if isinstance(result.trace, dict) else trace
+        if not isinstance(trace_target, dict):
+            return
+        trace_target.setdefault("steps", []).append(
+            {
+                "step_type": "reply_generation",
+                "action": "llm_reply_parser",
+                "input_summary": {
+                    "router_text_chars": len(router_text or ""),
+                },
+                "output_summary": {
+                    **dict(metadata or {}),
+                    "reply_chars": len(final_text or ""),
+                },
+                "reasoning": "LLM reply parser generated final reply"
+                if (metadata or {}).get("mode") == "llm"
+                else "Router-rendered reply kept as legacy/fallback output",
+            }
+        )
+        if result.trace is None:
+            result.trace = trace_target
+        if isinstance(result.trace_friendly, list):
+            result.trace_friendly.append(
+                {
+                    "title": "回复生成 / Reply Generation",
+                    "description": (
+                        "LLM reply parser generated final reply"
+                        if (metadata or {}).get("mode") == "llm"
+                        else "Router-rendered reply kept as legacy/fallback output"
+                    ),
+                    "status": "warning" if (metadata or {}).get("fallback") else "success",
+                    "step_type": "reply_generation",
+                }
+            )
 
     def _build_constraint_violation_writer(self) -> ConstraintViolationWriter:
         return ConstraintViolationWriter(

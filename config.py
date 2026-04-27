@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
-load_dotenv()
 PROJECT_ROOT = Path(__file__).parent
+DOTENV_PATH = PROJECT_ROOT / ".env"
+DOTENV_VALUES = dotenv_values(DOTENV_PATH)
+load_dotenv(DOTENV_PATH, override=True)
 
 @dataclass
 class LLMAssignment:
@@ -15,6 +17,11 @@ class LLMAssignment:
 
 @dataclass
 class Config:
+    def _purpose_llm_env(self, key: str, default: str) -> str:
+        if self.llm_use_global_defaults and key not in DOTENV_VALUES:
+            return default
+        return os.getenv(key, default)
+
     def __post_init__(self):
         self.providers = {
             "qwen": {"api_key": os.getenv("QWEN_API_KEY"), "base_url": os.getenv("QWEN_BASE_URL")},
@@ -22,23 +29,35 @@ class Config:
             "local": {"api_key": os.getenv("LOCAL_LLM_API_KEY"), "base_url": os.getenv("LOCAL_LLM_BASE_URL")},
         }
 
+        self.llm_provider = os.getenv("LLM_PROVIDER", "qwen")
+        self.llm_reasoning_model = os.getenv("LLM_REASONING_MODEL", "qwen3-max")
+        self.llm_fast_model = os.getenv("LLM_FAST_MODEL", "qwen-turbo-latest")
+        self.llm_use_global_defaults = os.getenv("LLM_USE_GLOBAL_DEFAULTS", "true").lower() == "true"
+        self.deepseek_enable_thinking = os.getenv("DEEPSEEK_ENABLE_THINKING", "true").lower() == "true"
+        self.deepseek_reasoning_effort = os.getenv("DEEPSEEK_REASONING_EFFORT", "high").strip()
+        self.deepseek_thinking_models = tuple(
+            item.strip()
+            for item in os.getenv("DEEPSEEK_THINKING_MODELS", "deepseek-v4-pro").split(",")
+            if item.strip()
+        )
+
         self.agent_llm = LLMAssignment(
-            provider=os.getenv("AGENT_LLM_PROVIDER", "qwen"),
-            model=os.getenv("AGENT_LLM_MODEL", "qwen3-max"),
+            provider=self._purpose_llm_env("AGENT_LLM_PROVIDER", self.llm_provider),
+            model=self._purpose_llm_env("AGENT_LLM_MODEL", self.llm_reasoning_model),
             temperature=0.0  # v2.0+: 降低temperature提高确定性
         )
         self.standardizer_llm = LLMAssignment(
-            provider=os.getenv("STANDARDIZER_LLM_PROVIDER", "qwen"),
-            model=os.getenv("STANDARDIZER_LLM_MODEL", "qwen-turbo-latest"),
+            provider=self._purpose_llm_env("STANDARDIZER_LLM_PROVIDER", self.llm_provider),
+            model=self._purpose_llm_env("STANDARDIZER_LLM_MODEL", self.llm_fast_model),
             temperature=0.1, max_tokens=200
         )
         self.synthesis_llm = LLMAssignment(
-            provider=os.getenv("SYNTHESIS_LLM_PROVIDER", "qwen"),
-            model=os.getenv("SYNTHESIS_LLM_MODEL", "qwen3-max")
+            provider=self._purpose_llm_env("SYNTHESIS_LLM_PROVIDER", self.llm_provider),
+            model=self._purpose_llm_env("SYNTHESIS_LLM_MODEL", self.llm_reasoning_model)
         )
         self.rag_refiner_llm = LLMAssignment(
-            provider=os.getenv("RAG_REFINER_LLM_PROVIDER", "qwen"),
-            model=os.getenv("RAG_REFINER_LLM_MODEL", "qwen-plus")
+            provider=self._purpose_llm_env("RAG_REFINER_LLM_PROVIDER", self.llm_provider),
+            model=self._purpose_llm_env("RAG_REFINER_LLM_MODEL", self.llm_fast_model)
         )
 
         self.enable_llm_standardization = os.getenv("ENABLE_LLM_STANDARDIZATION", "true").lower() == "true"
@@ -60,7 +79,7 @@ class Config:
         self.enable_ao_classifier_llm_layer = (
             os.getenv("ENABLE_AO_CLASSIFIER_LLM_LAYER", "true").lower() == "true"
         )
-        self.ao_classifier_model = os.getenv("AO_CLASSIFIER_MODEL", "qwen-plus").strip() or "qwen-plus"
+        self.ao_classifier_model = os.getenv("AO_CLASSIFIER_MODEL", self.llm_fast_model).strip() or self.llm_fast_model
         self.ao_classifier_confidence_threshold = float(
             os.getenv("AO_CLASSIFIER_CONFIDENCE_THRESHOLD", "0.7")
         )
@@ -98,7 +117,7 @@ class Config:
             os.getenv("ENABLE_CLARIFICATION_STAGE2_LLM", "true").lower() == "true"
         )
         self.clarification_llm_model = (
-            os.getenv("CLARIFICATION_LLM_MODEL", "qwen-plus").strip() or "qwen-plus"
+            os.getenv("CLARIFICATION_LLM_MODEL", self.llm_fast_model).strip() or self.llm_fast_model
         )
         self.clarification_llm_timeout_sec = float(
             os.getenv("CLARIFICATION_LLM_TIMEOUT_SEC", "5.0")
@@ -151,6 +170,8 @@ class Config:
         )
         self.ao_block_token_budget = int(os.getenv("AO_BLOCK_TOKEN_BUDGET", "1200"))
         self.enable_governed_router = os.getenv("ENABLE_GOVERNED_ROUTER", "true").lower() == "true"
+        self.enable_reply_pipeline = os.getenv("ENABLE_REPLY_PIPELINE", "false").lower() == "true"
+        self.enable_llm_reply_parser = os.getenv("ENABLE_LLM_REPLY_PARSER", "false").lower() == "true"
         self.enable_llm_retry_backoff = os.getenv("ENABLE_LLM_RETRY_BACKOFF", "true").lower() == "true"
         self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
         self.contour_interp_resolution_m = float(

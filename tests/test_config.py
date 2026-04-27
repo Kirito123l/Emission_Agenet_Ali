@@ -11,7 +11,7 @@ class TestConfigLoading:
         config = get_config()
         assert config is not None
         assert config.agent_llm is not None
-        assert config.agent_llm.provider == "qwen"
+        assert config.agent_llm.provider == config.llm_provider
 
     def test_config_singleton(self):
         a = get_config()
@@ -35,13 +35,14 @@ class TestConfigLoading:
         assert config.enable_ao_aware_memory is True
         assert config.enable_ao_classifier_rule_layer is True
         assert config.enable_ao_classifier_llm_layer is True
-        assert config.ao_classifier_model == "qwen-plus"
+        assert config.ao_classifier_model == config.llm_fast_model
         assert config.ao_classifier_confidence_threshold == 0.7
         assert config.ao_classifier_timeout_sec == 5.0
         assert config.enable_ao_block_injection is True
         assert config.enable_ao_persistent_facts is True
         assert config.ao_block_token_budget == 1200
         assert config.enable_governed_router is True
+        assert config.enable_llm_reply_parser is False
         assert config.enable_llm_retry_backoff is True
         assert config.enable_contour_output is True
         assert config.contour_interp_resolution_m == 10.0
@@ -106,6 +107,38 @@ class TestConfigLoading:
         assert config.file_analysis_fallback_max_sample_rows == 3
         assert config.file_analysis_fallback_max_columns == 25
         assert config.file_analysis_fallback_allow_zip_table_selection is True
+
+    def test_global_llm_defaults_drive_model_assignments(self, monkeypatch):
+        for key in (
+            "AGENT_LLM_PROVIDER",
+            "AGENT_LLM_MODEL",
+            "STANDARDIZER_LLM_PROVIDER",
+            "STANDARDIZER_LLM_MODEL",
+            "SYNTHESIS_LLM_PROVIDER",
+            "SYNTHESIS_LLM_MODEL",
+            "RAG_REFINER_LLM_PROVIDER",
+            "RAG_REFINER_LLM_MODEL",
+            "AO_CLASSIFIER_MODEL",
+            "CLARIFICATION_LLM_MODEL",
+        ):
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+        monkeypatch.setenv("LLM_REASONING_MODEL", "deepseek-v4-pro")
+        monkeypatch.setenv("LLM_FAST_MODEL", "deepseek-v4-flash")
+        reset_config()
+
+        config = get_config()
+
+        assert config.agent_llm.provider == "deepseek"
+        assert config.agent_llm.model == "deepseek-v4-pro"
+        assert config.synthesis_llm.provider == "deepseek"
+        assert config.synthesis_llm.model == "deepseek-v4-pro"
+        assert config.standardizer_llm.provider == "deepseek"
+        assert config.standardizer_llm.model == "deepseek-v4-flash"
+        assert config.rag_refiner_llm.provider == "deepseek"
+        assert config.rag_refiner_llm.model == "deepseek-v4-flash"
+        assert config.ao_classifier_model == "deepseek-v4-flash"
+        assert config.clarification_llm_model == "deepseek-v4-flash"
 
     def test_feature_flag_override(self, monkeypatch):
         monkeypatch.setenv("ENABLE_LLM_STANDARDIZATION", "false")

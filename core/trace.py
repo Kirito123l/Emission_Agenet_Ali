@@ -109,6 +109,7 @@ class TraceStepType(str, Enum):
     STATE_TRANSITION = "state_transition"
     CLARIFICATION = "clarification"
     SYNTHESIS = "synthesis"
+    REPLY_GENERATION = "reply_generation"
     ERROR = "error"
 
 
@@ -1075,6 +1076,14 @@ class Trace:
                 "title": "结果合成 / Result Synthesis",
                 "description": step.reasoning or "Analysis report generated",
                 "status": "success",
+                "step_type": step.step_type.value,
+            }
+
+        elif step.step_type == TraceStepType.REPLY_GENERATION:
+            return {
+                "title": "回复生成 / Reply Generation",
+                "description": step.reasoning or "Final reply generated",
+                "status": "warning" if step.output_summary and step.output_summary.get("fallback") else "success",
                 "step_type": step.step_type.value,
             }
 
