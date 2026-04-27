@@ -281,6 +281,27 @@ def get_tool_provides(tool_name: str) -> List[str]:
     return normalize_tokens(TOOL_GRAPH.get(tool_name, {}).get("provides", []))
 
 
+def _build_tool_graph_for_prompt() -> dict:
+    """Build a simplified tool-graph snippet safe for LLM prompt injection."""
+    graph: dict = {}
+    for tool_name, info in TOOL_GRAPH.items():
+        requires = normalize_tokens(info.get("requires", []))
+        provides = normalize_tokens(info.get("provides", []))
+        upstream = set()
+        for req in requires:
+            for other_tool, other_info in TOOL_GRAPH.items():
+                if other_tool == tool_name:
+                    continue
+                if req in normalize_tokens(other_info.get("provides", [])):
+                    upstream.add(other_tool)
+        graph[tool_name] = {
+            "requires": requires,
+            "provides": provides,
+            "upstream_tools": sorted(upstream),
+        }
+    return graph
+
+
 def _extract_step_field(step: Any, field_name: str, default: Any) -> Any:
     if isinstance(step, dict):
         return step.get(field_name, default)

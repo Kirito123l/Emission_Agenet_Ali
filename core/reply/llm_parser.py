@@ -57,6 +57,11 @@ SYSTEM_PROMPT = (
     "router_text. Use router_text only when no structured guidance is present.\n"
     "7. If extra contains runtime_defaults_injected, explicitly state which defaults "
     "were used and invite revision: '如果您需要其他值，请告诉我'.\n"
+    "8. (LEGAL VALUE SOURCING) When listing valid values for a parameter (e.g. "
+    "model_year range, vehicle type options), use legal_values_for_pending_slots[slot] "
+    "from ReplyContext. If legal_values_for_pending_slots is empty or absent for a "
+    "slot, describe the parameter abstractly without listing specific values. "
+    "Do NOT use training-derived value lists.\n"
     "\n"
     "Avoid duplicating sections. Keep the reply tight and actionable."
 )

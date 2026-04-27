@@ -1338,6 +1338,18 @@ async def _run_router_task(
         if turn_index > 0 and not result.executed_tool_calls and not _response_text_is_asking_user(response_text):
             break
 
+    # Full AO state reset for evaluation isolation (Q4 / L1 isolation)
+    context_store = getattr(getattr(router, "inner_router", None), "context_store", None)
+    if context_store is not None:
+        if hasattr(context_store, "clear_session_violations"):
+            context_store.clear_session_violations()
+        if hasattr(context_store, "clear_current_turn"):
+            context_store.clear_current_turn()
+    # Reset AO manager to prevent state leaking between tasks
+    ao_manager = getattr(router, "ao_manager", None)
+    if ao_manager is not None and hasattr(ao_manager, "reset"):
+        ao_manager.reset()
+
     merged_response = _merge_response_payloads(response_payloads)
     tool_summaries = [
         str((call.get("result") or {}).get("summary") or "")

@@ -108,6 +108,7 @@ class SessionContextStore:
         self._dispersion_results: Dict[str, StoredResult] = {}
         self._last_dispersion_result: Optional[StoredResult] = None
         self._latest_constraint_violations: List[Dict[str, Any]] = []
+        self._session_violation_log: List[Dict[str, Any]] = []
 
     def store_result(self, tool_name: str, result: Dict[str, Any]) -> Optional[StoredResult]:
         """Store one successful tool result under semantic type + scenario label."""
@@ -474,6 +475,19 @@ class SessionContextStore:
 
     def get_latest_constraint_violations(self) -> List[Dict[str, Any]]:
         return copy.deepcopy(self._latest_constraint_violations)
+
+    def append_session_violation(self, record: Dict[str, Any]) -> None:
+        """Append one violation record to the session-level log (never cleared)."""
+        if isinstance(record, dict):
+            self._session_violation_log.append(copy.deepcopy(record))
+
+    def get_session_violations(self) -> List[Dict[str, Any]]:
+        """Return all session-level violation records (for K7 prior_violations injection)."""
+        return list(self._session_violation_log)
+
+    def clear_session_violations(self) -> None:
+        """Clear the session violation log (for evaluation isolation)."""
+        self._session_violation_log = []
 
     def to_dict(self) -> Dict[str, Any]:
         return {

@@ -88,7 +88,7 @@ class ConstraintViolationWriter:
         self.context_store = context_store
 
     def record(self, violation: ViolationRecord) -> None:
-        """Append to current AO and replace the context-store latest list."""
+        """Append to current AO, context-store latest list, and session violation log."""
 
         record = violation.to_dict()
         current_ao = self.ao_manager.get_current_ao() if self.ao_manager is not None else None
@@ -103,6 +103,7 @@ class ConstraintViolationWriter:
             latest = [record]
 
         self.context_store.set_latest_constraint_violations(latest)
+        self.context_store.append_session_violation(record)
 
     def get_latest(self) -> List[ViolationRecord]:
         """Return persisted violations for the current AO only."""

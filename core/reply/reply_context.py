@@ -135,6 +135,7 @@ class ReplyContext:
     available_capabilities: List[str] = field(default_factory=list)
     tool_executed: bool = False
     executed_tool_names: List[str] = field(default_factory=list)
+    legal_values_for_pending_slots: Dict[str, List[Any]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -155,6 +156,9 @@ class ReplyContext:
             "available_capabilities": list(self.available_capabilities),
             "tool_executed": self.tool_executed,
             "executed_tool_names": list(self.executed_tool_names),
+            "legal_values_for_pending_slots": {
+                k: list(v) for k, v in self.legal_values_for_pending_slots.items()
+            },
         }
 
     @classmethod
@@ -198,6 +202,10 @@ class ReplyContext:
             available_capabilities=[str(item) for item in list(payload.get("available_capabilities") or [])],
             tool_executed=bool(payload.get("tool_executed", False)),
             executed_tool_names=[str(item) for item in list(payload.get("executed_tool_names") or [])],
+            legal_values_for_pending_slots={
+                str(k): list(v) if isinstance(v, list) else [v]
+                for k, v in dict(payload.get("legal_values_for_pending_slots") or {}).items()
+            },
         )
 
 

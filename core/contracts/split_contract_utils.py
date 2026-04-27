@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from core.contracts.clarification_contract import ClarificationContract
+from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS
+from core.tool_dependencies import _build_tool_graph_for_prompt
 
 
 class SplitContractSupport(ClarificationContract):
@@ -23,7 +25,11 @@ class SplitContractSupport(ClarificationContract):
             "输出格式: {slots:{slot:{value,source,confidence,raw_text}},intent:{tool,conf},stance:{value,conf},chain:[],"
             "missing_required:[],needs_clarification:false,clarification_question:\"\",ambiguous_slots:[]}。"
             "intent.conf 取 high/low/none；stance.value 取 directive/deliberative/exploratory；stance.conf 取 high/medium/low。"
-            "不要输出 intent.reasoning 或 stance.reasoning。value 禁止使用 missing/unknown/none/n/a/null 字符串。"
+            "不要输出 intent.reasoning 或 stance.reasoning。value 禁止使用 missing/unknown/none/n/a/null 字符串。\n"
+            "(K4) runtime_defaults: 当前工具可用默认值(slot:value map)，无用户提供时可用 source=default 填充。\n"
+            "(K6) tool_graph: 工具间 requires/provides/upstream_tools，规划多步链时确保依赖顺序。\n"
+            "(K7) prior_violations: 本轮之前的约束冲突记录，相同参数组合再次尝试时需反映约束。\n"
+            "(K8) available_results: 已完成的结果类型，规划时避免重复已存在结果。\n"
         )
 
     async def _run_stage2_llm_with_telemetry(
@@ -56,6 +62,10 @@ class SplitContractSupport(ClarificationContract):
                 "clarification_followup_slots": list(tool_spec.get("clarification_followup_slots") or []),
             },
             "legal_values": self._build_legal_values(tool_spec),
+            "runtime_defaults": dict(RUNTIME_DEFAULTS.get(tool_name or "", {})),
+            "tool_graph": _build_tool_graph_for_prompt(),
+            "prior_violations": self._get_prior_violations(),
+            "available_results": self._build_available_results(),
         }
         user_content = yaml.safe_dump(prompt_payload, allow_unicode=True, sort_keys=False)
         system_prompt = self._stage2_system_prompt()

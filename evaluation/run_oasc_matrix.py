@@ -172,6 +172,12 @@ def _write_rerun_health(output_path: Path, content: str) -> None:
 
 
 def _clear_eval_session_history() -> None:
+    """Clear persisted eval session files for clean isolation between matrix runs.
+
+    Session-violation-log and AO state are in-memory per-GovernedRouter instance.
+    Each task creates a fresh router, so in-memory isolation is guaranteed.
+    This function handles the disk-level isolation.
+    """
     history_dir = PROJECT_ROOT / "data" / "sessions" / "history"
     if not history_dir.exists():
         return
@@ -179,6 +185,11 @@ def _clear_eval_session_history() -> None:
         path.unlink(missing_ok=True)
     for path in history_dir.glob("eval_naive_*.json"):
         path.unlink(missing_ok=True)
+    # Also clear any orphaned session state files
+    sessions_dir = PROJECT_ROOT / "data" / "sessions"
+    if sessions_dir.exists():
+        for path in sessions_dir.glob("eval_*.json"):
+            path.unlink(missing_ok=True)
 
 
 def _run_group(

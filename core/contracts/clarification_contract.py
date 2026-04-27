@@ -17,6 +17,8 @@ from core.contracts.base import BaseContract, ContractContext, ContractIntercept
 from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
 from core.stance_resolver import StanceResolution, StanceResolver
+from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS
+from core.tool_dependencies import _build_tool_graph_for_prompt
 from services.llm_client import get_llm_client
 from services.standardization_engine import StandardizationEngine
 from tools.file_analyzer import FileAnalyzerTool
@@ -403,6 +405,11 @@ class ClarificationContract(BaseContract):
         )
 
         if not should_proceed:
+            legal_map: Dict[str, list] = {}
+            for slot_name in pending_slots:
+                values = self._valid_values_list(slot_name)
+                if values:
+                    legal_map[slot_name] = values
             telemetry.final_decision = "clarify"
             structured_pending: List[Dict[str, Any]] = []
             for slot_name in pending_slots:
@@ -438,6 +445,7 @@ class ClarificationContract(BaseContract):
                 metadata={
                     "clarification": {"telemetry": telemetry.to_dict()},
                     "pending_clarifications": structured_pending,
+                    "legal_values_for_pending_slots": legal_map,
                 },
             )
 
@@ -698,6 +706,10 @@ class ClarificationContract(BaseContract):
                 "clarification_followup_slots": list(tool_spec.get("clarification_followup_slots") or []),
             },
             "legal_values": self._build_legal_values(tool_spec),
+            "runtime_defaults": dict(RUNTIME_DEFAULTS.get(tool_name or "", {})),
+            "tool_graph": _build_tool_graph_for_prompt(),
+            "prior_violations": self._get_prior_violations(),
+            "available_results": self._build_available_results(),
         }
         return await asyncio.wait_for(
             self.llm_client.chat_json(
@@ -729,7 +741,17 @@ class ClarificationContract(BaseContract):
             "兼容时也可输出 parameter_snapshot。\n"
             "11. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。\n"
             "12. 严禁将 value 设置为字符串 \"missing\"、\"unknown\"、\"none\"、\"n/a\"、\"null\" 或任何文本 placeholder；"
-            "value 必须是 null 或合法类型值。"
+            "value 必须是 null 或合法类型值。\n"
+            "13. (K4) runtime_defaults 字段列出了当前工具可用的运行时默认值（如 model_year=2020）。"
+            "当用户未提供对应槽位值时，你可以用默认值填充（source=default, confidence=0.5），但必须在 needs_clarification 为 false 时注明。\n"
+            "14. (K6) tool_graph 字段列出了工具间的依赖关系（requires/provides/upstream_tools）。"
+            "如果用户请求的工具需要上游结果（如 calculate_dispersion 需要 emission），"
+            "且 available_results 中不包含对应结果类型，请在 intent.chain 里按依赖顺序规划执行序列。\n"
+            "15. (K7) prior_violations 字段列出了本轮对话中之前的参数约束冲突记录。"
+            "如果当前用户消息与之前的违规相关（相同的参数组合被再次尝试），"
+            "你应该在 stance 或 clarification_question 中反映这些约束。\n"
+            "16. (K8) available_results 字段列出了当前会话中已完成的工具结果类型。"
+            "在规划工具链时避免重复已存在的结果；如果用户请求的结果已存在，告知用户可复用。\n"
         )
 
     @staticmethod
@@ -1319,6 +1341,19 @@ class ClarificationContract(BaseContract):
             return previous_count + 1
         return 1
 
+
+    @staticmethod
+    def _decision_field_active(telemetry: ClarificationTelemetry) -> bool:
+        """Return True when the LLM decision field should gate hardcoded routing."""
+        if not getattr(get_config(), "enable_llm_decision_field", False):
+            return False
+        if telemetry is None:
+            return False
+        decision = telemetry.stage2_decision
+        if not isinstance(decision, dict):
+            return False
+        value = str(decision.get("value") or "").strip().lower()
+        return value in {"proceed", "clarify", "deliberate"}
     def _first_class_state_enabled(self) -> bool:
         return bool(getattr(self.runtime_config, "enable_ao_first_class_state", True))
 
@@ -1458,6 +1493,28 @@ class ClarificationContract(BaseContract):
             "raw_text": copy.deepcopy(raw_text),
         }
 
+
+
+    def _get_prior_violations(self) -> list:
+        context_store = getattr(self.inner_router, "context_store", None)
+        if context_store is None and hasattr(self.inner_router, "_ensure_context_store"):
+            context_store = self.inner_router._ensure_context_store()
+        if context_store is not None:
+            return context_store.get_session_violations()
+        return []
+    def _build_available_results(self) -> dict:
+        context_store = getattr(self.inner_router, "context_store", None)
+        if context_store is None and hasattr(self.inner_router, "_ensure_context_store"):
+            context_store = self.inner_router._ensure_context_store()
+        if context_store is None:
+            return {}
+        known_tokens = ["emission", "dispersion", "hotspot", "visualization",
+                        "scenario_comparison", "file_analysis", "data_quality_report",
+                        "emission_factors", "knowledge"]
+        result: dict = {}
+        for token in known_tokens:
+            result[token] = context_store.has_result(token)
+        return result
     def _current_turn_index(self) -> int:
         turn_counter = int(getattr(self.inner_router.memory, "turn_counter", 0) or 0)
         return turn_counter + 1

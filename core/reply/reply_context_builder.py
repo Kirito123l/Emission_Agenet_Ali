@@ -64,6 +64,7 @@ class ReplyContextBuilder:
             available_capabilities=self._str_list(meta.get("available_capabilities")),
             tool_executed=bool(tool_execs),
             executed_tool_names=[t.tool_name for t in tool_execs if t.success],
+            legal_values_for_pending_slots=self._legal_values_from_meta(meta, step_dicts),
         )
 
     @staticmethod
@@ -228,6 +229,28 @@ class ReplyContextBuilder:
                 pending_objective=str(cs.get("pending_objective") or ""),
             )
         return None
+
+    @staticmethod
+    def _legal_values_from_meta(meta: Dict[str, Any], step_dicts: list) -> Dict[str, List[Any]]:
+        # Priority 1: explicit legal_values_for_pending_slots from governance metadata
+        explicit = meta.get("legal_values_for_pending_slots")
+        if isinstance(explicit, dict):
+            return {
+                str(k): list(v) if isinstance(v, list) else [v]
+                for k, v in explicit.items()
+            }
+        # Priority 2: extract from trace steps (e.g. clarification steps carry options)
+        result: Dict[str, List[Any]] = {}
+        for step in step_dicts:
+            if step.get("step_type") not in ("clarification", "parameter_negotiation_required",
+                                              "input_completion_required", "action_readiness_blocked"):
+                continue
+            output = step.get("output_summary") if isinstance(step.get("output_summary"), dict) else {}
+            target = output.get("target_field") or output.get("awaiting_slot") or output.get("missing_slot") or ""
+            options = output.get("options") or output.get("legal_values") or []
+            if target and options:
+                result[str(target)] = list(options) if isinstance(options, list) else [options]
+        return result
 
     @staticmethod
     def _str_list(value: Any) -> List[str]:
