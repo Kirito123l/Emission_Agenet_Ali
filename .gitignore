@@ -27,6 +27,8 @@ data/exports/
 # Evaluation result artifacts
 evaluation/results/*
 !evaluation/results/.gitignore
+!evaluation/results/multi_rep/
+!evaluation/results/multi_rep/**
 # User database
 data/users.db
 # Nested runtime logs

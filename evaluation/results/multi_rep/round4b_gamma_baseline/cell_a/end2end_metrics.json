@@ -1,0 +1,53 @@
+{
+  "task": "end2end",
+  "mode": "router",
+  "subset": "full",
+  "run_status": "completed",
+  "infrastructure_health": {
+    "ok": 20,
+    "transient_retried": 0,
+    "billing_failed": 0,
+    "network_failed": 0,
+    "permanent_error": 0,
+    "unknown": 0
+  },
+  "data_integrity": "clean",
+  "tasks": 20,
+  "completion_rate": 0.9,
+  "tool_accuracy": 1.0,
+  "parameter_legal_rate": 0.8,
+  "result_data_rate": 0.85,
+  "skipped_tasks": 0,
+  "by_category": {
+    "constraint_violation": {
+      "tasks": 10,
+      "success_rate": 0.8,
+      "tool_accuracy": 1.0
+    },
+    "user_revision": {
+      "tasks": 10,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    }
+  },
+  "cache_stats": {
+    "hits": 0,
+    "misses": 0,
+    "hit_rate": 0.0
+  },
+  "rate_limit_telemetry": {
+    "rate_limit_wait_ms_total": 0,
+    "cache_hits_total": 0
+  },
+  "clarification_contract_metrics": {
+    "trigger_count": 34,
+    "trigger_rate_over_new_revision_turns": 1.0,
+    "stage2_hit_rate": 0.2941,
+    "stage2_avg_latency_ms": 18716.04,
+    "stage3_rejection_rate": 0.0,
+    "short_circuit_rate": 0.2059,
+    "proceed_rate": 0.7941
+  },
+  "wall_clock_sec": 169.16,
+  "logs_path": "evaluation/results/multi_rep/round4b_gamma_baseline/cell_a/end2end_logs.jsonl"
+}
