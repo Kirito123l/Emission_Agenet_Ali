@@ -70,12 +70,14 @@ async def test_flag_off_uses_legacy_regex(monkeypatch):
     assert result.is_resolved is True
     assert result.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert result.decision.selected_value == "Passenger Car"
+    assert result.decision.source == "legacy_regex"
     # No LLM context passed — even if we passed one, flag off ignores it
     result2 = await parse_parameter_negotiation_reply(
         request, "都不对", llm_context=_base_llm_context(),
     )
     assert result2.is_resolved is True
     assert result2.decision.decision_type == NegotiationDecisionType.NONE_OF_ABOVE
+    assert result2.decision.source == "legacy_regex"
 
 
 # ── flag on with mock LLM: each ReplyDecision ────────────────────────────
@@ -118,6 +120,7 @@ async def test_flag_on_llm_confirmed_matches_candidate(monkeypatch):
     assert result.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert result.decision.selected_value == "Passenger Car"  # matched via alias
     assert result.decision.selected_index == 1
+    assert result.decision.source == "llm_parsed"
 
 
 @pytest.mark.asyncio
@@ -142,6 +145,7 @@ async def test_flag_on_llm_none_of_above(monkeypatch):
 
     assert result.is_resolved is True
     assert result.decision.decision_type == NegotiationDecisionType.NONE_OF_ABOVE
+    assert result.decision.source == "llm_parsed"
 
 
 @pytest.mark.asyncio
@@ -193,6 +197,7 @@ async def test_flag_on_llm_partial_reply_with_target_param(monkeypatch):
     assert result.is_resolved is True
     assert result.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert result.decision.selected_value == "Transit Bus"
+    assert result.decision.source == "llm_parsed"
 
 
 @pytest.mark.asyncio
@@ -266,15 +271,18 @@ async def test_flag_on_llm_returns_none_falls_back_to_regex(monkeypatch):
             return None
         instance.parse = _fail
 
+        # "乘用车" is 3 chars (not >3), but not a digit or confirm/decline word,
+        # so fast path returns None. LLM then fails, falling back to legacy regex
+        # which matches "乘用车" as a label match.
         result = await parse_parameter_negotiation_reply(
-            request, "1", llm_context=context,
+            request, "乘用车", llm_context=context,
         )
 
-    # Falls back to legacy regex → "1" matches first candidate
     assert result is not None
     assert result.is_resolved is True
     assert result.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert result.decision.selected_value == "Passenger Car"
+    assert result.decision.source == "legacy_regex"
 
 
 # ── Calibration 4: LLM returns value that doesn't match any candidate ───

@@ -52,19 +52,23 @@ async def test_parse_parameter_negotiation_reply_supports_index_and_label_and_no
     assert first.is_resolved is True
     assert first.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert first.decision.selected_value == "Passenger Car"
+    assert first.decision.source == "legacy_regex"
 
     second = await parse_parameter_negotiation_reply(request, "选第2个")
     assert second.is_resolved is True
     assert second.decision.selected_index == 2
     assert second.decision.selected_value == "Transit Bus"
+    assert second.decision.source == "legacy_regex"
 
     by_label = await parse_parameter_negotiation_reply(request, "乘用车")
     assert by_label.is_resolved is True
     assert by_label.decision.selected_value == "Passenger Car"
+    assert by_label.decision.source == "legacy_regex"
 
     none = await parse_parameter_negotiation_reply(request, "都不对")
     assert none.is_resolved is True
     assert none.decision.decision_type == NegotiationDecisionType.NONE_OF_ABOVE
+    assert none.decision.source == "legacy_regex"
 
 
 def test_reply_looks_like_confirmation_attempt_is_bounded():

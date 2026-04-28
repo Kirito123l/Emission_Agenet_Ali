@@ -8635,6 +8635,7 @@ class UnifiedRouter:
                             "request_id": request.request_id,
                             "parameter_name": request.parameter_name,
                             "selected_index": decision.selected_index,
+                            "source": decision.source,
                         },
                         output_summary={
                             "selected_value": decision.selected_value,

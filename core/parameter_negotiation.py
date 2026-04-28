@@ -139,6 +139,7 @@ class ParameterNegotiationDecision:
     selected_value: Optional[str] = None
     request_id: Optional[str] = None
     selected_display_label: Optional[str] = None
+    source: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -149,6 +150,7 @@ class ParameterNegotiationDecision:
             "selected_value": self.selected_value,
             "request_id": self.request_id,
             "selected_display_label": self.selected_display_label,
+            "source": self.source,
         }
 
     @classmethod
@@ -167,6 +169,7 @@ class ParameterNegotiationDecision:
                 if payload.get("selected_display_label") is not None
                 else None
             ),
+            source=str(payload.get("source")).strip() if payload.get("source") is not None else None,
         )
 
 
@@ -316,7 +319,7 @@ def _try_fast_path(
     if len(reply) > 3:
         return None
 
-    # Numeric index (“1”, “2”, …) — 1-indexed, maps to candidate.index
+    # Numeric index ("1", "2", …) — 1-indexed, maps to candidate.index
     if reply.isdigit():
         idx = int(reply)
         for candidate in request.candidates:
@@ -331,6 +334,7 @@ def _try_fast_path(
                         selected_value=candidate.normalized_value,
                         selected_display_label=candidate.display_label,
                         request_id=request.request_id,
+                        source="fast_path_index",
                     ),
                 )
         return ParameterNegotiationParseResult(
@@ -353,6 +357,7 @@ def _try_fast_path(
                     selected_value=c.normalized_value,
                     selected_display_label=c.display_label,
                     request_id=request.request_id,
+                    source="fast_path_confirm",
                 ),
             )
         return None
@@ -366,6 +371,7 @@ def _try_fast_path(
                 decision_type=NegotiationDecisionType.NONE_OF_ABOVE,
                 user_reply=reply,
                 request_id=request.request_id,
+                source="fast_path_decline",
             ),
         )
 
@@ -400,6 +406,7 @@ def _legacy_regex_parse(
                 decision_type=NegotiationDecisionType.NONE_OF_ABOVE,
                 user_reply=reply,
                 request_id=request.request_id,
+                source="legacy_regex",
             ),
         )
 
@@ -417,6 +424,7 @@ def _legacy_regex_parse(
                         selected_value=candidate.normalized_value,
                         selected_display_label=candidate.display_label,
                         request_id=request.request_id,
+                        source="legacy_regex",
                     ),
                 )
         return ParameterNegotiationParseResult(
@@ -450,6 +458,7 @@ def _legacy_regex_parse(
                 selected_value=candidate.normalized_value,
                 selected_display_label=candidate.display_label,
                 request_id=request.request_id,
+                source="legacy_regex",
             ),
         )
 
@@ -534,6 +543,7 @@ def _map_llm_to_negotiation_result(
                 decision_type=NegotiationDecisionType.NONE_OF_ABOVE,
                 user_reply=reply_str,
                 request_id=request.request_id,
+                source="llm_parsed",
             ),
         )
 
@@ -584,6 +594,7 @@ def _map_llm_to_negotiation_result(
             selected_value=match.normalized_value,
             selected_display_label=match.display_label,
             request_id=request.request_id,
+            source="llm_parsed",
         ),
     )
 
@@ -681,7 +692,7 @@ def format_parameter_negotiation_prompt(
         lines.append(f"上次回复未能唯一确认: {retry_message}")
 
     lines.append(
-        "回复方式：输入序号、候选标签、canonical value，或回复“都不对”/`none`。"
+        '回复方式：输入序号、候选标签、canonical value，或回复"都不对"/`none`。'
     )
     return "\n".join(lines)
 

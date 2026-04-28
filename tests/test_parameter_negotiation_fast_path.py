@@ -53,6 +53,7 @@ def test_fast_path_numeric_index_selects_candidate():
     assert result.is_resolved is True
     assert result.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert result.decision.selected_value == "Passenger Car"
+    assert result.decision.source == "fast_path_index"
 
 
 def test_fast_path_chinese_ordinal_skipped():
@@ -76,6 +77,7 @@ def test_fast_path_confirm_word_with_single_candidate():
     assert result is not None
     assert result.is_resolved is True
     assert result.decision.selected_value == "Passenger Car"
+    assert result.decision.source == "fast_path_confirm"
 
 
 def test_fast_path_confirm_word_with_multiple_candidates_returns_none():
@@ -91,6 +93,7 @@ def test_fast_path_decline_word():
     assert result is not None
     assert result.is_resolved is True
     assert result.decision.decision_type == NegotiationDecisionType.NONE_OF_ABOVE
+    assert result.decision.source == "fast_path_decline"
 
 
 def test_fast_path_long_reply_skips():
