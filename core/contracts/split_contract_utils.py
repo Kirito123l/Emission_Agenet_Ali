@@ -47,7 +47,9 @@ class SplitContractSupport(ClarificationContract):
             "(K8) available_results: 已完成的结果类型，规划时避免重复已存在结果。\n"
             "(DECISION) 额外输出 decision:{value:proceed|clarify|deliberate,confidence:0-1,reasoning,clarification_question}。"
             "proceed=信息足够可执行,clarify=需询问用户,deliberate=用户在探索/比较。"
-            "confidence≥0.5;clarify时clarification_question非空;deliberate时reasoning非空。"
+            "confidence≥0.5;clarify时clarification_question非空;deliberate时reasoning非空。\n"
+            "(K9) pcm_advisory: governance检测到的非约束性提示信号(unfilled_optionals,runtime_defaults,confirm_first等)。"
+            "考虑advisory但由decision字段最终决定;当advisory显示unfilled_optional但runtime_defaults中有默认值时通常应proceed。"
         )
 
     async def _run_stage2_llm_with_telemetry(
@@ -60,8 +62,9 @@ class SplitContractSupport(ClarificationContract):
         snapshot: Dict[str, Dict[str, Any]],
         tool_spec: Dict[str, Any],
         classification: Any,
+        pcm_advisory: Optional[Dict[str, Any]] = None,
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
-        prompt_payload = {
+        prompt_payload: Dict[str, Any] = {
             "user_message": user_message,
             "tool_name": tool_name,
             "available_tools": self._available_tool_intent_descriptions(),
@@ -86,6 +89,8 @@ class SplitContractSupport(ClarificationContract):
             "available_results": self._build_available_results(),
             "decision_examples": _load_decision_examples(),
         }
+        if pcm_advisory is not None:
+            prompt_payload["pcm_advisory"] = pcm_advisory
         user_content = yaml.safe_dump(prompt_payload, allow_unicode=True, sort_keys=False)
         system_prompt = self._stage2_system_prompt()
         started = time.perf_counter()

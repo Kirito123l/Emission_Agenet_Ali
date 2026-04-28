@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from core.analytical_objective import ConversationalStance
 from core.continuation_signals import has_probe_abandon_marker, has_reversal_marker
 from core.contracts.base import ContractContext, ContractInterception
-from core.contracts.runtime_defaults import has_runtime_default
+from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS, has_runtime_default
 from core.contracts.split_contract_utils import SplitContractSupport
 from core.execution_continuation import ExecutionContinuation, PendingObjective
 from core.execution_continuation_utils import (
@@ -91,6 +91,33 @@ class ExecutionReadinessContract(SplitContractSupport):
         stage1_filled = self._run_stage1(state, snapshot)
         active_required_slots = list(dict.fromkeys(tool_spec.get("required_slots") or []))
         missing_required_stage1 = self._missing_slots(snapshot, active_required_slots)
+
+        # Phase 4: pre-compute PCM advisory for flag=true injection into Stage 2 payload
+        flag_on = bool(getattr(self.runtime_config, "enable_llm_decision_field", False))
+        pcm_advisory = None
+        if flag_on:
+            prelim_optional_class = self._classify_missing_optionals(tool_name, snapshot, tool_spec)
+            prelim_no_default = list(prelim_optional_class["no_default"])
+            prelim_resolved = list(prelim_optional_class["resolved_by_default"])
+            prelim_confirm_first = bool(
+                pending_state.get("confirm_first_detected") or self._detect_confirm_first(context.effective_user_message)
+            )
+            if prelim_no_default or prelim_resolved or prelim_confirm_first or continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION:
+                runtime_defaults_available: Dict[str, Any] = {}
+                for slot_name in prelim_no_default:
+                    if has_runtime_default(tool_name, slot_name):
+                        rt = dict(RUNTIME_DEFAULTS.get(tool_name or "", {}))
+                        if slot_name in rt:
+                            runtime_defaults_available[slot_name] = rt[slot_name]
+                pcm_advisory = {
+                    "unfilled_optionals_without_default": prelim_no_default,
+                    "runtime_defaults_available": runtime_defaults_available,
+                    "resolved_by_default": prelim_resolved,
+                    "confirm_first_detected": prelim_confirm_first,
+                    "suggested_probe_slot": prelim_no_default[0] if prelim_no_default else None,
+                    "collection_mode_active": True,
+                }
+
         stage2_meta = dict(context.metadata.get("stage2_telemetry") or {})
         llm_payload = context.metadata.get("stage2_payload") if isinstance(context.metadata.get("stage2_payload"), dict) else None
         if (
@@ -101,6 +128,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                 or continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION
                 or bool(pending_state.get("followup_slots"))
                 or bool(pending_state.get("confirm_first_slots"))
+                or (flag_on and pcm_advisory is not None)
             )
         ):
             llm_payload, stage2_meta = await self._run_stage2_llm_with_telemetry(
@@ -111,6 +139,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                 snapshot=snapshot,
                 tool_spec=tool_spec,
                 classification=classification,
+                pcm_advisory=pcm_advisory,
             )
             context.metadata["stage2_payload"] = llm_payload
             context.metadata["stage2_telemetry"] = stage2_meta
@@ -228,6 +257,32 @@ class ExecutionReadinessContract(SplitContractSupport):
             optional_only_probe = bool(clarify_optional_candidates) and not bool(clarify_required_candidates)
             if optional_only_probe and probe_count_value >= probe_limit:
                 force_proceed_reason = "probe_limit_reached"
+                continuation_after = ExecutionContinuation(
+                    pending_objective=PendingObjective.NONE,
+                    probe_count=probe_count_value,
+                    probe_limit=probe_limit,
+                    updated_turn=self._current_turn_index(),
+                )
+                save_execution_continuation(current_ao, continuation_after)
+                if transition_reason == "no_change":
+                    transition_reason = "advance"
+            elif flag_on and optional_only_probe:
+                # Phase 4 advisory mode: compute advisory, don't hard-block
+                no_default_optionals = list(optional_classification["no_default"])
+                pcm_advisory = {
+                    "unfilled_optionals_without_default": no_default_optionals,
+                    "runtime_defaults_available": {
+                        slot_name: dict(RUNTIME_DEFAULTS.get(tool_name or "", {})).get(slot_name)
+                        for slot_name in no_default_optionals
+                        if slot_name in dict(RUNTIME_DEFAULTS.get(tool_name or "", {}))
+                    },
+                    "resolved_by_default": list(optional_classification["resolved_by_default"]),
+                    "confirm_first_detected": confirm_first_active,
+                    "suggested_probe_slot": clarify_candidates[0] if clarify_candidates else None,
+                    "collection_mode_active": True,
+                }
+                context.metadata["pcm_advisory"] = pcm_advisory
+                force_proceed_reason = "advisory_mode"
                 continuation_after = ExecutionContinuation(
                     pending_objective=PendingObjective.NONE,
                     probe_count=probe_count_value,
@@ -377,96 +432,121 @@ class ExecutionReadinessContract(SplitContractSupport):
             )
 
         if branch == ConversationalStance.DELIBERATIVE.value and no_default_optionals:
-            pending_slot = no_default_optionals[0]
-            probe_count = (
-                continuation_before.probe_count + 1
-                if continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION
-                and continuation_before.pending_slot == pending_slot
-                else 1
-            )
-            probe_limit = max(1, int(continuation_before.probe_limit or 2))
-            if has_probe_abandon_marker(context.effective_user_message) or probe_count >= probe_limit:
+            if flag_on:
+                # Phase 4 advisory mode: compute advisory, don't hard-block
+                pcm_advisory = {
+                    "unfilled_optionals_without_default": no_default_optionals,
+                    "runtime_defaults_available": {
+                        slot_name: dict(RUNTIME_DEFAULTS.get(tool_name or "", {})).get(slot_name)
+                        for slot_name in no_default_optionals
+                        if slot_name in dict(RUNTIME_DEFAULTS.get(tool_name or "", {}))
+                    },
+                    "resolved_by_default": runtime_defaults,
+                    "confirm_first_detected": confirm_first_active,
+                    "suggested_probe_slot": no_default_optionals[0],
+                    "collection_mode_active": True,
+                    "stance": "deliberative",
+                }
+                context.metadata["pcm_advisory"] = pcm_advisory
+                force_proceed_reason = "advisory_mode"
                 continuation_after = ExecutionContinuation(
-                    pending_objective=PendingObjective.PARAMETER_COLLECTION,
-                    pending_slot=pending_slot,
-                    probe_count=probe_count,
-                    probe_limit=probe_limit,
-                    abandoned=True,
-                    updated_turn=self._current_turn_index(),
-                )
-                save_execution_continuation(current_ao, continuation_after)
-                transition_reason = "abandon_probe_limit"
-            else:
-                self._persist_split_pending(
-                    current_ao,
-                    tool_name,
-                    pending_slot,
-                    snapshot,
-                    missing_slots=[pending_slot],
-                    followup_slots=followup_slots,
-                    confirm_first_slots=confirm_first_slots,
-                    confirm_first_detected=confirm_first_active,
-                    needs_clarification=stage2_needs_clarification,
-                )
-                continuation_after = ExecutionContinuation(
-                    pending_objective=PendingObjective.PARAMETER_COLLECTION,
-                    pending_slot=pending_slot,
-                    probe_count=probe_count,
-                    probe_limit=probe_limit,
-                    abandoned=False,
+                    pending_objective=PendingObjective.NONE,
                     updated_turn=self._current_turn_index(),
                 )
                 save_execution_continuation(current_ao, continuation_after)
                 if transition_reason == "no_change":
-                    transition_reason = "initial_write"
-                question = await self._build_probe_question(
-                    tool_name=tool_name,
-                    snapshot=snapshot,
-                    slot_name=pending_slot,
-                    current_ao=current_ao,
+                    transition_reason = "advance"
+            else:
+                pending_slot = no_default_optionals[0]
+                probe_count = (
+                    continuation_before.probe_count + 1
+                    if continuation_before.pending_objective == PendingObjective.PARAMETER_COLLECTION
+                    and continuation_before.pending_slot == pending_slot
+                    else 1
                 )
-                telemetry = self._telemetry(
-                    tool_name=tool_name,
-                    decision="clarify",
-                    branch=branch,
-                    pending_slot=pending_slot,
-                    stage1_filled=stage1_filled,
-                    stage2_meta=stage2_meta,
-                    normalizations=normalizations,
-                    rejected_slots=rejected_slots,
-                    runtime_defaults=runtime_defaults,
-                    no_default_optionals_probed=no_default_optionals,
-                    continuation_before=continuation_before,
-                    continuation_after=continuation_after,
-                    transition_reason=transition_reason,
-                    short_circuit_intent=short_circuit_intent,
-                    probe_count=probe_count_value,
-                    probe_limit=probe_limit,
-                    force_proceed_reason=None,
-                )
-                context.metadata["execution_continuation_transition"] = {
-                    "continuation_before": continuation_snapshot(continuation_before),
-                    "continuation_after": continuation_snapshot(continuation_after),
-                    "transition_reason": transition_reason,
-                    "short_circuit_intent": short_circuit_intent,
-                }
-                # Q3 gate: defer to decision field when active
-                if self._split_decision_field_active(context):
-                    return ContractInterception(
-                        metadata={
-                            "clarification": {"telemetry": telemetry},
-                            "hardcoded_recommendation": "clarify",
-                            "hardcoded_reason": question,
-                        }
+                probe_limit = max(1, int(continuation_before.probe_limit or 2))
+                if has_probe_abandon_marker(context.effective_user_message) or probe_count >= probe_limit:
+                    continuation_after = ExecutionContinuation(
+                        pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                        pending_slot=pending_slot,
+                        probe_count=probe_count,
+                        probe_limit=probe_limit,
+                        abandoned=True,
+                        updated_turn=self._current_turn_index(),
                     )
-                return ContractInterception(
-                    proceed=False,
-                    response=RouterResponse(
-                        text=question,
-                        trace_friendly=[{"step_type": "clarification", "summary": question}],
-                    ),
-                    metadata={"clarification": {"telemetry": telemetry}},
-                )
+                    save_execution_continuation(current_ao, continuation_after)
+                    transition_reason = "abandon_probe_limit"
+                else:
+                    self._persist_split_pending(
+                        current_ao,
+                        tool_name,
+                        pending_slot,
+                        snapshot,
+                        missing_slots=[pending_slot],
+                        followup_slots=followup_slots,
+                        confirm_first_slots=confirm_first_slots,
+                        confirm_first_detected=confirm_first_active,
+                        needs_clarification=stage2_needs_clarification,
+                    )
+                    continuation_after = ExecutionContinuation(
+                        pending_objective=PendingObjective.PARAMETER_COLLECTION,
+                        pending_slot=pending_slot,
+                        probe_count=probe_count,
+                        probe_limit=probe_limit,
+                        abandoned=False,
+                        updated_turn=self._current_turn_index(),
+                    )
+                    save_execution_continuation(current_ao, continuation_after)
+                    if transition_reason == "no_change":
+                        transition_reason = "initial_write"
+                    question = await self._build_probe_question(
+                        tool_name=tool_name,
+                        snapshot=snapshot,
+                        slot_name=pending_slot,
+                        current_ao=current_ao,
+                    )
+                    telemetry = self._telemetry(
+                        tool_name=tool_name,
+                        decision="clarify",
+                        branch=branch,
+                        pending_slot=pending_slot,
+                        stage1_filled=stage1_filled,
+                        stage2_meta=stage2_meta,
+                        normalizations=normalizations,
+                        rejected_slots=rejected_slots,
+                        runtime_defaults=runtime_defaults,
+                        no_default_optionals_probed=no_default_optionals,
+                        continuation_before=continuation_before,
+                        continuation_after=continuation_after,
+                        transition_reason=transition_reason,
+                        short_circuit_intent=short_circuit_intent,
+                        probe_count=probe_count_value,
+                        probe_limit=probe_limit,
+                        force_proceed_reason=None,
+                    )
+                    context.metadata["execution_continuation_transition"] = {
+                        "continuation_before": continuation_snapshot(continuation_before),
+                        "continuation_after": continuation_snapshot(continuation_after),
+                        "transition_reason": transition_reason,
+                        "short_circuit_intent": short_circuit_intent,
+                    }
+                    # Q3 gate: defer to decision field when active
+                    if self._split_decision_field_active(context):
+                        return ContractInterception(
+                            metadata={
+                                "clarification": {"telemetry": telemetry},
+                                "hardcoded_recommendation": "clarify",
+                                "hardcoded_reason": question,
+                            }
+                        )
+                    return ContractInterception(
+                        proceed=False,
+                        response=RouterResponse(
+                            text=question,
+                            trace_friendly=[{"step_type": "clarification", "summary": question}],
+                        ),
+                        metadata={"clarification": {"telemetry": telemetry}},
+                    )
 
         preserve_followup_slot = next(
             (

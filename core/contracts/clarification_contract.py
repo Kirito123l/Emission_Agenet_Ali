@@ -83,6 +83,8 @@ class ClarificationTelemetry:
     stance_llm_hint_raw: Optional[Dict[str, Any]]
     stance_llm_hint_parse_success: bool
     stage2_decision: Optional[Dict[str, Any]] = None
+    pcm_advisory: Optional[Dict[str, Any]] = None
+    pcm_advisory_delta: Optional[List[str]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -124,6 +126,8 @@ class ClarificationTelemetry:
             ),
             "stance_llm_hint_parse_success": self.stance_llm_hint_parse_success,
             "stage2_decision": dict(self.stage2_decision) if isinstance(self.stage2_decision, dict) else None,
+            "pcm_advisory": dict(self.pcm_advisory) if isinstance(self.pcm_advisory, dict) else None,
+            "pcm_advisory_delta": list(self.pcm_advisory_delta) if self.pcm_advisory_delta else None,
         }
 
 
@@ -297,6 +301,34 @@ class ClarificationContract(BaseContract):
         telemetry.stage1_filled_slots = self._run_stage1(state, snapshot)
 
         missing_required_stage1 = self._missing_slots(snapshot, active_required_slots)
+
+        # Phase 4: pre-compute PCM advisory for flag=true injection into Stage 2 payload
+        flag_on = getattr(get_config(), "enable_llm_decision_field", False)
+        pcm_advisory = None
+        if flag_on and prefetched_stage2_payload is None:
+            prelim_unfilled = self._get_unfilled_optionals_without_default(snapshot, tool_spec)
+            prelim_collection_mode, prelim_trigger = self._resolve_collection_mode(
+                ao=current_ao,
+                missing_required=missing_required_stage1,
+                confirm_first_detected=confirm_first_detected,
+                unfilled_optionals_without_default=prelim_unfilled,
+                is_resume=is_resume,
+            )
+            if prelim_collection_mode:
+                runtime_defaults_available: Dict[str, Any] = {}
+                rt = dict(RUNTIME_DEFAULTS.get(tool_name or "", {}))
+                for slot_name in prelim_unfilled:
+                    if slot_name in rt:
+                        runtime_defaults_available[slot_name] = rt[slot_name]
+                pcm_advisory = {
+                    "unfilled_optionals_without_default": prelim_unfilled,
+                    "runtime_defaults_available": runtime_defaults_available,
+                    "confirm_first_detected": confirm_first_detected,
+                    "suggested_probe_slot": prelim_unfilled[0] if prelim_unfilled else None,
+                    "collection_mode_active": True,
+                }
+                telemetry.pcm_advisory = pcm_advisory
+
         if prefetched_stage2_payload is not None:
             snapshot = self._merge_stage2_snapshot(
                 snapshot,
@@ -304,7 +336,7 @@ class ClarificationContract(BaseContract):
         )
         if (
             prefetched_stage2_payload is None
-            and missing_required_stage1
+            and (missing_required_stage1 or (flag_on and pcm_advisory is not None))
             and self._stage2_available()
         ):
             telemetry.stage2_called = True
@@ -318,6 +350,7 @@ class ClarificationContract(BaseContract):
                     snapshot=snapshot,
                     tool_spec=tool_spec,
                     classification=classification,
+                    pcm_advisory=pcm_advisory,
                 )
                 telemetry.stage2_latency_ms = round((time.perf_counter() - started) * 1000, 2)
                 telemetry.stage2_missing_required = list(llm_payload.get("missing_required") or [])
@@ -386,6 +419,18 @@ class ClarificationContract(BaseContract):
                 llm_question=llm_question,
             )
         elif not collection_mode:
+            should_proceed = True
+        elif flag_on:
+            # Phase 4 advisory mode: don't hard-block; advisory was already stored pre-Stage-2
+            if unfilled_optionals_without_default:
+                probe_optional_slot = unfilled_optionals_without_default[0]
+                telemetry.probe_optional_slot = probe_optional_slot
+                # Reconcile: if post-Stage-3 differs from pre-Stage-2, record delta
+                pre_stage2 = telemetry.pcm_advisory or {}
+                pre_unfilled = set(pre_stage2.get("unfilled_optionals_without_default") or [])
+                post_unfilled = set(unfilled_optionals_without_default)
+                if pre_unfilled != post_unfilled:
+                    telemetry.pcm_advisory_delta = sorted(post_unfilled - pre_unfilled)
             should_proceed = True
         else:
             if unfilled_optionals_without_default:
@@ -739,8 +784,9 @@ class ClarificationContract(BaseContract):
         snapshot: Dict[str, Dict[str, Any]],
         tool_spec: Dict[str, Any],
         classification: Any,
+        pcm_advisory: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        prompt_payload = {
+        prompt_payload: Dict[str, Any] = {
             "user_message": user_message,
             "tool_name": tool_name,
             "available_tools": self._available_tool_intent_descriptions(),
@@ -765,6 +811,8 @@ class ClarificationContract(BaseContract):
             "available_results": self._build_available_results(),
             "decision_examples": _load_decision_examples(),
         }
+        if pcm_advisory is not None:
+            prompt_payload["pcm_advisory"] = pcm_advisory
         return await asyncio.wait_for(
             self.llm_client.chat_json(
                 messages=[{"role": "user", "content": yaml.safe_dump(prompt_payload, allow_unicode=True, sort_keys=False)}],
@@ -811,7 +859,13 @@ class ClarificationContract(BaseContract):
             "proceed=信息足够可执行工具（missing_required=[]且参数完整）；"
             "clarify=需要询问用户具体问题（填 clarification_question）；"
             "deliberate=用户在探索/比较，不直接执行而给出建议（填 reasoning）。"
-            "confidence≥0.5；当 value=clarify 时 clarification_question 非空；当 value=deliberate 时 reasoning 非空。"
+            "confidence≥0.5；当 value=clarify 时 clarification_question 非空；当 value=deliberate 时 reasoning 非空。\n"
+            "18. (K9) pcm_advisory: governance 主动检测到的对话提示信号 "
+            "(含 unfilled_optionals, runtime_defaults_available, confirm_first 等)。"
+            "这是非约束性建议。你应该考虑 advisory 中的信息，但是否 proceed/clarify "
+            "由你的 decision 字段最终决定。当 advisory 显示 unfilled_optional 但 "
+            "runtime_defaults_available 中有对应默认值时，通常应 decision=proceed "
+            "(因为信息已充分)。"
         )
 
     @staticmethod
