@@ -399,12 +399,171 @@ def reply_looks_like_input_completion_attempt(
     return False
 
 
-def parse_input_completion_reply(
+# Fast-path (Layer 1) constants for input_completion
+_FAST_PATH_PAUSE_WORDS = frozenset({"暂停", "pause", "later", "稍后"})
+
+
+def _resolve_option_decision(
+    option: InputCompletionOption,
+    request: InputCompletionRequest,
+    reply: str,
+    *,
+    supporting_file_path: Optional[str] = None,
+    source: str = "option_selection",
+) -> InputCompletionParseResult:
+    """Build an InputCompletionParseResult from a selected option.
+
+    Extracted from the original parse_input_completion_reply option-type
+    dispatch block so that both Layer 1 (fast path) and Layer 4 (legacy
+    regex) can share it.
+    """
+    if option.option_type == InputCompletionOptionType.PAUSE:
+        return InputCompletionParseResult(
+            is_resolved=True,
+            decision=InputCompletionDecision(
+                request_id=request.request_id,
+                decision_type=InputCompletionDecisionType.PAUSE,
+                user_reply=reply,
+                selected_option_id=option.option_id,
+                source=source,
+            ),
+        )
+
+    if option.option_type == InputCompletionOptionType.UPLOAD_SUPPORTING_FILE:
+        if not supporting_file_path:
+            return InputCompletionParseResult(
+                is_resolved=False,
+                needs_retry=True,
+                error_message="This option requires uploading a supporting file in the same turn.",
+            )
+        return InputCompletionParseResult(
+            is_resolved=True,
+            decision=InputCompletionDecision(
+                request_id=request.request_id,
+                decision_type=InputCompletionDecisionType.SELECTED_OPTION,
+                user_reply=reply,
+                selected_option_id=option.option_id,
+                structured_payload={
+                    "mode": "uploaded_supporting_file",
+                    "file_ref": supporting_file_path,
+                },
+                source=source,
+            ),
+        )
+
+    if option.option_type == InputCompletionOptionType.PROVIDE_UNIFORM_VALUE:
+        return InputCompletionParseResult(
+            is_resolved=False,
+            needs_retry=True,
+            error_message="Please give the concrete uniform value directly, for example `1500` or `全部设为1500`.",
+        )
+
+    if option.option_type == InputCompletionOptionType.USE_DERIVATION:
+        payload = dict(option.requirements or {})
+        payload.setdefault("mode", "source_column_derivation")
+        payload.setdefault("field", request.target_field)
+        return InputCompletionParseResult(
+            is_resolved=True,
+            decision=InputCompletionDecision(
+                request_id=request.request_id,
+                decision_type=InputCompletionDecisionType.SELECTED_OPTION,
+                user_reply=reply,
+                selected_option_id=option.option_id,
+                structured_payload=payload,
+                source=source,
+            ),
+        )
+
+    if option.option_type == InputCompletionOptionType.APPLY_DEFAULT_TYPICAL_PROFILE:
+        return InputCompletionParseResult(
+            is_resolved=True,
+            decision=InputCompletionDecision(
+                request_id=request.request_id,
+                decision_type=InputCompletionDecisionType.SELECTED_OPTION,
+                user_reply=reply,
+                selected_option_id=option.option_id,
+                structured_payload={
+                    "mode": "remediation_policy",
+                    "policy_type": "apply_default_typical_profile",
+                    "target_fields": list(option.requirements.get("target_fields") or []),
+                    "context_signals": list(option.requirements.get("context_signals_present") or []),
+                },
+                source=source,
+            ),
+        )
+
+    # CHOOSE_PRESET or any other option type
+    return InputCompletionParseResult(
+        is_resolved=True,
+        decision=InputCompletionDecision(
+            request_id=request.request_id,
+            decision_type=InputCompletionDecisionType.SELECTED_OPTION,
+            user_reply=reply,
+            selected_option_id=option.option_id,
+            structured_payload=dict(option.requirements or {}),
+            source=source,
+        ),
+    )
+
+
+# ── Layer 1: Fast Path ──────────────────────────────────────────────────
+
+
+def _try_fast_path(
+    user_reply: str,
+    request: InputCompletionRequest,
+) -> Optional[InputCompletionParseResult]:
+    """Layer 1: digits → option index, pause words.
+
+    Only handles the most structured replies (≤3 chars).  Everything else
+    returns ``None`` and proceeds to Layer 2 (LLM) or Layer 4 (legacy regex).
+    """
+    reply = str(user_reply or "").strip()
+    if not reply:
+        return None
+    lowered = reply.lower()
+    if len(reply) > 3:
+        return None
+
+    # Pure digit → option index (1-indexed display, 0-indexed list position)
+    if reply.isdigit():
+        idx = int(reply)
+        applicable = [o for o in request.options if o.applicable]
+        if 1 <= idx <= len(applicable):
+            return _resolve_option_decision(applicable[idx - 1], request, reply, source="fast_path_index")
+        return None  # out of range → LLM or legacy
+
+    # Pause words
+    if lowered in _FAST_PATH_PAUSE_WORDS:
+        opt = request.get_first_option_by_type(InputCompletionOptionType.PAUSE)
+        if opt:
+            return _resolve_option_decision(opt, request, reply, source="fast_path_pause")
+        return InputCompletionParseResult(
+            is_resolved=True,
+            decision=InputCompletionDecision(
+                request_id=request.request_id,
+                decision_type=InputCompletionDecisionType.PAUSE,
+                user_reply=reply,
+                source="fast_path_pause",
+            ),
+        )
+
+    return None
+
+
+# ── Legacy regex parser (Layer 4) ───────────────────────────────────────
+
+
+def _legacy_regex_parse(
     request: InputCompletionRequest,
     user_reply: str,
     *,
     supporting_file_path: Optional[str] = None,
 ) -> InputCompletionParseResult:
+    """Original regex/deterministic parser — now Layer 4 fallback.
+
+    Behaviour is byte-identical to the pre-A.3 ``parse_input_completion_reply``.
+    """
     reply = str(user_reply or "").strip()
     normalized_reply = _normalize_text(reply)
 
@@ -480,86 +639,128 @@ def parse_input_completion_reply(
             ),
         )
 
-    if selected_option.option_type == InputCompletionOptionType.PAUSE:
-        return InputCompletionParseResult(
-            is_resolved=True,
-            decision=InputCompletionDecision(
-                request_id=request.request_id,
-                decision_type=InputCompletionDecisionType.PAUSE,
-                user_reply=reply,
-                selected_option_id=selected_option.option_id,
-                source="option_selection",
-            ),
-        )
+    return _resolve_option_decision(selected_option, request, reply, supporting_file_path=supporting_file_path)
 
-    if selected_option.option_type == InputCompletionOptionType.UPLOAD_SUPPORTING_FILE:
-        if not supporting_file_path:
-            return InputCompletionParseResult(
-                is_resolved=False,
-                needs_retry=True,
-                error_message="This option requires uploading a supporting file in the same turn.",
-            )
-        return InputCompletionParseResult(
-            is_resolved=True,
-            decision=InputCompletionDecision(
-                request_id=request.request_id,
-                decision_type=InputCompletionDecisionType.SELECTED_OPTION,
-                user_reply=reply,
-                selected_option_id=selected_option.option_id,
-                structured_payload={
-                    "mode": "uploaded_supporting_file",
-                    "file_ref": supporting_file_path,
-                },
-                source="uploaded_file",
-            ),
-        )
 
-    if selected_option.option_type == InputCompletionOptionType.PROVIDE_UNIFORM_VALUE:
+# ── Layer 2→3 mapping (LLM ParsedReply → InputCompletionParseResult) ────
+
+
+def _map_llm_to_completion_result(
+    parsed: Any,  # ParsedReply — import deferred
+    request: InputCompletionRequest,
+    user_reply: str,
+) -> Optional[InputCompletionParseResult]:
+    """Map LLM ParsedReply to an InputCompletionParseResult.
+
+    Calibration 3: the LLM layer in A.3 ONLY handles concrete parameter
+    values for ``target_field``.  If the LLM returns a value for that
+    field it is treated as a uniform-scalar completion; otherwise the
+    result is AMBIGUOUS_REPLY regardless of the LLM's self-reported
+    ReplyDecision.
+    """
+    target = request.target_field
+    raw_value = parsed.slot_values.get(target) if isinstance(parsed.slot_values, dict) else None
+
+    if raw_value is None:
         return InputCompletionParseResult(
             is_resolved=False,
             needs_retry=True,
-            error_message="Please give the concrete uniform value directly, for example `1500` or `全部设为1500`.",
+            error_message="LLM did not resolve target field value.",
         )
 
-    if selected_option.option_type == InputCompletionOptionType.USE_DERIVATION:
-        payload = dict(selected_option.requirements or {})
-        payload.setdefault("mode", "source_column_derivation")
-        payload.setdefault("field", request.target_field)
+    # Layer 3: try to extract a numeric value
+    numeric_value = _extract_numeric_value(str(raw_value))
+    uniform_option = request.get_first_option_by_type(InputCompletionOptionType.PROVIDE_UNIFORM_VALUE)
+
+    if uniform_option is not None and numeric_value is not None:
         return InputCompletionParseResult(
             is_resolved=True,
             decision=InputCompletionDecision(
                 request_id=request.request_id,
                 decision_type=InputCompletionDecisionType.SELECTED_OPTION,
-                user_reply=reply,
-                selected_option_id=selected_option.option_id,
-                structured_payload=payload,
-                source="option_selection",
-            ),
-        )
-
-    if selected_option.option_type == InputCompletionOptionType.APPLY_DEFAULT_TYPICAL_PROFILE:
-        return InputCompletionParseResult(
-            is_resolved=True,
-            decision=InputCompletionDecision(
-                request_id=request.request_id,
-                decision_type=InputCompletionDecisionType.SELECTED_OPTION,
-                user_reply=reply,
-                selected_option_id=selected_option.option_id,
+                user_reply=str(user_reply or ""),
+                selected_option_id=uniform_option.option_id,
                 structured_payload={
-                    "mode": "remediation_policy",
-                    "policy_type": "apply_default_typical_profile",
-                    "target_fields": list(selected_option.requirements.get("target_fields") or []),
-                    "context_signals": list(selected_option.requirements.get("context_signals_present") or []),
+                    "mode": "uniform_scalar",
+                    "field": target,
+                    "value": numeric_value,
                 },
-                source="option_selection",
+                source="llm_parsed",
             ),
         )
 
+    # Standardize failed: either no uniform option, or value not numeric
+    # Per calibration 4: AMBIGUOUS_REPLY, NEVER fall through to legacy
     return InputCompletionParseResult(
         is_resolved=False,
         needs_retry=True,
-        error_message="The selected completion option is not supported in this round.",
+        error_message=f"LLM parsed value '{raw_value}' could not be used as a uniform scalar for '{target}'.",
     )
+
+
+# ── Main entry point (async, 3/4-layer) ─────────────────────────────────
+
+
+async def parse_input_completion_reply(
+    request: InputCompletionRequest,
+    user_reply: str,
+    *,
+    supporting_file_path: Optional[str] = None,
+    llm_context: Optional[Dict[str, Any]] = None,
+) -> InputCompletionParseResult:
+    """Parse a user reply to an input-completion prompt.
+
+    Three-layer architecture (flag on):
+      1. Fast Path — digits → option index, short pause words
+      2. LLM (LLMReplyParser) — natural-language parameter value extraction
+      3. Legacy regex — fallback when LLM fails (full pre-A.3 behaviour)
+
+    When ``ENABLE_LLM_USER_REPLY_PARSER`` is ``false`` (default) this
+    function is byte-identical to the pre-A.3 implementation.
+
+    *llm_context* must be assembled by the caller (router).  Its
+    ``candidate_values`` carry input-completion *option labels* (action
+    choices, not parameter values) — see Round 3 calibration 2.
+    """
+    from config import get_config
+
+    if not getattr(get_config(), "enable_llm_user_reply_parser", False):
+        return _legacy_regex_parse(request, user_reply, supporting_file_path=supporting_file_path)
+
+    # Layer 1: Fast Path
+    fast = _try_fast_path(user_reply, request)
+    if fast is not None:
+        return fast
+
+    # Layer 2: LLM (only when caller provided context)
+    if llm_context is not None:
+        from core.reply_parser_llm import LLMReplyParser
+
+        parser = LLMReplyParser()
+        parsed = await parser.parse(user_reply, llm_context)
+        if parsed is not None and isinstance(parsed.slot_values, dict):
+            target = request.target_field
+            if target and parsed.slot_values.get(target) is not None:
+                result = _map_llm_to_completion_result(parsed, request, user_reply)
+                if result is not None:
+                    return result
+            # LLM returned ParsedReply but no value for target_field →
+            # AMBIGUOUS (calibration 3: don't trust LLM's self-reported decision)
+            return InputCompletionParseResult(
+                is_resolved=False,
+                needs_retry=True,
+                error_message="LLM did not resolve target field value.",
+            )
+        if parsed is not None:
+            # LLM returned ParsedReply but slot_values is not a dict
+            return InputCompletionParseResult(
+                is_resolved=False,
+                needs_retry=True,
+                error_message="LLM response malformed (slot_values not a dict).",
+            )
+
+    # Layer 4: Legacy regex fallback (LLM failed or no context)
+    return _legacy_regex_parse(request, user_reply, supporting_file_path=supporting_file_path)
 
 
 def format_input_completion_prompt(

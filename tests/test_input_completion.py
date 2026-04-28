@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from core.input_completion import (
     InputCompletionDecisionType,
@@ -72,10 +73,11 @@ def _missing_geometry_request() -> InputCompletionRequest:
     )
 
 
-def test_uniform_scalar_completion_success():
+@pytest.mark.asyncio
+async def test_uniform_scalar_completion_success():
     request = _missing_flow_request()
 
-    result = parse_input_completion_reply(request, "全部设为1500")
+    result = await parse_input_completion_reply(request, "全部设为1500")
 
     assert result.is_resolved is True
     assert result.decision is not None
@@ -84,30 +86,33 @@ def test_uniform_scalar_completion_success():
     assert result.decision.structured_payload["value"] == 1500.0
 
 
-def test_ambiguous_reply_retry():
+@pytest.mark.asyncio
+async def test_ambiguous_reply_retry():
     request = _missing_flow_request()
 
-    result = parse_input_completion_reply(request, "默认就好")
+    result = await parse_input_completion_reply(request, "默认就好")
 
     assert result.is_resolved is False
     assert result.needs_retry is True
     assert "numeric value" in (result.error_message or "")
 
 
-def test_pause_reply():
+@pytest.mark.asyncio
+async def test_pause_reply():
     request = _missing_flow_request()
 
-    result = parse_input_completion_reply(request, "暂停")
+    result = await parse_input_completion_reply(request, "暂停")
 
     assert result.is_resolved is True
     assert result.decision is not None
     assert result.decision.decision_type == InputCompletionDecisionType.PAUSE
 
 
-def test_missing_geometry_upload_request_parses_with_supporting_file():
+@pytest.mark.asyncio
+async def test_missing_geometry_upload_request_parses_with_supporting_file():
     request = _missing_geometry_request()
 
-    result = parse_input_completion_reply(
+    result = await parse_input_completion_reply(
         request,
         "上传文件",
         supporting_file_path="/tmp/roads.geojson",

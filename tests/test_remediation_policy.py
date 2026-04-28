@@ -195,9 +195,10 @@ class TestDeterministicParsing:
             "use default typical profile",
         ],
     )
-    def test_profile_phrase_parsed_as_policy(self, user_reply: str):
+    @pytest.mark.asyncio
+    async def test_profile_phrase_parsed_as_policy(self, user_reply: str):
         request = _make_request_with_profile_option()
-        result = parse_input_completion_reply(request, user_reply)
+        result = await parse_input_completion_reply(request, user_reply)
         assert result.is_resolved, f"Failed for: {user_reply}"
         assert result.decision is not None
         assert result.decision.decision_type == InputCompletionDecisionType.SELECTED_OPTION
@@ -206,24 +207,27 @@ class TestDeterministicParsing:
         assert payload.get("mode") == "remediation_policy"
         assert payload.get("policy_type") == "apply_default_typical_profile"
 
-    def test_profile_phrase_not_matched_without_option(self):
+    @pytest.mark.asyncio
+    async def test_profile_phrase_not_matched_without_option(self):
         """If the request does not have a profile option, phrases should NOT match."""
         request = _make_request_without_profile_option()
-        result = parse_input_completion_reply(request, "用默认典型值模拟吧")
+        result = await parse_input_completion_reply(request, "用默认典型值模拟吧")
         # Should not resolve as default typical profile
         if result.is_resolved:
             assert result.decision.selected_option_id != "apply_default_typical_profile"
 
-    def test_numeric_still_works_with_profile_option(self):
+    @pytest.mark.asyncio
+    async def test_numeric_still_works_with_profile_option(self):
         """Numeric replies should still match uniform scalar, even when profile option exists."""
         request = _make_request_with_profile_option()
-        result = parse_input_completion_reply(request, "1500")
+        result = await parse_input_completion_reply(request, "1500")
         assert result.is_resolved
         assert result.decision.structured_payload.get("mode") == "uniform_scalar"
 
-    def test_pause_still_works_with_profile_option(self):
+    @pytest.mark.asyncio
+    async def test_pause_still_works_with_profile_option(self):
         request = _make_request_with_profile_option()
-        result = parse_input_completion_reply(request, "暂停")
+        result = await parse_input_completion_reply(request, "暂停")
         assert result.is_resolved
         assert result.decision.decision_type == InputCompletionDecisionType.PAUSE
 
@@ -465,17 +469,19 @@ class TestCompletionPromptFormatting:
 # ===================================================================
 
 class TestIndexSelection:
-    def test_select_profile_by_phrase(self):
+    @pytest.mark.asyncio
+    async def test_select_profile_by_phrase(self):
         """User can select profile option by using a default-typical-profile phrase."""
         request = _make_request_with_profile_option()
-        result = parse_input_completion_reply(request, "用默认典型值模拟")
+        result = await parse_input_completion_reply(request, "用默认典型值模拟")
         assert result.is_resolved
         assert result.decision.selected_option_id == "apply_default_typical_profile"
 
-    def test_numeric_value_takes_precedence_over_index(self):
+    @pytest.mark.asyncio
+    async def test_numeric_value_takes_precedence_over_index(self):
         """Numeric replies are interpreted as uniform scalar values, not indices."""
         request = _make_request_with_profile_option()
-        result = parse_input_completion_reply(request, "1")
+        result = await parse_input_completion_reply(request, "1")
         assert result.is_resolved
         # "1" is parsed as a numeric value for uniform scalar, not as index 1
         assert result.decision.structured_payload.get("mode") == "uniform_scalar"

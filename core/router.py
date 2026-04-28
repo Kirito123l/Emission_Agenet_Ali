@@ -6510,7 +6510,7 @@ class UnifiedRouter:
             supporting_file_path=supporting_file_path,
         )
 
-    def _parse_input_completion_reply(
+    async def _parse_input_completion_reply(
         self,
         state: TaskState,
     ) -> InputCompletionParseResult:
@@ -6526,10 +6526,36 @@ class UnifiedRouter:
             or str(state.file_context.file_path or "").strip()
             or None
         )
-        return parse_input_completion_reply(
+
+        # Assemble LLM context for the user-reply parser (A.3).
+        # candidate_values = input_completion option labels (action choices,
+        # not parameter values) — Round 3 calibration 2.
+        ao_mgr = getattr(self, "ao_manager", None)
+        memory = getattr(ao_mgr, "_memory", None) if ao_mgr is not None else None
+        confirmed_params = dict(getattr(memory, "session_confirmed_parameters", {}) or {})
+
+        violation_writer = getattr(self, "constraint_violation_writer", None)
+        violations = getattr(violation_writer, "get_latest", lambda: [])()
+        constraint_violations = [
+            v.to_dict() for v in (violations or []) if hasattr(v, "to_dict")
+        ]
+
+        llm_context = {
+            "tool_name": request.action_id or "",
+            "slot_name": request.target_field or "",
+            "candidate_values": [
+                o.label for o in (request.options or []) if o.applicable
+            ],
+            "confirmed_params": confirmed_params,
+            "agent_question": format_input_completion_prompt(request),
+            "constraint_violations": constraint_violations,
+        }
+
+        return await parse_input_completion_reply(
             request,
             state.user_message or "",
             supporting_file_path=supporting_file_path,
+            llm_context=llm_context,
         )
 
     def _build_input_completion_resume_decision(
@@ -7685,7 +7711,7 @@ class UnifiedRouter:
                 )
             return None
 
-        parse_result = self._parse_input_completion_reply(state)
+        parse_result = await self._parse_input_completion_reply(state)
         if parse_result.is_resolved and parse_result.decision is not None:
             decision = parse_result.decision
             state.set_latest_input_completion_decision(decision)
