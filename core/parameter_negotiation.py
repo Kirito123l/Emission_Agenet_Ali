@@ -205,6 +205,10 @@ _CHINESE_INDEX_MAP = {
     "六": 6,
 }
 
+# Fast path (Layer 1) — short confirm/decline/ordinal replies
+_FAST_PATH_CONFIRM_WORDS = frozenset({"好", "是", "对", "yes", "ok", "嗯", "行"})
+_FAST_PATH_DECLINE_WORDS = frozenset({"不", "都不是", "都不要", "no"})
+
 
 def _normalize_text(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip()).lower()
@@ -290,10 +294,95 @@ def reply_looks_like_confirmation_attempt(
     return False
 
 
-def parse_parameter_negotiation_reply(
+# ── Layer 1: Fast Path ──────────────────────────────────────────────────
+
+
+def _try_fast_path(
+    user_reply: str,
+    request: ParameterNegotiationRequest,
+) -> Optional[ParameterNegotiationParseResult]:
+    """Layer 1: regex fast path for short structured replies.
+
+    Handles numeric index selection and confirm/decline one-word replies.
+    Returns ``None`` when the reply cannot be resolved deterministically —
+    the caller should proceed to Layer 2 (LLM).
+    """
+    reply = str(user_reply or "").strip()
+    if not reply:
+        return None
+    lowered = reply.lower()
+
+    # Length guard — the fast path only handles very short replies
+    if len(reply) > 3:
+        return None
+
+    # Numeric index (“1”, “2”, …) — 1-indexed, maps to candidate.index
+    if reply.isdigit():
+        idx = int(reply)
+        for candidate in request.candidates:
+            if candidate.index == idx:
+                return ParameterNegotiationParseResult(
+                    is_resolved=True,
+                    decision=ParameterNegotiationDecision(
+                        parameter_name=request.parameter_name,
+                        decision_type=NegotiationDecisionType.CONFIRMED,
+                        user_reply=reply,
+                        selected_index=candidate.index,
+                        selected_value=candidate.normalized_value,
+                        selected_display_label=candidate.display_label,
+                        request_id=request.request_id,
+                    ),
+                )
+        return ParameterNegotiationParseResult(
+            is_resolved=False,
+            needs_retry=True,
+            error_message=f"Candidate index {idx} is out of range.",
+        )
+
+    # Short confirm words: only auto-pick when there's exactly one candidate
+    if lowered in _FAST_PATH_CONFIRM_WORDS:
+        if len(request.candidates) == 1:
+            c = request.candidates[0]
+            return ParameterNegotiationParseResult(
+                is_resolved=True,
+                decision=ParameterNegotiationDecision(
+                    parameter_name=request.parameter_name,
+                    decision_type=NegotiationDecisionType.CONFIRMED,
+                    user_reply=reply,
+                    selected_index=c.index,
+                    selected_value=c.normalized_value,
+                    selected_display_label=c.display_label,
+                    request_id=request.request_id,
+                ),
+            )
+        return None
+
+    # Short decline words
+    if lowered in _FAST_PATH_DECLINE_WORDS:
+        return ParameterNegotiationParseResult(
+            is_resolved=True,
+            decision=ParameterNegotiationDecision(
+                parameter_name=request.parameter_name,
+                decision_type=NegotiationDecisionType.NONE_OF_ABOVE,
+                user_reply=reply,
+                request_id=request.request_id,
+            ),
+        )
+
+    return None
+
+
+# ── Legacy regex parser (original body, unchanged) ──────────────────────
+
+
+def _legacy_regex_parse(
     request: ParameterNegotiationRequest,
     user_reply: str,
 ) -> ParameterNegotiationParseResult:
+    """Original regex-based parser — now Layer 4 fallback.
+
+    Behavior is byte-identical to the pre-A.2 ``parse_parameter_negotiation_reply``.
+    """
     reply = str(user_reply or "").strip()
     normalized_reply = _normalize_text(reply)
     if not normalized_reply:
@@ -372,6 +461,180 @@ def parse_parameter_negotiation_reply(
             "Reply with the candidate index, canonical value, label, or '都不对'."
         ),
     )
+
+
+# ── Layer 2→3 mapping (LLM ParsedReply → ParameterNegotiationParseResult) ──
+
+
+def _find_candidate_for_value(
+    request: ParameterNegotiationRequest,
+    value: Any,
+) -> Optional[NegotiationCandidate]:
+    """Match a raw value against request.candidates (exact → alias → display)."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    norm = _normalize_text(text)
+    # Exact match on normalized_value or display_label
+    for c in request.candidates:
+        if _normalize_text(c.normalized_value) == norm:
+            return c
+        if _normalize_text(c.display_label) == norm:
+            return c
+    # Alias / partial match
+    for c in request.candidates:
+        for alias in c.aliases:
+            if _normalize_text(alias) == norm:
+                return c
+    # Substring match (display_label contains value or vice versa)
+    for c in request.candidates:
+        if _normalize_text(c.display_label) in norm or norm in _normalize_text(c.display_label):
+            return c
+    return None
+
+
+def _map_llm_to_negotiation_result(
+    parsed: Any,  # ParsedReply — import deferred to avoid hard dep at module level
+    request: ParameterNegotiationRequest,
+    user_reply: str,
+) -> ParameterNegotiationParseResult:
+    """Map a ParsedReply (Layer 2) into a ParameterNegotiationParseResult.
+
+    Calibration 2 (PARTIAL_REPLY): if ``slot_values[request.parameter_name]``
+    has a value, treat as CONFIRMED; otherwise AMBIGUOUS_REPLY.
+
+    Calibration 3 (PAUSE): mapped to AMBIGUOUS_REPLY with
+    ``needs_retry=False`` — passes through existing upper-layer handling
+    without introducing a new code path.
+
+    Calibration 4 (standardize failure): LLM value that doesn't match any
+    candidate → AMBIGUOUS_REPLY.  We do NOT fall through to legacy regex.
+    """
+    from core.reply_parser_llm import ReplyDecision
+
+    param_name = request.parameter_name
+    reply_str = str(user_reply or "")
+
+    # PAUSE → AMBIGUOUS_REPLY path (calibration 3)
+    if parsed.decision == ReplyDecision.PAUSE:
+        return ParameterNegotiationParseResult(
+            is_resolved=False,
+            needs_retry=False,
+            error_message="用户请求暂停澄清",
+        )
+
+    # NONE_OF_ABOVE
+    if parsed.decision == ReplyDecision.NONE_OF_ABOVE:
+        return ParameterNegotiationParseResult(
+            is_resolved=True,
+            decision=ParameterNegotiationDecision(
+                parameter_name=param_name,
+                decision_type=NegotiationDecisionType.NONE_OF_ABOVE,
+                user_reply=reply_str,
+                request_id=request.request_id,
+            ),
+        )
+
+    # AMBIGUOUS_REPLY
+    if parsed.decision == ReplyDecision.AMBIGUOUS_REPLY:
+        return ParameterNegotiationParseResult(
+            is_resolved=False,
+            needs_retry=True,
+            error_message="LLM could not determine user intent.",
+        )
+
+    # CONFIRMED or PARTIAL_REPLY — try to extract value for the target parameter
+    raw_value = parsed.slot_values.get(param_name) if isinstance(parsed.slot_values, dict) else None
+
+    # PARTIAL_REPLY with no value for this parameter → AMBIGUOUS (calibration 2)
+    if parsed.decision == ReplyDecision.PARTIAL_REPLY and raw_value is None:
+        return ParameterNegotiationParseResult(
+            is_resolved=False,
+            needs_retry=True,
+            error_message="LLM partially resolved but value missing for target parameter.",
+        )
+
+    if raw_value is None:
+        # CONFIRMED but no slot value — treat as ambiguous
+        return ParameterNegotiationParseResult(
+            is_resolved=False,
+            needs_retry=True,
+            error_message="LLM confirmed but provided no slot value.",
+        )
+
+    # Layer 3: candidate-based standardization (calibration 4)
+    match = _find_candidate_for_value(request, raw_value)
+    if match is None:
+        # Standardize failed — AMBIGUOUS_REPLY (never keep raw, never fall through to legacy)
+        return ParameterNegotiationParseResult(
+            is_resolved=False,
+            needs_retry=True,
+            error_message=f"LLM parsed value '{raw_value}' did not match any candidate.",
+        )
+
+    return ParameterNegotiationParseResult(
+        is_resolved=True,
+        decision=ParameterNegotiationDecision(
+            parameter_name=param_name,
+            decision_type=NegotiationDecisionType.CONFIRMED,
+            user_reply=reply_str,
+            selected_index=match.index,
+            selected_value=match.normalized_value,
+            selected_display_label=match.display_label,
+            request_id=request.request_id,
+        ),
+    )
+
+
+# ── Main entry point (async, 3/4-layer) ─────────────────────────────────
+
+
+async def parse_parameter_negotiation_reply(
+    request: ParameterNegotiationRequest,
+    user_reply: str,
+    *,
+    llm_context: Optional[Dict[str, Any]] = None,
+) -> ParameterNegotiationParseResult:
+    """Parse a user reply to a parameter negotiation prompt.
+
+    Three-layer architecture (flag on):
+      1. Fast Path — regex for short structured replies (index/confirm/decline)
+      2. LLM (LLMReplyParser) — natural-language understanding
+      3. Legacy regex — fallback when LLM fails
+
+    When ``ENABLE_LLM_USER_REPLY_PARSER`` is ``false`` (default) this
+    function is byte-identical to the pre-A.2 implementation.
+
+    *llm_context* must be assembled by the caller (router) from AO +
+    ``memory.session_confirmed_parameters`` + ReplyContext.  See
+    ``core/reply_parser_llm.LLMReplyParser.parse`` for expected keys.
+    """
+    from config import get_config
+
+    if not getattr(get_config(), "enable_llm_user_reply_parser", False):
+        return _legacy_regex_parse(request, user_reply)
+
+    # Layer 1: Fast Path
+    fast = _try_fast_path(user_reply, request)
+    if fast is not None:
+        return fast
+
+    # Layer 2: LLM (only when caller provided context)
+    if llm_context is not None:
+        from core.reply_parser_llm import LLMReplyParser, ReplyDecision
+
+        parser = LLMReplyParser()
+        parsed = await parser.parse(user_reply, llm_context)
+        if parsed is not None:
+            return _map_llm_to_negotiation_result(parsed, request, user_reply)
+
+    # Layer 3: Legacy regex fallback (LLM failed or no context)
+    return _legacy_regex_parse(request, user_reply)
+
+
+# ── Prompt formatting ────────────────────────────────────────────────────
 
 
 def format_parameter_negotiation_prompt(

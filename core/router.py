@@ -8424,7 +8424,7 @@ class UnifiedRouter:
             return False
         return reply_looks_like_confirmation_attempt(request, state.user_message or "")
 
-    def _parse_parameter_confirmation_reply(
+    async def _parse_parameter_confirmation_reply(
         self,
         state: TaskState,
     ) -> ParameterNegotiationParseResult:
@@ -8435,7 +8435,35 @@ class UnifiedRouter:
                 needs_retry=False,
                 error_message="No active parameter negotiation request.",
             )
-        return parse_parameter_negotiation_reply(request, state.user_message or "")
+
+        # Assemble LLM context for the user-reply parser (A.2).
+        # Sources: AO memory, constraint violation writer, request candidates.
+        ao_mgr = getattr(self, "ao_manager", None)
+        memory = getattr(ao_mgr, "_memory", None) if ao_mgr is not None else None
+        confirmed_params = dict(getattr(memory, "session_confirmed_parameters", {}) or {})
+
+        violation_writer = getattr(self, "constraint_violation_writer", None)
+        violations = getattr(violation_writer, "get_latest", lambda: [])()
+        constraint_violations = [
+            v.to_dict() for v in (violations or []) if hasattr(v, "to_dict")
+        ]
+
+        llm_context = {
+            "tool_name": request.tool_name or "",
+            "slot_name": request.parameter_name,
+            "candidate_values": [
+                c.normalized_value for c in (request.candidates or [])
+            ],
+            "confirmed_params": confirmed_params,
+            "agent_question": format_parameter_negotiation_prompt(request),
+            "constraint_violations": constraint_violations,
+        }
+
+        return await parse_parameter_negotiation_reply(
+            request,
+            state.user_message or "",
+            llm_context=llm_context,
+        )
 
     def _build_parameter_confirmation_resume_decision(
         self,
@@ -8525,7 +8553,7 @@ class UnifiedRouter:
             insert_at -= 1
         context.messages.insert(insert_at, guidance_message)
 
-    def _handle_active_parameter_confirmation(
+    async def _handle_active_parameter_confirmation(
         self,
         state: TaskState,
         trace_obj: Optional[Trace] = None,
@@ -8552,7 +8580,7 @@ class UnifiedRouter:
         if not self._should_handle_parameter_confirmation(state):
             return None
 
-        parse_result = self._parse_parameter_confirmation_reply(state)
+        parse_result = await self._parse_parameter_confirmation_reply(state)
         if parse_result.is_resolved and parse_result.decision is not None:
             decision = parse_result.decision
             state.set_latest_parameter_negotiation_decision(decision)
@@ -10170,7 +10198,7 @@ class UnifiedRouter:
                 return
 
         if state.active_parameter_negotiation is not None:
-            forced_continuation_decision = self._handle_active_parameter_confirmation(
+            forced_continuation_decision = await self._handle_active_parameter_confirmation(
                 state,
                 trace_obj=trace_obj,
             )

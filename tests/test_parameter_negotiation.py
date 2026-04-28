@@ -44,24 +44,25 @@ def _build_request() -> ParameterNegotiationRequest:
     )
 
 
-def test_parse_parameter_negotiation_reply_supports_index_and_label_and_none():
+@pytest.mark.asyncio
+async def test_parse_parameter_negotiation_reply_supports_index_and_label_and_none():
     request = _build_request()
 
-    first = parse_parameter_negotiation_reply(request, "1")
+    first = await parse_parameter_negotiation_reply(request, "1")
     assert first.is_resolved is True
     assert first.decision.decision_type == NegotiationDecisionType.CONFIRMED
     assert first.decision.selected_value == "Passenger Car"
 
-    second = parse_parameter_negotiation_reply(request, "选第2个")
+    second = await parse_parameter_negotiation_reply(request, "选第2个")
     assert second.is_resolved is True
     assert second.decision.selected_index == 2
     assert second.decision.selected_value == "Transit Bus"
 
-    by_label = parse_parameter_negotiation_reply(request, "乘用车")
+    by_label = await parse_parameter_negotiation_reply(request, "乘用车")
     assert by_label.is_resolved is True
     assert by_label.decision.selected_value == "Passenger Car"
 
-    none = parse_parameter_negotiation_reply(request, "都不对")
+    none = await parse_parameter_negotiation_reply(request, "都不对")
     assert none.is_resolved is True
     assert none.decision.decision_type == NegotiationDecisionType.NONE_OF_ABOVE
 
