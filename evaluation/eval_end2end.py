@@ -34,6 +34,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.executor import ToolExecutor
 from core.naive_router import NaiveRouter
 from core.governed_router import build_router
+from core.reply_parser_llm import reset_call_stats, get_call_stats
 from evaluation.tool_cache import ToolResultCache
 from evaluation.utils import (
     classify_failure,
@@ -53,6 +54,15 @@ from tools.file_analyzer import FileAnalyzerTool
 
 DEFAULT_SAMPLES = PROJECT_ROOT / "evaluation" / "benchmarks" / "end2end_tasks.jsonl"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "evaluation" / "results" / "end2end"
+
+# A.2/A.3 step_type values whose input_summary.source is exported to trace_steps.
+NEGOTIATION_COMPLETION_STEPS = frozenset({
+    "parameter_negotiation_required", "parameter_negotiation_confirmed",
+    "parameter_negotiation_rejected", "parameter_negotiation_failed",
+    "input_completion_required", "input_completion_confirmed",
+    "input_completion_rejected", "input_completion_failed",
+    "input_completion_applied", "input_completion_paused",
+})
 LEGACY_NEEDS_USER_STAGE = {
     "NEEDS_INPUT_COMPLETION",
     "NEEDS_PARAMETER_CONFIRMATION",
@@ -1136,6 +1146,13 @@ def _build_task_result(
         "ao_lifecycle_events": list((trace_payload or {}).get("ao_lifecycle_events") or []),
         "block_telemetry": list((trace_payload or {}).get("block_telemetry") or []),
         "clarification_telemetry": list((trace_payload or {}).get("clarification_telemetry") or []),
+        "trace_steps": [
+            {k: v for k, v in step.items()
+             if k in ("step_type", "input_summary", "eval_router_turn")}
+            for step in (trace_payload or {}).get("steps", [])
+            if step.get("step_type") in NEGOTIATION_COMPLETION_STEPS
+        ],
+        "llm_reply_parser_stats_snapshot": get_call_stats(),
         "rate_limit_wait_ms": round(float((task_runtime_telemetry or {}).get("rate_limit_wait_ms") or 0.0), 2),
         "cache_hits": int((task_runtime_telemetry or {}).get("cache_hits") or 0),
     }
@@ -1143,6 +1160,25 @@ def _build_task_result(
     record["failure_type"] = failure_type
     record["recoverability"] = classify_recoverability(failure_type)
     return record
+
+
+def _aggregate_llm_reply_parser_stats(logs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Aggregate cumulative per-task LLMReplyParser snapshots into a final summary."""
+    max_call = 0
+    max_success = 0
+    max_none = 0
+    for log in logs:
+        snap = log.get("llm_reply_parser_stats_snapshot")
+        if isinstance(snap, dict):
+            max_call = max(max_call, snap.get("call_count", 0))
+            max_success = max(max_success, snap.get("success_count", 0))
+            max_none = max(max_none, snap.get("none_count", 0))
+    return {
+        "call_count": max_call,
+        "success_count": max_success,
+        "none_count": max_none,
+        "success_rate": round(max_success / max_call, 4) if max_call > 0 else 0.0,
+    }
 
 
 def _aggregate_metrics(
@@ -1266,6 +1302,7 @@ def _aggregate_metrics(
             "short_circuit_rate": round(safe_div(short_circuit_count, len(clarification_entries)), 4),
             "proceed_rate": round(safe_div(proceed_count, len(clarification_entries)), 4),
         },
+        "llm_reply_parser": _aggregate_llm_reply_parser_stats(logs),
         "wall_clock_sec": round(float(wall_clock_sec or 0.0), 2),
     }
 
@@ -1723,6 +1760,7 @@ def run_end2end_evaluation(
 
 
 def main() -> None:
+    reset_call_stats()  # Round 4b: zero LLMReplyParser counters per eval invocation
     parser = argparse.ArgumentParser(description="Evaluate end-to-end benchmark tasks.")
     parser.add_argument("--samples", type=Path, default=DEFAULT_SAMPLES)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR / f"end2end_{now_ts()}")

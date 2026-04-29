@@ -23,6 +23,28 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# ── module-level call counters (read by eval_end2end metrics aggregation) ──
+_parse_call_count = 0
+_parse_success_count = 0
+_parse_none_count = 0
+
+
+def reset_call_stats() -> None:
+    """Reset process-level LLMReplyParser call counters to zero."""
+    global _parse_call_count, _parse_success_count, _parse_none_count
+    _parse_call_count = 0
+    _parse_success_count = 0
+    _parse_none_count = 0
+
+
+def get_call_stats() -> dict:
+    """Return process-level LLMReplyParser call stats as a plain dict."""
+    return {
+        "call_count": _parse_call_count,
+        "success_count": _parse_success_count,
+        "none_count": _parse_none_count,
+    }
+
 
 class ReplyDecision(str, Enum):
     """Outcome of parsing a user clarification reply."""
@@ -108,6 +130,9 @@ class LLMReplyParser:
         ParsedReply on success, ``None`` on any recoverable failure
         (timeout / connection error / bad JSON / missing fields).
         """
+        global _parse_call_count, _parse_none_count, _parse_success_count
+        _parse_call_count += 1
+
         prompt = self._render_prompt(user_reply, context)
         system_prompt = self._load_system_prompt()
         started = time.perf_counter()
@@ -123,15 +148,22 @@ class LLMReplyParser:
             )
         except asyncio.TimeoutError:
             logger.warning("LLMReplyParser timed out after %.1fs", self.timeout)
+            _parse_none_count += 1
             return None
         except Exception as exc:
             # Do NOT swallow cancellation or system signals (F6).
             if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
                 raise
             logger.warning("LLMReplyParser LLM call failed: %s: %s", type(exc).__name__, exc)
+            _parse_none_count += 1
             return None
 
-        return self._validate_and_build(result, started)
+        parsed = self._validate_and_build(result, started)
+        if parsed is None:
+            _parse_none_count += 1
+        else:
+            _parse_success_count += 1
+        return parsed
 
     # ── internal helpers ────────────────────────────────────────────
 
