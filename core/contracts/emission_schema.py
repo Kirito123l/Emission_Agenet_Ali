@@ -25,9 +25,14 @@ def _load_schema() -> Dict[str, Any]:
         try:
             with open(_SCHEMA_PATH, "r", encoding="utf-8") as f:
                 _CACHE = yaml.safe_load(f) or {}
-        except Exception:
-            logger.exception("Failed to load emission_domain_schema.yaml")
-            _CACHE = {}
+        except Exception as exc:
+            raise RuntimeError(
+                f"emission_domain_schema.yaml not loadable: {exc}"
+            ) from exc
+        if not isinstance(_CACHE, dict) or "dimensions" not in _CACHE:
+            raise RuntimeError(
+                "emission_domain_schema.yaml missing required 'dimensions' key"
+            )
     return _CACHE
 
 

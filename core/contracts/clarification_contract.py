@@ -28,12 +28,17 @@ from tools.contract_loader import get_tool_contract_registry
 logger = logging.getLogger(__name__)
 
 def _get_year_range():
-    """Return model_year range {min, max, step} from emission domain schema."""
+    """Return model_year range {min, max, step} from emission domain schema.
+
+    Raises RuntimeError if emission_domain_schema.yaml is not loadable.
+    """
     from core.contracts.emission_schema import get_range as _schema_get_range
     r = _schema_get_range("model_year")
-    if r:
-        return r
-    return {"min": 1995, "max": 2025, "step": 5}
+    if r is None:
+        raise RuntimeError(
+            "emission_domain_schema.yaml: model_year range not found"
+        )
+    return r
 _SENTINEL_VALUES = {"missing", "unknown", "none", "n/a", "null", ""}
 _DECISION_EXAMPLES: Optional[list] = None
 

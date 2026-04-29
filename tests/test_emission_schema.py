@@ -80,3 +80,40 @@ def test_missing_dimension_returns_empty():
     assert get_default("nonexistent_dimension") is None
     assert get_range("nonexistent_dimension") is None
     assert get_standard_names("nonexistent_dimension") == []
+
+
+def test_schema_yaml_missing_raises_runtime_error(monkeypatch, tmp_path):
+    """Schema file not found → RuntimeError on first lazy load."""
+    import core.contracts.emission_schema as es
+
+    original_path = es._SCHEMA_PATH
+    es._CACHE = None
+
+    nonexistent = tmp_path / "nonexistent.yaml"
+    monkeypatch.setattr(es, "_SCHEMA_PATH", nonexistent)
+
+    with pytest.raises(RuntimeError, match="not loadable"):
+        es._load_schema()
+
+    monkeypatch.undo()
+    es._CACHE = None
+    es._SCHEMA_PATH = original_path
+
+
+def test_schema_yaml_corrupt_raises_runtime_error(monkeypatch, tmp_path):
+    """Corrupt YAML → RuntimeError on first lazy load."""
+    import core.contracts.emission_schema as es
+
+    original_path = es._SCHEMA_PATH
+    es._CACHE = None
+
+    corrupt = tmp_path / "corrupt.yaml"
+    corrupt.write_text("{bad: [invalid yaml")
+    monkeypatch.setattr(es, "_SCHEMA_PATH", corrupt)
+
+    with pytest.raises(RuntimeError, match="not loadable"):
+        es._load_schema()
+
+    monkeypatch.undo()
+    es._CACHE = None
+    es._SCHEMA_PATH = original_path
