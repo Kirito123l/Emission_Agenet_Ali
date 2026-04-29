@@ -51,6 +51,7 @@ tools:
       pollutants:
         required: false
         standardization: pollutant_list
+        type_coercion: as_list
         schema:
           type: array
           items:
@@ -59,6 +60,7 @@ tools:
       model_year:
         required: true
         standardization: null
+        type_coercion: safe_int
         schema:
           type: integer
           description: "Vehicle model year (e.g., 2020). Range: 1995-2025."
@@ -91,6 +93,12 @@ tools:
     continuation_keywords:
       - 排放因子
       - emission factor
+    completion_keywords:
+      primary:
+        - 因子
+        - factor
+      secondary: []
+      requires: []
   calculate_micro_emission:
     display_name: 微观排放计算
     description: Calculate second-by-second emissions from vehicle trajectory data (time + speed). Use file_path for uploaded files.
@@ -129,6 +137,7 @@ tools:
       pollutants:
         required: false
         standardization: pollutant_list
+        type_coercion: as_list
         schema:
           type: array
           items:
@@ -137,6 +146,7 @@ tools:
       model_year:
         required: false
         standardization: null
+        type_coercion: safe_int
         schema:
           type: integer
           description: Vehicle model year. Defaults to 2020 if not provided.
@@ -160,6 +170,16 @@ tools:
       - emission
       - 微观
       - 轨迹
+    completion_keywords:
+      primary: []
+      secondary:
+        - 排放
+        - emission
+      requires:
+        - 算
+        - 计算
+        - compute
+        - calculate
     action_variants:
       - action_id: run_micro_emission
         display_name: 计算微观排放
@@ -210,6 +230,7 @@ tools:
       pollutants:
         required: false
         standardization: pollutant_list
+        type_coercion: as_list
         schema:
           type: array
           items:
@@ -304,6 +325,16 @@ tools:
       - 排放
       - emission
       - 宏观
+    completion_keywords:
+      primary: []
+      secondary:
+        - 排放
+        - emission
+      requires:
+        - 算
+        - 计算
+        - compute
+        - calculate
     action_variants:
       - action_id: run_macro_emission
         display_name: 计算宏观排放
@@ -343,6 +374,7 @@ tools:
       requires_geometry_support: false
       required_task_types: []
     continuation_keywords: []
+    available_in_naive: false
   clean_dataframe:
     display_name: 数据清洗
     description: Inspect and summarize an uploaded CSV file for data quality. Returns row/column counts, column types, sample values, numeric describe statistics, and missing value summary. Use only for CSV data quality inspection or cleaning requests; it does not calculate emissions or dispersion.
@@ -372,6 +404,7 @@ tools:
       - 清理
       - clean
       - data quality
+    available_in_naive: false
   query_knowledge:
     display_name: 知识查询
     description: Search emission knowledge base for standards, regulations, and technical concepts.
@@ -414,6 +447,12 @@ tools:
       - knowledge
       - why
       - how
+    completion_keywords:
+      primary: []
+      secondary:
+        - 知识
+        - knowledge
+      requires: []
   calculate_dispersion:
     display_name: 扩散模拟
     description: Calculate pollutant dispersion/concentration distribution from vehicle emissions using the PS-XGB-RLINE surrogate model. Requires emission results (typically from calculate_macro_emission). Produces a spatial concentration raster field. Supports meteorology presets, custom parameters, or .sfc files.
@@ -527,6 +566,14 @@ tools:
       - 浓度
       - concentration
       - raster
+    completion_keywords:
+      primary: []
+      secondary:
+        - 扩散
+        - dispersion
+        - 浓度
+        - concentration
+      requires: []
     action_variants:
       - action_id: run_dispersion
         display_name: 模拟污染物扩散浓度
@@ -620,6 +667,13 @@ tools:
       - 热点
       - hotspot
       - 高值区
+    completion_keywords:
+      primary: []
+      secondary:
+        - 热点
+        - hotspot
+        - 高浓度区域
+      requires: []
     action_variants:
       - action_id: run_hotspot_analysis
         display_name: 识别污染热点
@@ -703,6 +757,16 @@ tools:
       - render
       - visualization
       - map
+    completion_keywords:
+      primary: []
+      secondary:
+        - 地图
+        - map
+        - 画图
+        - 渲染
+        - 展示
+        - render
+      requires: []
     action_variants:
       - action_id: render_emission_map
         display_name: 可视化排放空间分布
@@ -821,6 +885,7 @@ tools:
       - 比较
       - scenario
       - compare
+    available_in_naive: false
     action_variants:
       - action_id: compare_scenario
         display_name: 对比情景结果

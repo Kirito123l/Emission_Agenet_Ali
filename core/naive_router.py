@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
 from services.llm_client import LLMClientService, LLMResponse, ToolCall
 from tools.base import ToolResult
@@ -24,16 +24,6 @@ logger = logging.getLogger(__name__)
 NAIVE_SYSTEM_PROMPT = """你是一个交通排放分析助手。你可以使用以下工具帮助用户完成分析任务。
 请根据用户的需求选择合适的工具并填写参数。
 如果用户上传了文件，文件路径会在消息中提供。"""
-
-NAIVE_TOOL_NAMES: Sequence[str] = (
-    "query_emission_factors",
-    "calculate_micro_emission",
-    "calculate_macro_emission",
-    "query_knowledge",
-    "calculate_dispersion",
-    "analyze_hotspots",
-    "render_spatial_map",
-)
 
 
 @dataclass
@@ -106,7 +96,7 @@ class NaiveRouter:
 
     @classmethod
     def _load_naive_tool_definitions(cls) -> List[Dict[str, Any]]:
-        allowed = set(NAIVE_TOOL_NAMES)
+        allowed = set(get_tool_contract_registry().get_naive_available_tools())
         definitions = get_tool_contract_registry().get_tool_definitions()
         return [
             item
@@ -234,7 +224,8 @@ class NaiveRouter:
         success = False
         error_message: Optional[str] = None
 
-        if tool_call.name not in NAIVE_TOOL_NAMES:
+        naive_tool_names = get_tool_contract_registry().get_naive_available_tools()
+        if tool_call.name not in naive_tool_names:
             error_message = f"Tool not available in NaiveRouter baseline: {tool_call.name}"
             result_payload = {
                 "success": False,

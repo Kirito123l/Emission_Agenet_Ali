@@ -12,6 +12,7 @@ from core.analytical_objective import (
     IntentConfidence,
     ToolCallRecord,
 )
+from core.ao_manager_keywords import MULTI_STEP_SIGNAL_PATTERNS as _MULTI_STEP_SIGNAL_PATTERNS
 from core.execution_continuation_utils import load_execution_continuation
 
 logger = logging.getLogger(__name__)
@@ -70,21 +71,7 @@ class AOManager:
     MAX_TOOL_CALLS_PER_AO = 20
     MAX_CONSTRAINT_VIOLATIONS_PER_AO = 10
     MAX_COMPLETED_AOS_IN_SUMMARY = 5
-    MULTI_STEP_SIGNAL_PATTERNS = (
-        r"再",
-        r"然后",
-        r"接着",
-        r"之后",
-        r"并且",
-        r"同时",
-        r"做完.*再",
-        r"算完.*做",
-        r"出.*图",
-        r"then",
-        r"after that",
-        r"and then",
-        r"followed by",
-    )
+    MULTI_STEP_SIGNAL_PATTERNS = _MULTI_STEP_SIGNAL_PATTERNS
 
     def __init__(self, fact_memory: Any):
         self._memory = fact_memory
@@ -567,20 +554,37 @@ class AOManager:
         objective = str(text or "").strip().lower()
         if not objective:
             return []
-        groups: List[Set[str]] = []
-        if any(keyword in objective for keyword in ("因子", "factor")):
-            groups.append({"query_emission_factors"})
-        elif (
-            any(keyword in objective for keyword in ("排放", "emission"))
-            and any(keyword in objective for keyword in ("算", "计算", "compute", "calculate"))
-        ):
-            groups.append({"calculate_macro_emission", "calculate_micro_emission"})
-        if any(keyword in objective for keyword in ("扩散", "dispersion", "浓度")):
-            groups.append({"calculate_dispersion"})
-        if any(keyword in objective for keyword in ("热点", "hotspot", "高浓度区域")):
-            groups.append({"analyze_hotspots"})
-        if any(keyword in objective for keyword in ("地图", "map", "画图", "渲染", "展示", "render")):
-            groups.append({"render_spatial_map"})
-        if any(keyword in objective for keyword in ("知识", "knowledge")):
-            groups.append({"query_knowledge"})
-        return groups
+        from tools.contract_loader import get_tool_contract_registry
+
+        registry = get_tool_contract_registry()
+
+        # Phase 1: primary keywords (exclusive — first match wins, no other tool groups)
+        primary_matches: Set[str] = set()
+        for tool_name in registry.get_tool_names():
+            ck = registry.get_completion_keywords(tool_name)
+            primary = ck.get("primary") or []
+            if primary and any(kw in objective for kw in primary):
+                primary_matches.add(tool_name)
+        if primary_matches:
+            return [primary_matches]
+
+        # Phase 2: secondary +/- requires keywords, grouped by keyword pattern
+        groups_by_pattern: Dict[tuple, Set[str]] = {}
+        for tool_name in registry.get_tool_names():
+            ck = registry.get_completion_keywords(tool_name)
+            secondary = ck.get("secondary") or []
+            requires = ck.get("requires") or []
+
+            if not secondary:
+                continue
+            if not any(kw in objective for kw in secondary):
+                continue
+            if requires and not any(kw in objective for kw in requires):
+                continue
+
+            pattern_key = (frozenset(secondary), frozenset(requires))
+            if pattern_key not in groups_by_pattern:
+                groups_by_pattern[pattern_key] = set()
+            groups_by_pattern[pattern_key].add(tool_name)
+
+        return list(groups_by_pattern.values())

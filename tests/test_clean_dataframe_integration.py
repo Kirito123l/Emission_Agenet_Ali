@@ -7,7 +7,7 @@ import pytest
 from core.context_store import SessionContextStore
 from core.executor import ToolExecutor
 from core.governed_router import GovernedRouter
-from core.naive_router import NAIVE_TOOL_NAMES, NaiveRouter
+from core.naive_router import NaiveRouter
 from core.router import RouterResponse
 from tools.contract_loader import get_tool_contract_registry
 
@@ -68,7 +68,7 @@ def test_naive_router_does_not_expose_clean_dataframe() -> None:
         for item in NaiveRouter._load_naive_tool_definitions()
     ]
 
-    assert "clean_dataframe" not in NAIVE_TOOL_NAMES
+    assert "clean_dataframe" not in get_tool_contract_registry().get_naive_available_tools()
     assert "clean_dataframe" not in naive_tool_names
 
 

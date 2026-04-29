@@ -129,6 +129,50 @@ class ToolContractRegistry:
             if action_id in entries_by_id
         ]
 
+    def get_tool_names(self) -> List[str]:
+        """Return all registered tool names in definition order."""
+        return list(self._tool_definition_order)
+
+    def get_type_coercion(self, tool_name: str) -> Dict[str, str]:
+        """Return param→coercion_type mapping for a tool's parameters."""
+        contract = self._contracts.get(str(tool_name or "").strip())
+        if not isinstance(contract, dict):
+            return {}
+        params = contract.get("parameters") or {}
+        if not isinstance(params, dict):
+            return {}
+        return {
+            name: str(info.get("type_coercion") or "preserve")
+            for name, info in params.items()
+            if isinstance(info, dict)
+        }
+
+    def get_completion_keywords(self, tool_name: str) -> Dict[str, List[str]]:
+        """Return 3-tier completion keywords (primary/secondary/requires) for a tool."""
+        contract = self._contracts.get(str(tool_name or "").strip())
+        if not isinstance(contract, dict):
+            return {"primary": [], "secondary": [], "requires": []}
+        ck = contract.get("completion_keywords")
+        if not isinstance(ck, dict):
+            return {"primary": [], "secondary": [], "requires": []}
+        return {
+            "primary": [str(k).lower() for k in (ck.get("primary") or [])],
+            "secondary": [str(k).lower() for k in (ck.get("secondary") or [])],
+            "requires": [str(k).lower() for k in (ck.get("requires") or [])],
+        }
+
+    def get_naive_available_tools(self) -> List[str]:
+        """Return tool names where available_in_naive is not explicitly false."""
+        result: List[str] = []
+        for tool_name in self._tool_definition_order:
+            contract = self._contracts.get(tool_name)
+            if not isinstance(contract, dict):
+                continue
+            if contract.get("available_in_naive") is False:
+                continue
+            result.append(tool_name)
+        return result
+
     def get_continuation_keywords(self) -> Dict[str, List[str]]:
         """Generate router continuation keywords."""
         keywords: Dict[str, List[str]] = {}

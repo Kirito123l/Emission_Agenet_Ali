@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from core.naive_router import NAIVE_SYSTEM_PROMPT, NAIVE_TOOL_NAMES, NaiveRouter
+from core.naive_router import NAIVE_SYSTEM_PROMPT, NaiveRouter
 from services.llm_client import LLMResponse, ToolCall
 from tools.base import ToolResult
+from tools.contract_loader import get_tool_contract_registry
 
 
 class FakeLLM:
@@ -57,7 +58,8 @@ def test_naive_router_uses_only_the_seven_baseline_tool_schemas(tmp_path):
         tool_call_log_path=tmp_path / "calls.jsonl",
     )
 
-    assert _tool_names(router.tool_definitions) == list(NAIVE_TOOL_NAMES)
+    naive_tool_names = get_tool_contract_registry().get_naive_available_tools()
+    assert _tool_names(router.tool_definitions) == naive_tool_names
     assert "analyze_file" not in _tool_names(router.tool_definitions)
     assert "clean_dataframe" not in _tool_names(router.tool_definitions)
     assert "compare_scenarios" not in _tool_names(router.tool_definitions)
@@ -106,7 +108,7 @@ async def test_naive_router_passes_raw_arguments_and_logs_tool_call(tmp_path):
     result = await router.chat("计算这个文件", file_path="/tmp/raw_links.csv")
 
     assert llm.calls[0]["system"] == NAIVE_SYSTEM_PROMPT
-    assert _tool_names(llm.calls[0]["tools"]) == list(NAIVE_TOOL_NAMES)
+    assert _tool_names(llm.calls[0]["tools"]) == get_tool_contract_registry().get_naive_available_tools()
     assert "文件已上传，路径: /tmp/raw_links.csv" in llm.calls[0]["messages"][-1]["content"]
     assert tool.calls == [raw_args]
     assert result.text == "完成"

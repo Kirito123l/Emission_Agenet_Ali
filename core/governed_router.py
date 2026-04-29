@@ -790,12 +790,8 @@ class GovernedRouter:
         *,
         allow_factor_year_default: bool = False,
     ) -> Dict[str, Any]:
-        def as_list(value: Any) -> Optional[list[Any]]:
-            if value is None:
-                return None
-            if isinstance(value, list):
-                return list(value)
-            return [value]
+        from core.snapshot_coercion import apply_coercion
+        from tools.contract_loader import get_tool_contract_registry
 
         def read(slot_name: str):
             payload = snapshot.get(slot_name)
@@ -809,87 +805,40 @@ class GovernedRouter:
                 return None
             return value
 
-        def safe_int(value: Any, slot_name: str) -> Optional[int]:
-            if value is None:
-                return None
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                logger.warning("Snapshot type coercion failed for %s=%r", slot_name, value)
-                return None
+        registry = get_tool_contract_registry()
+        param_coercions = registry.get_type_coercion(tool_name)
+
+        # Pre-processing: cross-parameter fallback — pollutant ← pollutants[0]
+        # for dispersion / render_spatial_map (retained special hook).
+        if tool_name in ("calculate_dispersion", "render_spatial_map"):
+            if read("pollutant") is None and read("pollutants") is not None:
+                pollutants_raw = read("pollutants")
+                if isinstance(pollutants_raw, list) and pollutants_raw:
+                    snapshot = dict(snapshot)
+                    snapshot["pollutant"] = {"value": pollutants_raw[0], "source": "inferred"}
 
         args: Dict[str, Any] = {}
-        if tool_name == "query_emission_factors":
-            if read("vehicle_type") is not None:
-                args["vehicle_type"] = read("vehicle_type")
-            pollutants = as_list(read("pollutants"))
-            if pollutants is not None:
-                args["pollutants"] = pollutants
-            model_year = safe_int(read("model_year"), "model_year")
-            if model_year is not None:
-                args["model_year"] = model_year
-            elif allow_factor_year_default:
-                defaults = dict((ConfigLoader.load_mappings() or {}).get("defaults") or {})
-                default_model_year = safe_int(defaults.get("model_year"), "model_year")
-                if default_model_year is not None:
-                    args["model_year"] = default_model_year
-            if read("season") is not None:
-                args["season"] = read("season")
-            if read("road_type") is not None:
-                args["road_type"] = read("road_type")
-            return args
-        if tool_name == "calculate_micro_emission":
-            if read("vehicle_type") is not None:
-                args["vehicle_type"] = read("vehicle_type")
-            pollutants = as_list(read("pollutants"))
-            if pollutants is not None:
-                args["pollutants"] = pollutants
-            model_year = safe_int(read("model_year"), "model_year")
-            if model_year is not None:
-                args["model_year"] = model_year
-            if read("season") is not None:
-                args["season"] = read("season")
-            return args
-        if tool_name == "calculate_macro_emission":
-            pollutants = as_list(read("pollutants"))
-            if pollutants is not None:
-                args["pollutants"] = pollutants
-            if read("season") is not None:
-                args["season"] = read("season")
-            if read("scenario_label") is not None:
-                args["scenario_label"] = read("scenario_label")
-            return args
-        if tool_name == "calculate_dispersion":
-            if read("meteorology") is not None:
-                args["meteorology"] = read("meteorology")
-            if read("pollutant") is not None:
-                args["pollutant"] = read("pollutant")
-            else:
-                pollutants = as_list(read("pollutants"))
-                if pollutants:
-                    args["pollutant"] = pollutants[0]
-            if read("scenario_label") is not None:
-                args["scenario_label"] = read("scenario_label")
-            return args
-        if tool_name == "analyze_hotspots":
-            if read("method") is not None:
-                args["method"] = read("method")
-            if read("percentile") is not None:
-                args["percentile"] = read("percentile")
-            if read("scenario_label") is not None:
-                args["scenario_label"] = read("scenario_label")
-            return args
-        if tool_name == "render_spatial_map":
-            if read("pollutant") is not None:
-                args["pollutant"] = read("pollutant")
-            else:
-                pollutants = as_list(read("pollutants"))
-                if pollutants:
-                    args["pollutant"] = pollutants[0]
-            if read("scenario_label") is not None:
-                args["scenario_label"] = read("scenario_label")
-            return args
-        return {}
+        for slot_name in sorted(snapshot):
+            raw = read(slot_name)
+            if raw is None:
+                continue
+            coercion = param_coercions.get(slot_name)
+            if coercion is None:
+                continue
+            coerced = apply_coercion(coercion, raw, slot_name)
+            if coerced is not None:
+                args[slot_name] = coerced
+
+        # Post-processing hook: model_year default injection (retained from pre-declarative era)
+        if allow_factor_year_default and tool_name == "query_emission_factors" and "model_year" not in args:
+            defaults = dict((ConfigLoader.load_mappings() or {}).get("defaults") or {})
+            try:
+                default_my = int(defaults.get("model_year"))
+                args["model_year"] = default_my
+            except (TypeError, ValueError):
+                pass
+
+        return args
 
     def to_persisted_state(self) -> Dict[str, Any]:
         return self.inner_router.to_persisted_state()
