@@ -1,0 +1,88 @@
+{
+  "task": "end2end",
+  "mode": "router",
+  "subset": "smoke",
+  "run_status": "completed",
+  "infrastructure_health": {
+    "ok": 30,
+    "transient_retried": 0,
+    "billing_failed": 0,
+    "network_failed": 0,
+    "permanent_error": 0,
+    "unknown": 0
+  },
+  "data_integrity": "clean",
+  "tasks": 30,
+  "completion_rate": 0.7333,
+  "tool_accuracy": 0.8,
+  "parameter_legal_rate": 0.8,
+  "result_data_rate": 0.9,
+  "skipped_tasks": 0,
+  "by_category": {
+    "ambiguous_colloquial": {
+      "tasks": 4,
+      "success_rate": 0.75,
+      "tool_accuracy": 1.0
+    },
+    "code_switch_typo": {
+      "tasks": 3,
+      "success_rate": 0.6667,
+      "tool_accuracy": 0.6667
+    },
+    "constraint_violation": {
+      "tasks": 3,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "incomplete": {
+      "tasks": 3,
+      "success_rate": 0.6667,
+      "tool_accuracy": 1.0
+    },
+    "multi_step": {
+      "tasks": 4,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "multi_turn_clarification": {
+      "tasks": 4,
+      "success_rate": 0.0,
+      "tool_accuracy": 0.0
+    },
+    "parameter_ambiguous": {
+      "tasks": 3,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "simple": {
+      "tasks": 3,
+      "success_rate": 1.0,
+      "tool_accuracy": 1.0
+    },
+    "user_revision": {
+      "tasks": 3,
+      "success_rate": 0.6667,
+      "tool_accuracy": 0.6667
+    }
+  },
+  "cache_stats": {
+    "hits": 4,
+    "misses": 21,
+    "hit_rate": 0.16
+  },
+  "rate_limit_telemetry": {
+    "rate_limit_wait_ms_total": 0,
+    "cache_hits_total": 4
+  },
+  "clarification_contract_metrics": {
+    "trigger_count": 35,
+    "trigger_rate_over_new_revision_turns": 1.0,
+    "stage2_hit_rate": 0.2571,
+    "stage2_avg_latency_ms": 18246.65,
+    "stage3_rejection_rate": 0.0,
+    "short_circuit_rate": 0.4571,
+    "proceed_rate": 0.5429
+  },
+  "wall_clock_sec": 259.08,
+  "logs_path": "evaluation/results/multi_rep/round4b_alpha/cell_b/end2end_logs.jsonl"
+}
