@@ -17,6 +17,7 @@ from core.contracts.base import BaseContract, ContractContext, ContractIntercept
 from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
 from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS
+from core.contracts.emission_schema import get_default as _schema_get_default
 from core.stance_resolver import StanceResolution, StanceResolver
 from core.tool_dependencies import _build_tool_graph_for_prompt
 from services.llm_client import get_llm_client
@@ -26,8 +27,13 @@ from tools.contract_loader import get_tool_contract_registry
 
 logger = logging.getLogger(__name__)
 
-YEAR_RANGE_MIN = 1995
-YEAR_RANGE_MAX = 2025
+def _get_year_range():
+    """Return model_year range {min, max, step} from emission domain schema."""
+    from core.contracts.emission_schema import get_range as _schema_get_range
+    r = _schema_get_range("model_year")
+    if r:
+        return r
+    return {"min": 1995, "max": 2025, "step": 5}
 _SENTINEL_VALUES = {"missing", "unknown", "none", "n/a", "null", ""}
 _DECISION_EXAMPLES: Optional[list] = None
 
@@ -844,7 +850,7 @@ class ClarificationContract(BaseContract):
             "11. 每个槽位都输出 {value, source, confidence, raw_text}；source 仅允许 user/default/inferred/missing。\n"
             "12. 严禁将 value 设置为字符串 \"missing\"、\"unknown\"、\"none\"、\"n/a\"、\"null\" 或任何文本 placeholder；"
             "value 必须是 null 或合法类型值。\n"
-            "13. (K4) runtime_defaults 字段列出了当前工具可用的运行时默认值（如 model_year=2020）。"
+            f"13. (K4) runtime_defaults 字段列出了当前工具可用的运行时默认值（如 model_year={_schema_get_default('model_year')}）。"
             "当用户未提供对应槽位值时，你可以用默认值填充（source=default, confidence=0.5），但必须在 needs_clarification 为 false 时注明。\n"
             "14. (K6) tool_graph 字段列出了工具间的依赖关系（requires/provides/upstream_tools）。"
             "如果用户请求的工具需要上游结果（如 calculate_dispersion 需要 emission），"
@@ -1251,7 +1257,8 @@ class ClarificationContract(BaseContract):
 
     def _valid_values_list(self, slot_name: str) -> List[str]:
         if slot_name == "model_year":
-            return [str(y) for y in range(YEAR_RANGE_MIN, YEAR_RANGE_MAX + 1, 5)]
+            r = _get_year_range()
+            return [str(y) for y in range(r["min"], r["max"] + 1, r["step"])]
         if slot_name == "pollutants" or slot_name == "pollutant":
             values = self.stage3_engine.get_candidates("pollutant")
         else:
@@ -1563,7 +1570,8 @@ class ClarificationContract(BaseContract):
         slots = list(tool_spec.get("required_slots") or []) + list(tool_spec.get("optional_slots") or [])
         for slot_name in slots:
             if slot_name == "model_year":
-                values[slot_name] = f"{YEAR_RANGE_MIN}-{YEAR_RANGE_MAX}"
+                r = _get_year_range()
+                values[slot_name] = f"{r['min']}-{r['max']}"
                 continue
             param_type = {
                 "vehicle_type": "vehicle_type",
@@ -1585,7 +1593,8 @@ class ClarificationContract(BaseContract):
                 year = int(value)
             except Exception:
                 return False
-            return YEAR_RANGE_MIN <= year <= YEAR_RANGE_MAX
+            r = _get_year_range()
+            return r["min"] <= year <= r["max"]
         legal_values = self._build_legal_values({"required_slots": [slot_name], "optional_slots": []}).get(slot_name)
         if not legal_values:
             return False

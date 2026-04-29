@@ -73,6 +73,8 @@ PARAM_TYPE_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     "season": {
         "has_default": True,
+        # default_value is metadata; runtime fallback is in services.standardizer →
+        # emission_domain_schema. See phase5_2_recon_agent_db_decoupling.md §1.5.
         "default_value": "夏季",
         "fuzzy_enabled": True,
         "llm_enabled": True,
@@ -80,6 +82,8 @@ PARAM_TYPE_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     "road_type": {
         "has_default": True,
+        # default_value is metadata; runtime fallback is in services.standardizer →
+        # emission_domain_schema. See phase5_2_recon_agent_db_decoupling.md §1.4.
         "default_value": "快速路",
         "fuzzy_enabled": True,
         "llm_enabled": True,

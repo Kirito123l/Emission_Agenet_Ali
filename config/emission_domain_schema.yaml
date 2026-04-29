@@ -1,0 +1,103 @@
+# Emission Domain Schema — agent 跟车辆排放分析领域对接的标准接口
+#
+# 设计原则:
+#   "Agent 架构干净的标准是 agent 不知道数据库内容"
+#   本文件集中所有数据库具体值（维度定义 / 默认值 / range / 标准名）。
+#   Agent 层只通过 emission_schema.py reader 接口读，不直接 hardcode 数据库内容。
+#
+# 6 个维度对应车辆排放分析领域的核心数据维度。任何遵守此 schema 的排放数据库
+# （MOVES / 本地实测 / COPERT）可以接入，agent 层零改动。
+#
+# 当前版本: default 字段统一使用具体值。
+# 默认值的领域语义层级（schema_default vs db_default）在未来 db_manifest 接入
+# 时进一步区分。见 docs/phase5_2_emission_db_schema_design.md §3 决策 2。
+#
+# 与 unified_mappings.yaml 的关系:
+#   本文件定义"维度的字段 + 默认值", unified_mappings.yaml 保留"标准化别名
+#   + VSP参数 + tool-level mappings"。二者在本轮范围内不重叠。
+
+dimensions:
+  vehicle_type:
+    field_type: categorical
+    value_type: string
+    standard_names:
+      - Passenger Car
+      - Passenger Truck
+      - Light Commercial Truck
+      - Transit Bus
+      - Intercity Bus
+      - School Bus
+      - Refuse Truck
+      - Single Unit Short-haul Truck
+      - Single Unit Long-haul Truck
+      - Motor Home
+      - Combination Short-haul Truck
+      - Combination Long-haul Truck
+      - Motorcycle
+    display_name_zh: 车辆类型
+    required: true
+    default_policy: optional_no_default
+
+  pollutant:
+    field_type: categorical
+    value_type: string
+    standard_names:
+      - CO2
+      - CO
+      - NOx
+      - PM2.5
+      - PM10
+      - THC
+    display_name_zh: 污染物
+    required: true
+    default_policy: optional_no_default
+
+  model_year:
+    field_type: integer_range
+    value_type: integer
+    range:
+      min: 1995
+      max: 2025
+      step: 5
+    display_name_zh: 车型年份
+    required: false
+    default_policy: default
+    default: 2020
+
+  road_type:
+    field_type: categorical
+    value_type: string
+    standard_names:
+      - 快速路
+      - 高速公路
+      - 主干道
+      - 次干道
+      - 支路
+    display_name_zh: 道路类型
+    required: false
+    default_policy: default
+    default: 快速路
+
+  season:
+    field_type: categorical
+    value_type: string
+    standard_names:
+      - 春季
+      - 夏季
+      - 秋季
+      - 冬季
+    display_name_zh: 季节
+    required: false
+    default_policy: default
+    default: 夏季
+
+  meteorology:
+    field_type: categorical
+    value_type: string
+    standard_names: []
+    display_name_zh: 气象条件
+    required: false
+    default_policy: optional_no_default
+    note: >
+      Meteorology presets 是 physical model configuration（风速/温度/混合高度），
+      非数据库内容。具体 preset 名称和物理参数见 config/meteorology_presets.yaml。

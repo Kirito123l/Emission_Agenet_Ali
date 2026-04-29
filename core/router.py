@@ -1779,7 +1779,9 @@ class UnifiedRouter:
             if not hints.get("pollutants"):
                 return "要查询排放因子，我还需要污染物类型。请说明是 CO2、NOx、PM2.5，还是其它污染物。"
             if hints.get("model_year") is None:
-                return "要查询排放因子，我还需要车型年份。请告诉我例如 2020、2021 这样的年份。"
+                from core.contracts.emission_schema import get_default as _s_get_default
+                default_year = _s_get_default("model_year") or 2020
+                return f"要查询排放因子，我还需要车型年份。请告诉我例如 {default_year}、{default_year + 1} 这样的年份。"
             return None
 
         completed_tools = list(state.execution.completed_tools or [])
@@ -4219,7 +4221,9 @@ class UnifiedRouter:
         if not resolved_vehicle_type:
             clarification = "要查询排放因子，我还需要车型。请告诉我是 Passenger Car、Transit Bus、Motorcycle 等哪一类车辆。"
         elif resolved_model_year is None:
-            clarification = "要查询排放因子，我还需要车型年份。请告诉我例如 2020、2021 这样的年份。"
+            from core.contracts.emission_schema import get_default as _s_get_default
+            default_year = _s_get_default("model_year") or 2020
+            clarification = f"要查询排放因子，我还需要车型年份。请告诉我例如 {default_year}、{default_year + 1} 这样的年份。"
         elif not explicit_arguments and not resolved_pollutants:
             clarification = "要查询排放因子，我还需要污染物类型。请说明是 CO2、NOx、PM2.5，还是其它污染物。"
 

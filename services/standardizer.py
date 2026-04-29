@@ -125,7 +125,9 @@ class UnifiedStandardizer:
                 for alias in entry.get("aliases", []):
                     self.season_lookup[str(alias).lower().strip()] = standard_name
                 self.season_lookup[standard_name.lower().strip()] = standard_name
-        self.season_default = self.mappings.get("defaults", {}).get("season", "夏季")
+        from core.contracts.emission_schema import get_default as _s_get_default
+        self.season_default = self.mappings.get("defaults", {}).get("season") or _s_get_default("season") or "夏季"
+
 
         self.road_type_lookup: Dict[str, str] = {}
         road_types_config = self.mappings.get("road_types", {})
@@ -140,7 +142,8 @@ class UnifiedStandardizer:
                 for alias in aliases:
                     self.road_type_lookup[str(alias).lower().strip()] = standard_name
                 self.road_type_lookup[standard_name.lower().strip()] = standard_name
-        self.road_type_default = self.mappings.get("defaults", {}).get("road_type", "快速路")
+        from core.contracts.emission_schema import get_default as _s_get_default
+        self.road_type_default = self.mappings.get("defaults", {}).get("road_type") or _s_get_default("road_type") or "快速路"
 
         self.meteorology_lookup: Dict[str, str] = {}
         meteorology_config = self.mappings.get("meteorology", {})
