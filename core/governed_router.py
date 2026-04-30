@@ -34,8 +34,88 @@ from services.config_loader import ConfigLoader
 logger = logging.getLogger(__name__)
 
 
+# ── Phase 6.1: minimal executor wrapper for idempotency ──────────────────
+
+class _IdempotencyAwareExecutor:
+    """Wraps ToolExecutor to gate all execute() calls with idempotency check."""
+
+    def __init__(self, delegate: Any, governed_router: Any):
+        self._delegate = delegate
+        self._gr = governed_router
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._delegate, name)
+
+    async def execute(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        file_path: Optional[str] = None,
+    ) -> Dict:
+        gr = self._gr
+        if not bool(getattr(gr.runtime_config, "enable_execution_idempotency", False)):
+            return await self._delegate.execute(tool_name, arguments, file_path=file_path)
+
+        # Phase 6.1: build effective-args fingerprint from the same source the executor uses.
+        # Apply executor standardization to arguments (same as ToolExecutor does)
+        # so the fingerprint reflects post-standardization effective parameters.
+        effective_args = dict(arguments or {})
+        try:
+            std_engine = getattr(self._delegate, "standardization_engine", None)
+            if std_engine is not None:
+                effective_args = await std_engine.standardize(tool_name, effective_args)
+        except Exception:
+            pass  # standardization failed — use raw args
+        if file_path:
+            effective_args["file_path"] = str(file_path)
+        # Also enrich from AO parameters_used for sparse args
+        current_ao = gr.ao_manager.get_current_ao()
+        if current_ao is not None and hasattr(current_ao, "parameters_used"):
+            for k, v in current_ao.parameters_used.items():
+                if k not in effective_args or effective_args.get(k) is None:
+                    effective_args[k] = v
+
+        # Use the user message from the current turn context
+        user_message = getattr(gr, '_last_user_message', '') or ''
+        idem = gr.ao_manager.check_execution_idempotency(
+            current_ao,
+            proposed_tool=tool_name,
+            proposed_args=effective_args,
+            user_message=user_message,
+        )
+        if idem.decision.value == "exact_duplicate":
+            if idem.matched_result_ref:
+                ref = str(idem.matched_result_ref)
+                artifact_type, _, label = ref.partition(":")
+                store = gr.inner_router._ensure_context_store()
+                if store.has_result(artifact_type, label=label or None):
+                    logger.info(
+                        "Idempotency skip: %s (matched AO=%s turn=%s)",
+                        tool_name, idem.matched_ao_id, idem.matched_turn,
+                    )
+                    return {
+                        "success": True,
+                        "message": f"idempotent skip — cached result from turn {idem.matched_turn}",
+                        "summary": f"Idempotent skip: {tool_name} already executed in {idem.matched_ao_id}",
+                        "idempotent_skip": True,
+                        "matched_ao_id": idem.matched_ao_id,
+                        "matched_turn": idem.matched_turn,
+                    }
+                logger.warning(
+                    "Idempotency cache miss for %s (ref=%s), falling through",
+                    tool_name, ref,
+                )
+            # Cache miss or no result_ref — fall through to normal execution
+        elif idem.decision.value != "no_duplicate":
+            logger.info(
+                "Idempotency decision: %s for %s (reason: %s)",
+                idem.decision.value, tool_name, idem.decision_reason,
+            )
+
+        return await self._delegate.execute(tool_name, arguments, file_path=file_path)
+
+
 class GovernedRouter:
-    """Thin contract orchestrator over UnifiedRouter."""
 
     def __init__(self, session_id: str, memory_storage_dir: Optional[str | Path] = None):
         self.session_id = session_id
@@ -44,6 +124,11 @@ class GovernedRouter:
             session_id=session_id,
             memory_storage_dir=memory_storage_dir,
         )
+        # Phase 6.1: wrap executor for idempotency gating
+        self.inner_router.executor = _IdempotencyAwareExecutor(
+            self.inner_router.executor, self,
+        )
+        self._last_user_message = ""
         self.ao_manager = AOManager(self.inner_router.memory.fact_memory)
         self.constraint_violation_writer = self._build_constraint_violation_writer()
         self.reply_context_builder = ReplyContextBuilder()
@@ -104,6 +189,7 @@ class GovernedRouter:
         file_path: Optional[str] = None,
         trace: Optional[Dict[str, Any]] = None,
     ) -> RouterResponse:
+        self._last_user_message = str(user_message or "")
         context = ContractContext(
             user_message=user_message,
             file_path=str(file_path) if file_path else None,
@@ -128,6 +214,13 @@ class GovernedRouter:
             if not interception.proceed:
                 result = interception.response or RouterResponse(text="")
                 break
+
+        # Phase 6.1: idempotency pre-check before any tool dispatch
+        if result is None and bool(getattr(self.runtime_config, "enable_execution_idempotency", False)):
+            idem_block = self._check_pre_dispatch_idempotency(context)
+            if idem_block is not None:
+                result = idem_block
+                context.router_executed = True
 
         if result is None:
             if bool(getattr(get_config(), "enable_llm_decision_field", False)):
@@ -361,6 +454,79 @@ class GovernedRouter:
             payloads.append(nested if isinstance(nested, dict) else record)
         return payloads
 
+    # ── Phase 6.1: pre-dispatch idempotency check ─────────────────────────
+
+    def _check_pre_dispatch_idempotency(
+        self, context: ContractContext
+    ) -> Optional[RouterResponse]:
+        """Check idempotency BEFORE any tool dispatch.
+
+        When a short parameter-like message arrives after an AO just completed
+        with the same tool, and the effective args haven't changed, block
+        re-execution and return a cached/synthesized response.
+        """
+        current_ao = self.ao_manager.get_current_ao()
+        if current_ao is None:
+            return None
+        # Only fire when current AO is empty/new (no prior tool calls in this AO)
+        if list(getattr(current_ao, "tool_call_log", []) or []):
+            return None
+
+        user_message = context.effective_user_message or ""
+        if not self.ao_manager._is_short_parameter_like(user_message):
+            return None
+
+        completed = self.ao_manager.get_completed_aos()
+        if not completed:
+            return None
+        most_recent = completed[-1]
+
+        # Extract proposed tool from tool_intent metadata
+        tool_intent = context.metadata.get("tool_intent")
+        if tool_intent is None:
+            tool_intent = getattr(current_ao, "tool_intent", None)
+        proposed_tool = getattr(tool_intent, "resolved_tool", None) if tool_intent else None
+        if not proposed_tool:
+            return None
+
+        # Check if completed AO executed the same tool
+        prior_tools = {r.tool for r in getattr(most_recent, "tool_call_log", []) or [] if r.success}
+        if proposed_tool not in prior_tools:
+            return None
+
+        # Build proposed effective args from AO state + context
+        proposed_args: Dict[str, Any] = {}
+        if context.file_path:
+            proposed_args["file_path"] = str(context.file_path)
+        for k, v in getattr(current_ao, "parameters_used", {}).items():
+            if k not in proposed_args:
+                proposed_args[k] = v
+        # Also pull from completed AO's parameters_used for keys missing in current
+        for k, v in getattr(most_recent, "parameters_used", {}).items():
+            if k not in proposed_args:
+                proposed_args[k] = v
+
+        # Run idempotency check
+        idem = self.ao_manager.check_execution_idempotency(
+            current_ao,
+            proposed_tool=proposed_tool,
+            proposed_args=proposed_args,
+            user_message=user_message,
+        )
+        if idem.decision.value != "exact_duplicate":
+            return None
+
+        # Build a blocking response — avoid re-execution
+        logger.info(
+            "Pre-dispatch idempotency block: %s for AO=%s (matched AO=%s turn=%s)",
+            proposed_tool, getattr(current_ao, "ao_id", "?"),
+            idem.matched_ao_id, idem.matched_turn,
+        )
+        return RouterResponse(
+            text="",
+            executed_tool_calls=[],
+        )
+
     async def _maybe_execute_from_snapshot(self, context: ContractContext) -> Optional[RouterResponse]:
         clarification_state = dict(context.metadata.get("clarification") or {})
         direct_execution = clarification_state.get("direct_execution")
@@ -435,6 +601,46 @@ class GovernedRouter:
         if not isinstance(arguments, dict):
             return None
 
+        # Phase 6.1: execution idempotency gate
+        if bool(getattr(self.runtime_config, "enable_execution_idempotency", False)):
+            current_ao = self.ao_manager.get_current_ao()
+            effective_args = dict(arguments)
+            if file_path:
+                effective_args["file_path"] = str(file_path)
+            if current_ao is not None and hasattr(current_ao, "parameters_used"):
+                for k, v in current_ao.parameters_used.items():
+                    if k not in effective_args or effective_args.get(k) is None:
+                        effective_args[k] = v
+            idem = self.ao_manager.check_execution_idempotency(
+                current_ao,
+                proposed_tool=tool_name,
+                proposed_args=effective_args,
+                user_message=user_message,
+            )
+            if idem.decision.value == "exact_duplicate":
+                cached_response = self._build_idempotent_response(
+                    idem, tool_name, user_message, file_path, trace
+                )
+                if cached_response is not None:
+                    return cached_response
+                logger.warning(
+                    "Idempotency cache miss for %s (matched_result_ref=%s), falling through to execution",
+                    tool_name, idem.matched_result_ref,
+                )
+            if idem.decision.value != "no_duplicate":
+                if trace is not None:
+                    trace.setdefault("steps", []).append({
+                        "step_type": "idempotent_skip",
+                        "decision": idem.decision.value,
+                        "matched_ao_id": idem.matched_ao_id,
+                        "matched_tool": idem.matched_tool,
+                        "matched_turn": idem.matched_turn,
+                        "proposed_fingerprint": idem.proposed_fingerprint,
+                        "previous_fingerprint": idem.previous_fingerprint,
+                        "decision_reason": idem.decision_reason,
+                        "explicit_rerun_absent": idem.explicit_rerun_absent,
+                    })
+
         self.inner_router._ensure_context_store().clear_current_turn()
         result = await self.inner_router.executor.execute(
             tool_name=tool_name,
@@ -449,7 +655,10 @@ class GovernedRouter:
         tool_result = {
             "tool_call_id": f"clarification_contract_{tool_name}_{time.time_ns()}",
             "name": tool_name,
-            "arguments": dict(arguments),
+            "arguments": dict(
+                arguments,
+                **({"file_path": str(file_path)} if file_path and bool(getattr(self.runtime_config, "enable_execution_idempotency", False)) else {})
+            ),
             "result": result,
         }
 
@@ -506,6 +715,53 @@ class GovernedRouter:
                 response.trace = trace
             elif isinstance(response.trace, dict):
                 response.trace.setdefault("steps", []).extend(trace.get("steps") or [])
+        return response
+
+    def _build_idempotent_response(
+        self,
+        idem: Any,
+        tool_name: str,
+        user_message: str,
+        file_path: Optional[str],
+        trace: Optional[Dict[str, Any]],
+    ) -> Optional[RouterResponse]:
+        """Build a RouterResponse from a cached tool result for idempotent skip."""
+        if not idem.matched_result_ref:
+            return None
+        ref = str(idem.matched_result_ref)
+        artifact_type, _, label = ref.partition(":")
+        store = self.inner_router._ensure_context_store()
+        if not store.has_result(artifact_type, label=label or None):
+            return None
+        cached = store.get_by_type(artifact_type, label=label or None)
+        if cached is None or not cached.data:
+            return None
+
+        tool_result = {
+            "tool_call_id": f"idempotent_skip_{tool_name}_{time.time_ns()}",
+            "name": tool_name,
+            "arguments": {},
+            "result": {
+                "success": True,
+                "message": "idempotent skip — cached result reused",
+                "idempotent_skip": True,
+            },
+        }
+        response = RouterResponse(
+            text="",
+            executed_tool_calls=[tool_result],
+        )
+        if trace is not None:
+            trace.setdefault("steps", []).append({
+                "step_type": "idempotent_skip",
+                "action": tool_name,
+                "output_summary": {
+                    "tool_name": tool_name,
+                    "cached_result_ref": idem.matched_result_ref,
+                    "matched_turn": idem.matched_turn,
+                },
+            })
+            response.trace = trace
         return response
 
     def _retain_pending_followups_after_direct_execution(

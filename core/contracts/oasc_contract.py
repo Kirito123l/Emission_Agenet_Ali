@@ -290,7 +290,16 @@ class OASCContract(BaseContract):
                 continue
             tool_name = str(item.get("name") or "unknown")
             arguments = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
+            # Phase 6.1: inject file_path into recorded args_compact for idempotency
+            if bool(getattr(self.runtime_config, "enable_execution_idempotency", False)):
+                if "file_path" not in arguments:
+                    active_file = getattr(self.inner_router.memory.fact_memory, "active_file", None)
+                    if active_file:
+                        arguments = dict(arguments, file_path=str(active_file))
             tool_result = item.get("result") if isinstance(item.get("result"), dict) else {}
+            # Phase 6.1: skip idempotent skips — do not record as normal tool calls
+            if tool_result.get("idempotent_skip"):
+                continue
             summary = str(tool_result.get("summary") or tool_result.get("message") or "")
             record = ToolCallRecord(
                 turn=self._current_turn_index(),

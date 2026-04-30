@@ -45,6 +45,26 @@ class IncompatibleSessionError(ValueError):
     """Raised when persisted AO state predates the Phase 2R stance schema."""
 
 
+class IdempotencyDecision(Enum):
+    NO_DUPLICATE = "no_duplicate"
+    EXACT_DUPLICATE = "exact_duplicate"
+    REVISION_DETECTED = "revision_detected"
+    EXPLICIT_RERUN = "explicit_rerun"
+
+
+@dataclass
+class IdempotencyResult:
+    decision: IdempotencyDecision
+    matched_ao_id: Optional[str] = None
+    matched_tool: Optional[str] = None
+    matched_turn: Optional[int] = None
+    matched_result_ref: Optional[str] = None
+    proposed_fingerprint: Optional[Dict[str, Any]] = None
+    previous_fingerprint: Optional[Dict[str, Any]] = None
+    decision_reason: str = ""
+    explicit_rerun_absent: bool = True
+
+
 @dataclass
 class ToolIntent:
     resolved_tool: Optional[str] = None

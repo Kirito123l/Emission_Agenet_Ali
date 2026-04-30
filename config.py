@@ -155,6 +155,9 @@ class Config:
         self.enable_lifecycle_contract_alignment = (
             os.getenv("ENABLE_LIFECYCLE_CONTRACT_ALIGNMENT", "true").lower() == "true"
         )
+        self.enable_execution_idempotency = (
+            os.getenv("ENABLE_EXECUTION_IDEMPOTENCY", "false").lower() == "true"
+        )
         self.enable_conversational_stance = (
             os.getenv("ENABLE_CONVERSATIONAL_STANCE", "true").lower() == "true"
         )

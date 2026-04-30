@@ -111,6 +111,7 @@ class TraceStepType(str, Enum):
     SYNTHESIS = "synthesis"
     REPLY_GENERATION = "reply_generation"
     ERROR = "error"
+    IDEMPOTENT_SKIP = "idempotent_skip"
 
 
 @dataclass
