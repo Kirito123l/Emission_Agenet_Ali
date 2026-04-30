@@ -82,7 +82,7 @@ class OASCContract(BaseContract):
         classifier_telemetry_start = int(oasc_state.get("classifier_telemetry_start") or 0)
         ao_telemetry_start = int(oasc_state.get("ao_telemetry_start") or 0)
 
-        if not result.executed_tool_calls:
+        if result.executed_tool_calls is None:
             result.executed_tool_calls = self._backfill_executed_tool_calls_from_memory()
 
         if context.router_executed and getattr(self.runtime_config, "enable_ao_aware_memory", True):

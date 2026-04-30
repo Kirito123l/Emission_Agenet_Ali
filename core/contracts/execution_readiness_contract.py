@@ -154,6 +154,13 @@ class ExecutionReadinessContract(SplitContractSupport):
         )
         missing_required = self._missing_slots(snapshot, active_required_slots)
         optional_classification = self._classify_missing_optionals(tool_name, snapshot, tool_spec)
+        # Phase 5.3 Round 3.2: write stage3_yaml for A reconciler P2 source
+        context.metadata["stage3_yaml"] = {
+            "missing_required": list(missing_required),
+            "rejected_slots": list(rejected_slots),
+            "active_required_slots": list(active_required_slots),
+            "optional_classification": dict(optional_classification),
+        }
         stage2_needs_clarification = bool((llm_payload or {}).get("needs_clarification"))
         followup_slots = self._slot_names(
             pending_state.get("followup_slots") if pending_state.get("followup_slots") else tool_spec.get("clarification_followup_slots")
@@ -194,14 +201,18 @@ class ExecutionReadinessContract(SplitContractSupport):
             and projected_chain
             and projected_chain[0] != continuation_before.pending_next_tool
         ):
-            continuation_after = ExecutionContinuation(
-                pending_objective=PendingObjective.CHAIN_CONTINUATION,
-                pending_next_tool=projected_chain[0],
-                pending_tool_queue=list(projected_chain),
-                updated_turn=self._current_turn_index(),
-            )
-            save_execution_continuation(current_ao, continuation_after)
-            transition_reason = "replace_queue_override"
+            pending_next = continuation_before.pending_next_tool
+            if pending_next in projected_chain:
+                idx = projected_chain.index(pending_next)
+                continuation_after = ExecutionContinuation(
+                    pending_objective=PendingObjective.CHAIN_CONTINUATION,
+                    pending_next_tool=pending_next,
+                    pending_tool_queue=list(projected_chain[idx:]),
+                    updated_turn=self._current_turn_index(),
+                )
+                save_execution_continuation(current_ao, continuation_after)
+                transition_reason = "replace_queue_override"
+            # else: pending_next_tool not in projected_chain — preserve existing, no-op
 
         clarify_candidates = list(missing_required) + list(rejected_slots)
         clarify_required_candidates = list(missing_required)
@@ -360,6 +371,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                             "clarification": {"telemetry": telemetry},
                             "hardcoded_recommendation": "clarify",
                             "hardcoded_reason": question,
+                            "readiness_gate": {
+                                "disposition": "q3_defer",
+                                "clarify_candidates": list(clarify_candidates),
+                                "clarify_required_candidates": list(clarify_required_candidates),
+                                "clarify_optional_candidates": list(clarify_optional_candidates),
+                                "hardcoded_recommendation": "clarify",
+                                "has_direct_execution": False,
+                                "force_proceed_reason": "",
+                            },
                         }
                     )
                 return ContractInterception(
@@ -411,6 +431,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                         ],
                         "hardcoded_recommendation": "deliberate",
                         "hardcoded_reason": "exploratory stance detected",
+                        "readiness_gate": {
+                            "disposition": "q3_defer",
+                            "clarify_candidates": [],
+                            "clarify_required_candidates": [],
+                            "clarify_optional_candidates": [],
+                            "hardcoded_recommendation": "deliberate",
+                            "has_direct_execution": False,
+                            "force_proceed_reason": "",
+                        },
                     }
                 )
             return ContractInterception(
@@ -537,6 +566,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                                 "clarification": {"telemetry": telemetry},
                                 "hardcoded_recommendation": "clarify",
                                 "hardcoded_reason": question,
+                                "readiness_gate": {
+                                    "disposition": "q3_defer",
+                                    "clarify_candidates": [pending_slot],
+                                    "clarify_required_candidates": [pending_slot],
+                                    "clarify_optional_candidates": [],
+                                    "hardcoded_recommendation": "clarify",
+                                    "has_direct_execution": False,
+                                    "force_proceed_reason": "",
+                                },
                             }
                         )
                     return ContractInterception(
@@ -629,7 +667,24 @@ class ExecutionReadinessContract(SplitContractSupport):
             "projected_chain": list(projected_chain),
             "tool_name": tool_name,
         }
-        return ContractInterception(metadata={"clarification": clarification_metadata})
+        # Phase 5.3 Round 3.2: attach readiness_gate for A reconciler P3 source
+        clarification_metadata["readiness_gate"] = {
+            "disposition": "proceed",
+            "clarify_candidates": [],
+            "clarify_required_candidates": [],
+            "clarify_optional_candidates": [],
+            "hardcoded_recommendation": "",
+            "has_direct_execution": bool(
+                clarification_metadata.get("direct_execution") is not None
+            ),
+            "force_proceed_reason": str(force_proceed_reason or ""),
+        }
+        return ContractInterception(
+            metadata={
+                "clarification": clarification_metadata,
+                "readiness_gate": clarification_metadata["readiness_gate"],
+            }
+        )
 
     async def after_turn(self, context: ContractContext, result: RouterResponse) -> None:
         clarification_state = dict(context.metadata.get("clarification") or {})
@@ -816,6 +871,19 @@ class ExecutionReadinessContract(SplitContractSupport):
             "confirm_first_detected": bool(confirm_first_detected),
             "needs_clarification": bool(needs_clarification),
         }
+        # Phase 5.3 Round 3.3: mirror to top-level AO-local fields
+        # (legacy ClarificationContract writes these; split ERC must do the same
+        #  so _initial_snapshot fallback can find the snapshot.)
+        ao.metadata["parameter_snapshot"] = copy.deepcopy(snapshot)
+        for slot_name, slot_payload in snapshot.items():
+            if not isinstance(slot_payload, dict):
+                continue
+            if slot_payload.get("source") in {"missing", "rejected"}:
+                continue
+            value = slot_payload.get("value")
+            if value in (None, "", []):
+                continue
+            ao.parameters_used[slot_name] = value
 
     @staticmethod
     def _slot_names(values: Any) -> List[str]:

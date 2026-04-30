@@ -955,6 +955,20 @@ class ClarificationContract(BaseContract):
             if not isinstance(slot_payload, dict):
                 continue
             normalized_payload = self._normalize_missing_value(dict(slot_payload))
+            # Phase 5.3 Round 3.4: protect deterministic Stage 1 fills from
+            # being downgraded to missing/empty by Stage 2 LLM output.
+            base_slot = merged.get(str(slot_name))
+            if isinstance(base_slot, dict):
+                base_value = base_slot.get("value")
+                base_not_empty = base_value not in (None, "", [])
+                llm_value = normalized_payload.get("value")
+                llm_source = str(normalized_payload.get("source") or "missing")
+                llm_is_downgrade = (
+                    llm_value in (None, "", [])
+                    or llm_source == "missing"
+                )
+                if base_not_empty and llm_is_downgrade:
+                    continue  # preserve Stage 1 / prior-turn deterministic fill
             merged[str(slot_name)] = {
                 "value": copy.deepcopy(normalized_payload.get("value")),
                 "source": str(normalized_payload.get("source") or "missing"),
@@ -1021,7 +1035,17 @@ class ClarificationContract(BaseContract):
         target.evidence = list(getattr(tool_intent, "evidence", []) or [])
         target.resolved_at_turn = getattr(tool_intent, "resolved_at_turn", None)
         target.resolved_by = getattr(tool_intent, "resolved_by", None)
-        target.projected_chain = list(getattr(tool_intent, "projected_chain", []) or [])
+        new_chain = list(getattr(tool_intent, "projected_chain", []) or [])
+        existing_chain = list(getattr(target, "projected_chain", []) or [])
+        if not new_chain and existing_chain:
+            pass  # never erase a non-empty chain with empty
+        elif len(existing_chain) > 1 and len(new_chain) <= 1:
+            if not new_chain:
+                pass  # preserve existing multi-step chain
+            elif new_chain[0] in existing_chain and existing_chain.index(new_chain[0]) > 0:
+                target.projected_chain = new_chain
+        else:
+            target.projected_chain = new_chain
 
     def _persist_stance(self, ao: Any, resolution: StanceResolution) -> None:
         if ao is None or not getattr(self.runtime_config, "enable_conversational_stance", True):

@@ -34,6 +34,9 @@ class IntentResolutionContract(SplitContractSupport):
         if state is None or classification is None or current_ao is None:
             return ContractInterception()
 
+        if context.file_path:
+            await self._ensure_file_context(state, context.file_path)
+
         short_circuit_intent = False
         continuation = load_execution_continuation(current_ao)
         tool_intent = None
@@ -80,6 +83,25 @@ class IntentResolutionContract(SplitContractSupport):
                         evidence=["parameter_collection_state"],
                         state=state,
                         projected_chain=projected_chain,
+                    )
+                    short_circuit_intent = True
+            elif not continuation.is_active():
+                task_type = str(
+                    getattr(getattr(state, "file_context", None), "task_type", "") or ""
+                ).strip()
+                if task_type in ("macro_emission", "micro_emission"):
+                    tool_map = {
+                        "macro_emission": "calculate_macro_emission",
+                        "micro_emission": "calculate_micro_emission",
+                    }
+                    resolved = tool_map[task_type]
+                    tool_intent = self.intent_resolver._intent(
+                        resolved,
+                        IntentConfidence.HIGH,
+                        resolved_by="continuation_state:file_task_type",
+                        evidence=[f"file_task_type:{task_type}"],
+                        state=state,
+                        projected_chain=[resolved],
                     )
                     short_circuit_intent = True
 

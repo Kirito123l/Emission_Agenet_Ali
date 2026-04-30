@@ -4,6 +4,8 @@ from typing import Any, Dict
 
 from core.analytical_objective import ConversationalStance, StanceConfidence
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
+from core.execution_continuation import PendingObjective
+from core.execution_continuation_utils import load_execution_continuation
 from core.stance_resolver import StanceResolution, StanceResolver
 from tools.contract_loader import get_tool_contract_registry
 
@@ -44,12 +46,22 @@ class StanceResolutionContract(BaseContract):
                 )
                 reversal_detected = True
             else:
-                resolution = StanceResolution(
-                    stance=current_ao.stance if current_ao.stance != ConversationalStance.UNKNOWN else ConversationalStance.DIRECTIVE,
-                    confidence=current_ao.stance_confidence if current_ao.stance != ConversationalStance.UNKNOWN else StanceConfidence.LOW,
-                    evidence=["current_stance"] if current_ao.stance != ConversationalStance.UNKNOWN else ["default"],
-                    resolved_by=current_ao.stance_resolved_by or "default_directive",
-                )
+                continuation = load_execution_continuation(current_ao)
+                if continuation.pending_objective == PendingObjective.PARAMETER_COLLECTION and continuation.is_active():
+                    resolution = StanceResolution(
+                        stance=ConversationalStance.DIRECTIVE,
+                        confidence=StanceConfidence.HIGH,
+                        evidence=["continuation_state:parameter_collection",
+                                  f"pending_slot:{continuation.pending_slot}"],
+                        resolved_by="continuation_state:parameter_collection",
+                    )
+                else:
+                    resolution = StanceResolution(
+                        stance=current_ao.stance if current_ao.stance != ConversationalStance.UNKNOWN else ConversationalStance.DIRECTIVE,
+                        confidence=current_ao.stance_confidence if current_ao.stance != ConversationalStance.UNKNOWN else StanceConfidence.LOW,
+                        evidence=["current_stance"] if current_ao.stance != ConversationalStance.UNKNOWN else ["default"],
+                        resolved_by=current_ao.stance_resolved_by or "default_directive",
+                    )
         else:
             fast = self.stance_resolver.resolve_fast(context.effective_user_message, current_ao)
             payload = context.metadata.get("stage2_payload") if isinstance(context.metadata.get("stage2_payload"), dict) else {}

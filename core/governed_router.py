@@ -563,6 +563,9 @@ class GovernedRouter:
 
         Returns a RouterResponse for clarify/deliberate decisions, or None for
         proceed (which falls through to existing execution path).
+
+        Phase 5.3 Round 3.2: A reconciler arbitrates across P1 (Stage 2 LLM),
+        P2 (YAML stage 3), and P3 (readiness gate) before consumption.
         """
         stage2_payload = context.metadata.get("stage2_payload")
         decision = None
@@ -585,7 +588,48 @@ class GovernedRouter:
             logger.debug("Decision field validation failed: %s — falling back", fallback_reason)
             return None
 
-        value = str(decision.get("value") or "").strip().lower()
+        # ── Phase 5.3 Round 3.2: A reconciler ──────────────────────────
+        from core.contracts.reconciler import (
+            build_p1_from_stage2_payload,
+            build_p2_from_stage3_yaml,
+            build_p3_from_readiness_gate,
+            filter_stage2_missing_required,
+            reconcile,
+        )
+
+        p1 = build_p1_from_stage2_payload(stage2_payload, is_valid=True)
+        stage3_yaml = context.metadata.get("stage3_yaml")
+        p2 = build_p2_from_stage3_yaml(stage3_yaml)
+        # P3 may be at top-level (Q3 gate paths) or inside clarification (proceed path)
+        readiness_gate = context.metadata.get("readiness_gate")
+        if not isinstance(readiness_gate, dict):
+            clarification_state = dict(context.metadata.get("clarification") or {})
+            readiness_gate = clarification_state.get("readiness_gate")
+        p3 = build_p3_from_readiness_gate(readiness_gate)
+
+        tool_name = self._extract_tool_name_from_context(context) or p1.resolved_tool
+        b_result = None
+        if tool_name and p1.missing_required:
+            b_result = filter_stage2_missing_required(tool_name, p1.missing_required)
+
+        reconciled = reconcile(p1, p2, p3, b_result=b_result, tool_name=tool_name)
+
+        # Store reconciled decision in metadata for trace/debug
+        context.metadata["reconciled_decision"] = {
+            "decision_value": reconciled.decision_value,
+            "reconciled_missing_required": reconciled.reconciled_missing_required,
+            "clarification_question": reconciled.clarification_question,
+            "deliberative_reasoning": reconciled.deliberative_reasoning,
+            "reasoning": reconciled.reasoning,
+            "source_trace": reconciled.source_trace,
+            "applied_rule_id": reconciled.applied_rule_id,
+        }
+
+        value = reconciled.decision_value
+        if not value:
+            value = str(decision.get("value") or "").strip().lower()
+        # ── End A reconciler block ─────────────────────────────────────
+
         if value == "proceed":
             # Cross-constraint preflight (design §5.2):
             # validate parameter combination before allowing execution.
@@ -638,7 +682,15 @@ class GovernedRouter:
             return None  # Falls through to snapshot / inner router
 
         if value == "clarify":
-            question = str(decision.get("clarification_question") or "").strip()
+            question = str(
+                reconciled.clarification_question
+                or decision.get("clarification_question")
+                or ""
+            ).strip()
+            # Build a minimal question from reconciled missing_required if LLM gave none
+            if not question and reconciled.reconciled_missing_required:
+                missing_names = "、".join(reconciled.reconciled_missing_required)
+                question = f"请提供以下必需参数：{missing_names}"
             if not question:
                 return None
             trace_friendly = [{"step_type": "clarification", "summary": question}]
@@ -646,7 +698,11 @@ class GovernedRouter:
                 trace.setdefault("steps", []).append({
                     "step_type": "decision_field_clarify",
                     "action": "llm_decision_field",
-                    "output_summary": {"decision": value, "question": question},
+                    "output_summary": {
+                        "decision": value,
+                        "question": question,
+                        "applied_rule_id": reconciled.applied_rule_id,
+                    },
                 })
             return RouterResponse(
                 text=question,
@@ -656,7 +712,13 @@ class GovernedRouter:
             )
 
         if value == "deliberate":
-            reasoning = str(decision.get("reasoning") or "").strip()
+            reasoning = str(
+                reconciled.deliberative_reasoning
+                or decision.get("reasoning")
+                or ""
+            ).strip()
+            if not reasoning:
+                return None
             trace_friendly = [{"step_type": "clarification", "summary": reasoning}]
             if trace is not None:
                 trace.setdefault("steps", []).append({
