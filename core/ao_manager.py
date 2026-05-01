@@ -719,6 +719,71 @@ class AOManager:
             reason=f"{proposed} not in planned_chain {state.planned_chain}",
         )
 
+    # ── Phase 6.E.3: canonical chain handoff helpers ───────────────────────
+
+    def get_canonical_pending_next_tool(self, ao: AnalyticalObjective) -> Optional[str]:
+        """Return the next pending tool from canonical execution state.
+
+        Only active when ENABLE_CANONICAL_EXECUTION_STATE=true.
+        Returns the first PENDING/FAILED step in the chain, or None if chain is complete/empty.
+        FAILED chain status still returns the failed tool to allow retry.
+        """
+        if not _canonical_state_enabled():
+            return None
+        state = ensure_execution_state(ao)
+        if state is None or not state.steps:
+            return None
+        if state.chain_status not in ("active", "", "failed"):
+            return None
+        # Verify all steps before cursor are completed or skipped
+        for i in range(state.chain_cursor):
+            if i < len(state.steps):
+                s = state.steps[i]
+                if s.status not in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED):
+                    return None
+        # Return the step at chain_cursor (may be PENDING or FAILED)
+        if 0 <= state.chain_cursor < len(state.steps):
+            cursor_step = state.steps[state.chain_cursor]
+            if cursor_step.status in (ExecutionStepStatus.PENDING, ExecutionStepStatus.FAILED):
+                return cursor_step.tool_name
+        return None
+
+    def should_prefer_canonical_pending_tool(
+        self,
+        ao: AnalyticalObjective,
+        proposed_tool: str,
+    ) -> bool:
+        """Return True when canonical pending tool should override proposed_tool.
+
+        Rules:
+        - Canonical state must be enabled and have a pending_next_tool.
+        - proposed_tool must differ from pending_next_tool.
+        - proposed_tool must be an already-completed upstream step (in planned_chain).
+        - Does NOT override when proposed_tool is not in planned_chain (independent).
+        - Does NOT override when proposed_tool is also pending (proceed normally).
+        """
+        if not _canonical_state_enabled():
+            return False
+        pending = self.get_canonical_pending_next_tool(ao)
+        if not pending:
+            return False
+        proposed = str(proposed_tool or "").strip()
+        if not proposed or proposed == pending:
+            return False
+        state = ensure_execution_state(ao)
+        if state is None:
+            return False
+        # Only override if proposed_tool is in the same planned_chain
+        # and is already completed (upstream step drift)
+        for step in state.steps:
+            if step.tool_name == proposed:
+                if step.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED):
+                    return True
+                # Proposed tool exists in chain but is pending/failed — don't override
+                return False
+        # Proposed tool not in planned_chain — independent, don't override
+        return False
+
     # ── Phase 6.1: execution idempotency ──────────────────────────────────
 
     def check_execution_idempotency(

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from core.analytical_objective import IntentConfidence
+from core.analytical_objective import ExecutionStepStatus, IntentConfidence
 from config import get_config
+from core.ao_manager import ensure_execution_state
 from core.contracts.base import ContractContext, ContractInterception
 from core.contracts.split_contract_utils import SplitContractSupport
 from core.continuation_signals import has_reversal_marker
@@ -48,7 +49,61 @@ class IntentResolutionContract(SplitContractSupport):
             and not has_reversal_marker(context.effective_user_message)
         ):
             fast = self.intent_resolver.resolve_fast(state, current_ao)
-            if (
+
+            # ── Phase 6.E.3: canonical execution state chain handoff ──────────
+            # When canonical state has a pending downstream tool and the fast-resolved
+            # tool is an already-completed upstream step, prefer the downstream tool.
+            canonical_enabled = bool(getattr(
+                self.runtime_config, "enable_canonical_execution_state", False,
+            ))
+            canonical_pending = None
+            canonical_prefer = False
+            canonical_conflict = None
+            if canonical_enabled and self.ao_manager is not None:
+                canonical_pending = self.ao_manager.get_canonical_pending_next_tool(current_ao)
+                if canonical_pending:
+                    fast_tool = str(getattr(fast, "resolved_tool", "") or "").strip()
+                    canonical_prefer = self.ao_manager.should_prefer_canonical_pending_tool(
+                        current_ao, proposed_tool=fast_tool or canonical_pending,
+                    )
+                    # Compatibility: detect conflict with ExecutionContinuation
+                    if (
+                        continuation.pending_objective == PendingObjective.CHAIN_CONTINUATION
+                        and continuation.pending_next_tool
+                        and continuation.pending_next_tool != canonical_pending
+                    ):
+                        canonical_conflict = {
+                            "canonical_pending_next_tool": canonical_pending,
+                            "continuation_pending_next_tool": continuation.pending_next_tool,
+                            "applied_source": "canonical_execution_state",
+                        }
+            if canonical_prefer and canonical_pending:
+                state_obj = ensure_execution_state(current_ao)
+                remaining_chain = []
+                if state_obj is not None:
+                    remaining_chain = [
+                        s.tool_name for s in state_obj.steps[state_obj.chain_cursor:]
+                        if s.status != ExecutionStepStatus.SKIPPED
+                    ] if 0 <= state_obj.chain_cursor < len(state_obj.steps) else []
+                if not remaining_chain:
+                    remaining_chain = [canonical_pending]
+                tool_intent = self.intent_resolver._intent(
+                    canonical_pending,
+                    IntentConfidence.HIGH,
+                    resolved_by="canonical_execution_state:pending_next_tool",
+                    evidence=["canonical_execution_state:pending_next_tool"],
+                    state=state,
+                    projected_chain=remaining_chain,
+                )
+                short_circuit_intent = True
+                context.metadata["canonical_chain_handoff"] = {
+                    "triggered": True,
+                    "pending_next_tool": canonical_pending,
+                    "remaining_chain": list(remaining_chain),
+                    "conflict": canonical_conflict,
+                }
+
+            if tool_intent is None and (
                 continuation.pending_objective == PendingObjective.CHAIN_CONTINUATION
                 and continuation.pending_next_tool
                 and (not fast.projected_chain or fast.projected_chain[0] == continuation.pending_next_tool)
@@ -136,12 +191,15 @@ class IntentResolutionContract(SplitContractSupport):
                 "short_circuit_intent": short_circuit_intent,
             }
         if short_circuit_intent and continuation is not None:
-            context.metadata["continuation_state"] = {
+            cs_meta: Dict[str, Any] = {
                 "objective": str(getattr(current_ao, "objective_text", "") or ""),
                 "pending_slots": [str(continuation.pending_slot)] if continuation.pending_slot else [],
                 "prior_tool": str(continuation.pending_next_tool or bound_tool or ""),
                 "pending_objective": str(continuation.pending_objective.value if hasattr(continuation.pending_objective, "value") else continuation.pending_objective),
             }
+            if canonical_conflict:
+                cs_meta["canonical_conflict"] = canonical_conflict
+            context.metadata["continuation_state"] = cs_meta
         self._persist_tool_intent(current_ao, tool_intent)
         context.metadata["tool_intent"] = tool_intent
         if tool_intent.confidence == IntentConfidence.NONE:

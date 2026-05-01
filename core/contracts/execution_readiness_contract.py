@@ -3,7 +3,8 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional
 
-from core.analytical_objective import ConversationalStance
+from core.analytical_objective import ConversationalStance, ExecutionStepStatus
+from core.ao_manager import ensure_execution_state
 from core.continuation_signals import has_probe_abandon_marker, has_reversal_marker
 from core.contracts.base import ContractContext, ContractInterception
 from core.contracts.runtime_defaults import _RUNTIME_DEFAULTS as RUNTIME_DEFAULTS, has_runtime_default
@@ -72,12 +73,49 @@ class ExecutionReadinessContract(SplitContractSupport):
         tool_name = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
         if not tool_name:
             return ContractInterception()
+
+        # ── Phase 6.E.3: canonical execution state chain handoff guard ──────
+        # Belt-and-suspenders: if canonical state has a pending downstream tool
+        # and the intent-resolved tool is an already-completed upstream step,
+        # override to the downstream tool.  Does NOT override revisions or
+        # independent tasks (only overrides completed upstream drift).
+        canonical_handoff_applied = False
+        if (
+            self.ao_manager is not None
+            and bool(getattr(self.runtime_config, "enable_canonical_execution_state", False))
+        ):
+            canonical_pending = self.ao_manager.get_canonical_pending_next_tool(current_ao)
+            if (
+                canonical_pending
+                and canonical_pending != tool_name
+                and self.ao_manager.should_prefer_canonical_pending_tool(
+                    current_ao, proposed_tool=tool_name,
+                )
+            ):
+                state_obj = ensure_execution_state(current_ao)
+                remaining_chain = [canonical_pending]
+                if state_obj is not None and 0 <= state_obj.chain_cursor < len(state_obj.steps):
+                    remaining_chain = [
+                        s.tool_name for s in state_obj.steps[state_obj.chain_cursor:]
+                        if s.status != ExecutionStepStatus.SKIPPED
+                    ]
+                tool_name = canonical_pending
+                context.metadata["canonical_chain_handoff"] = {
+                    "triggered": True,
+                    "source": "execution_readiness_guard",
+                    "pending_next_tool": canonical_pending,
+                    "remaining_chain": list(remaining_chain),
+                }
+                canonical_handoff_applied = True
+
         tool_spec = self._get_tool_spec(tool_name)
         if not tool_spec:
             return ContractInterception()
         projected_chain = normalize_tool_queue(
             list(getattr(tool_intent, "projected_chain", []) or [tool_name])
         )
+        if not projected_chain or canonical_handoff_applied:
+            projected_chain = [tool_name]
         if not projected_chain:
             projected_chain = [tool_name]
 
@@ -201,7 +239,25 @@ class ExecutionReadinessContract(SplitContractSupport):
             and projected_chain
             and projected_chain[0] != continuation_before.pending_next_tool
         ):
+            # Phase 6.E.3: if canonical state has a newer pending tool, let it win
+            applied_source = "continuation"
             pending_next = continuation_before.pending_next_tool
+            if bool(getattr(self.runtime_config, "enable_canonical_execution_state", False)):
+                canonical_pending = (
+                    self.ao_manager.get_canonical_pending_next_tool(current_ao)
+                    if self.ao_manager is not None else None
+                )
+                if canonical_pending and canonical_pending != pending_next:
+                    if canonical_pending in projected_chain:
+                        pending_next = canonical_pending
+                        applied_source = "canonical_execution_state"
+                        context.metadata.setdefault("canonical_chain_handoff", {})
+                        context.metadata["canonical_chain_handoff"].setdefault("conflict", {})
+                        context.metadata["canonical_chain_handoff"]["conflict"] = {
+                            "canonical_pending_next_tool": canonical_pending,
+                            "continuation_pending_next_tool": continuation_before.pending_next_tool,
+                            "applied_source": applied_source,
+                        }
             if pending_next in projected_chain:
                 idx = projected_chain.index(pending_next)
                 continuation_after = ExecutionContinuation(
