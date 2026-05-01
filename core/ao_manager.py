@@ -19,6 +19,8 @@ from core.analytical_objective import (
     IntentConfidence,
     RevisionDeltaDecisionPreview,
     RevisionDeltaTelemetry,
+    RevisionInvalidationDecision,
+    RevisionInvalidationResult,
     ToolCallRecord,
 )
 from core.ao_manager_keywords import MULTI_STEP_SIGNAL_PATTERNS as _MULTI_STEP_SIGNAL_PATTERNS
@@ -1009,6 +1011,185 @@ class AOManager:
             decision_preview=decision,
             scope_expansion_detected=scope_expansion,
             reason=f"delta={bool(changed)} rerun={rerun_signal} matched_step[{matched_idx}] status={matched_step.status.value}",
+        )
+
+    # ── Phase 6.E.4B: revision invalidation engine ─────────────────────────
+
+    def apply_revision_invalidation(
+        self,
+        ao: AnalyticalObjective,
+        telemetry: RevisionDeltaTelemetry,
+    ) -> RevisionInvalidationResult:
+        """Apply invalidation to AOExecutionState based on revision delta telemetry.
+
+        Mutates AOExecutionState in-place: marks matched steps INVALIDATED,
+        increments revision_epoch, clears result_refs, stores stale refs in
+        provenance, resets chain_cursor to earliest invalidated step, and
+        sets chain_status to "active".
+
+        Only active when both ENABLE_CANONICAL_EXECUTION_STATE and
+        ENABLE_REVISION_INVALIDATION are true.
+        """
+        # Gate: both flags must be on
+        try:
+            from config import get_config
+            cfg = get_config()
+            canonical_on = bool(getattr(cfg, "enable_canonical_execution_state", False))
+            revision_on = bool(getattr(cfg, "enable_revision_invalidation", False))
+        except Exception:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.NOOP.value,
+                reason="config unavailable, no mutation",
+            )
+        if not canonical_on or not revision_on:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.NOOP.value,
+                reason="canonical or revision invalidation flag disabled",
+            )
+
+        state = ensure_execution_state(ao)
+        if state is None or not state.steps:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.NOOP.value,
+                reason="no execution state",
+            )
+
+        dp = telemetry.decision_preview
+
+        # NO_DELTA → NOOP
+        if dp == RevisionDeltaDecisionPreview.NO_DELTA:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.NOOP.value,
+                reason="no parameter delta detected",
+            )
+
+        # RERUN_SAME_PARAMS → RERUN_WITHOUT_INVALIDATION
+        if dp == RevisionDeltaDecisionPreview.RERUN_SAME_PARAMS:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.RERUN_WITHOUT_INVALIDATION.value,
+                reason="same params, explicit rerun — allow re-execution without invalidation",
+            )
+
+        # INSUFFICIENT_EVIDENCE → no mutation
+        if dp == RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.INSUFFICIENT_EVIDENCE.value,
+                reason=telemetry.reason or "insufficient evidence for invalidation",
+            )
+
+        # scope_expansion_detected → defer, don't mutate
+        if telemetry.scope_expansion_detected:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.INSUFFICIENT_EVIDENCE.value,
+                reason="scope_expansion_deferred",
+            )
+
+        # PARAM_DELTA_SELF / PARAM_DELTA_DOWNSTREAM / DATA_SOURCE_DELTA_ALL → INVALIDATED
+        if dp not in (
+            RevisionDeltaDecisionPreview.PARAM_DELTA_SELF,
+            RevisionDeltaDecisionPreview.PARAM_DELTA_DOWNSTREAM,
+            RevisionDeltaDecisionPreview.DATA_SOURCE_DELTA_ALL,
+        ):
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.INSUFFICIENT_EVIDENCE.value,
+                reason=f"unexpected decision_preview: {dp}",
+            )
+
+        # Use would_invalidate_tools from telemetry as source of truth
+        would_invalidate = list(telemetry.would_invalidate_tools)
+        if not would_invalidate:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.NOOP.value,
+                reason="would_invalidate_tools is empty despite delta",
+            )
+
+        previous_cursor = state.chain_cursor
+        previous_epoch = state.revision_epoch
+
+        # Filter out already-INVALIDATED tools (idempotency)
+        already_invalidated = set(
+            s.tool_name for s in state.steps
+            if s.status == ExecutionStepStatus.INVALIDATED
+        )
+        fresh_invalidate = [t for t in would_invalidate if t not in already_invalidated]
+
+        if not fresh_invalidate:
+            return RevisionInvalidationResult(
+                decision=RevisionInvalidationDecision.NOOP.value,
+                reason="all would_invalidate_tools already INVALIDATED",
+                revision_epoch=state.revision_epoch,
+                previous_chain_cursor=state.chain_cursor,
+                new_chain_cursor=state.chain_cursor,
+            )
+
+        # Increment revision_epoch
+        new_epoch = state.revision_epoch + 1
+        state.revision_epoch = new_epoch
+
+        invalidated_indices: List[int] = []
+        cleared_refs: List[str] = []
+        preserved_refs: List[str] = []
+        preserved_tools: List[str] = []
+
+        for i, step in enumerate(state.steps):
+            if step.tool_name in fresh_invalidate:
+                # Mark INVALIDATED
+                step.provenance["previous_status"] = step.status.value
+                step.status = ExecutionStepStatus.INVALIDATED
+                step.revision_epoch = new_epoch
+
+                # Store stale result_ref in provenance
+                if step.result_ref:
+                    step.provenance["stale_result_ref"] = step.result_ref
+                    cleared_refs.append(step.result_ref)
+
+                # Preserve effective_args in provenance
+                if step.effective_args:
+                    step.provenance["stale_effective_args"] = dict(step.effective_args)
+
+                # Record invalidation metadata in provenance
+                step.provenance["invalidated_reason"] = telemetry.decision_preview
+                step.provenance["changed_keys"] = list(telemetry.changed_keys)
+
+                # Clear result_ref
+                step.result_ref = None
+
+                invalidated_indices.append(i)
+            elif step.tool_name in would_invalidate:
+                # Already INVALIDATED from a prior application — still track index
+                invalidated_indices.append(i)
+            elif step.status == ExecutionStepStatus.COMPLETED:
+                preserved_tools.append(step.tool_name)
+                if step.result_ref:
+                    preserved_refs.append(step.result_ref)
+
+        # Set chain_cursor to earliest invalidated step index
+        new_cursor = min(invalidated_indices) if invalidated_indices else state.chain_cursor
+        state.chain_cursor = new_cursor
+
+        # Set chain_status to "active" (steps need re-execution)
+        state.chain_status = "active"
+
+        # Persist mutated state back to AO metadata
+        if isinstance(ao.metadata, dict):
+            ao.metadata["execution_state"] = state.to_dict()
+
+        return RevisionInvalidationResult(
+            decision=RevisionInvalidationDecision.INVALIDATED.value,
+            invalidated_tools=list(would_invalidate),
+            invalidated_step_indices=invalidated_indices,
+            preserved_tools=preserved_tools,
+            previous_chain_cursor=previous_cursor,
+            new_chain_cursor=new_cursor,
+            revision_epoch=new_epoch,
+            cleared_result_refs=cleared_refs,
+            preserved_result_refs=preserved_refs,
+            reason=f"invalidated {len(invalidated_indices)} step(s): {would_invalidate}",
+            provenance={
+                "telemetry_decision_preview": telemetry.decision_preview,
+                "telemetry_changed_keys": list(telemetry.changed_keys),
+                "trigger_source": telemetry.trigger_source,
+            },
         )
 
     # ── Phase 6.1: execution idempotency ──────────────────────────────────

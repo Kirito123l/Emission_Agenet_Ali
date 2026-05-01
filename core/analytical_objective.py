@@ -147,6 +147,46 @@ class RevisionDeltaTelemetry:
         return cls()
 
 
+# ── Phase 6.E.4B: revision invalidation engine ────────────────────────────
+
+
+class RevisionInvalidationDecision(Enum):
+    NOOP = "noop"
+    INVALIDATED = "invalidated"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    RERUN_WITHOUT_INVALIDATION = "rerun_without_invalidation"
+
+
+@dataclass
+class RevisionInvalidationResult:
+    decision: str = ""  # RevisionInvalidationDecision value
+    invalidated_tools: List[str] = field(default_factory=list)
+    invalidated_step_indices: List[int] = field(default_factory=list)
+    preserved_tools: List[str] = field(default_factory=list)
+    previous_chain_cursor: int = 0
+    new_chain_cursor: int = 0
+    revision_epoch: int = 0
+    cleared_result_refs: List[str] = field(default_factory=list)
+    preserved_result_refs: List[str] = field(default_factory=list)
+    reason: str = ""
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "decision": self.decision,
+            "invalidated_tools": list(self.invalidated_tools),
+            "invalidated_step_indices": list(self.invalidated_step_indices),
+            "preserved_tools": list(self.preserved_tools),
+            "previous_chain_cursor": self.previous_chain_cursor,
+            "new_chain_cursor": self.new_chain_cursor,
+            "revision_epoch": self.revision_epoch,
+            "cleared_result_refs": list(self.cleared_result_refs),
+            "preserved_result_refs": list(self.preserved_result_refs),
+            "reason": self.reason,
+            "provenance": dict(self.provenance),
+        }
+
+
 # ── Phase 6.E: canonical multi-turn execution state ─────────────────────
 
 
