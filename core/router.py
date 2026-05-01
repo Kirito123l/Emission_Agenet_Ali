@@ -885,6 +885,18 @@ class UnifiedRouter:
                     effective_arguments["_pollutant_source"] = "user"
         if tool_name == "calculate_dispersion":
             self._inherit_dispersion_scenario_arguments(effective_arguments, state=state)
+            # Phase 7.5B: inject spatial emission layer when file has direct road geometry
+            if state is not None and state.file_context.grounded:
+                fc = state.file_context.to_dict()
+                gm = fc.get("geometry_metadata") or {}
+                if isinstance(gm, dict) and gm.get("road_geometry_available"):
+                    try:
+                        from core.spatial_emission_resolver import build_spatial_emission_layer
+                        layer = build_spatial_emission_layer(file_context=fc)
+                        if layer.layer_available:
+                            effective_arguments["_spatial_emission_layer"] = layer.to_dict()
+                    except Exception:
+                        pass
         if tool_name == "compare_scenarios":
             effective_arguments["_context_store"] = self._ensure_context_store()
             return effective_arguments

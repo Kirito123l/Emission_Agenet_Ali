@@ -88,6 +88,7 @@ class DispersionTool(BaseTool):
             roughness_height: 0.05 | 0.5 | 1.0
             pollutant: primary pollutant to disperse; defaults to NOx
             _last_result: injected upstream previous tool result payload
+            _spatial_emission_layer: Phase 7.5B spatial emission layer dict (optional)
         """
         try:
             emission_source = kwargs.get("emission_source", "last_result")
@@ -101,6 +102,7 @@ class DispersionTool(BaseTool):
                     getattr(self.runtime_config, "contour_interp_resolution_m", 10.0),
                 )
             )
+            spatial_layer = kwargs.get("_spatial_emission_layer")
 
             # Track which parameters used defaults
             defaults_used = {}
@@ -119,7 +121,7 @@ class DispersionTool(BaseTool):
             ):
                 defaults_used["contour_resolution"] = contour_resolution
 
-            emission_data = self._resolve_emission_source(emission_source, kwargs)
+            emission_data = self._resolve_emission_source(emission_source, kwargs, spatial_layer)
             if emission_data is None:
                 return ToolResult(
                     success=False,
@@ -130,7 +132,23 @@ class DispersionTool(BaseTool):
             inferred_label = self._extract_scenario_label(emission_data)
             scenario_label = str(kwargs.get("scenario_label") or inferred_label or "baseline")
 
-            roads_gdf, emissions_df = self._adapter.adapt(emission_data, pollutant=pollutant)
+            # Phase 7.5B: load direct geometry from spatial emission layer
+            geometry_source = None
+            if isinstance(spatial_layer, dict) and spatial_layer.get("layer_available"):
+                geometry_source = _load_geometry_from_spatial_layer(spatial_layer)
+                if geometry_source is not None:
+                    logger.info(
+                        "Loaded %d geometry records from spatial_emission_layer (source=%s, geom_col=%s)",
+                        len(geometry_source),
+                        spatial_layer.get("source_file_path"),
+                        spatial_layer.get("geometry_column"),
+                    )
+
+            roads_gdf, emissions_df = self._adapter.adapt(
+                emission_data,
+                geometry_source=geometry_source,
+                pollutant=pollutant,
+            )
             if roads_gdf.empty:
                 return ToolResult(
                     success=False,
@@ -222,8 +240,14 @@ class DispersionTool(BaseTool):
         self,
         emission_source: str,
         kwargs: Dict[str, Any],
+        spatial_layer: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Resolve emission input from the previous macro-emission result or a future file source."""
+        """Resolve emission input from the previous macro-emission result or a file source.
+
+        Phase 7.5B: when a spatial_emission_layer is available with direct geometry,
+        emission data can come from _last_result (macro output) while geometry
+        is loaded separately from the source file.
+        """
         if emission_source == "last_result":
             last_result = kwargs.get("_last_result")
             if not isinstance(last_result, dict):
@@ -248,7 +272,13 @@ class DispersionTool(BaseTool):
 
             return normalized
 
+        # Phase 7.5B: file-based emission source with spatial layer
         candidate = str(emission_source).strip()
+        if candidate and isinstance(spatial_layer, dict) and spatial_layer.get("layer_available"):
+            source_path = spatial_layer.get("source_file_path")
+            if source_path:
+                return _build_emission_data_from_source_file(source_path, spatial_layer)
+
         if candidate:
             logger.warning(
                 "calculate_dispersion file-based emission_source is not supported yet: %s",
@@ -662,6 +692,182 @@ class DispersionTool(BaseTool):
                 }
             )
         return {"type": "FeatureCollection", "features": features}
+
+
+# ── Phase 7.5B: spatial emission layer geometry helpers ───────────────────
+
+
+def _load_geometry_from_spatial_layer(
+    spatial_layer: Dict[str, Any],
+) -> Optional[List[Dict[str, Any]]]:
+    """Read geometry-bearing rows from the source file referenced by a spatial emission layer.
+
+    Accepts WKT, GeoJSON, and lonlat_linestring geometry types.  Returns a list of
+    dicts with ``link_id`` and ``geometry`` keys suitable for passing as the
+    ``geometry_source`` parameter to :meth:`EmissionToDispersionAdapter.adapt`.
+
+    Returns None when the source file cannot be read or the geometry column is absent.
+    """
+    if not isinstance(spatial_layer, dict):
+        return None
+
+    source_path = spatial_layer.get("source_file_path")
+    if not source_path:
+        return None
+
+    geom_type = str(spatial_layer.get("geometry_type", "")).lower()
+    geom_column = spatial_layer.get("geometry_column")
+    geometry_columns = spatial_layer.get("geometry_columns") or []
+    join_keys = spatial_layer.get("join_key_columns") or {}
+
+    if geom_type not in ("wkt", "geojson", "lonlat_linestring", "spatial_metadata"):
+        return None
+
+    # Resolve the geometry column
+    resolved_geom_col = geom_column
+    if not resolved_geom_col and geometry_columns:
+        resolved_geom_col = geometry_columns[0]
+    if not resolved_geom_col:
+        return None
+
+    # Resolve the join key (prefer link_id)
+    link_col = None
+    for key_name in ("link_id", "road_id", "segment_id", "edge_id", "link"):
+        if key_name in join_keys:
+            link_col = join_keys[key_name]
+            break
+    if not link_col:
+        for val in join_keys.values():
+            if val:
+                link_col = str(val)
+                break
+
+    try:
+        import pandas as pd
+        from pathlib import Path
+
+        path = Path(source_path)
+        if not path.exists():
+            logger.warning("spatial_emission_layer source file not found: %s", source_path)
+            return None
+
+        if path.suffix.lower() == ".csv":
+            df = pd.read_csv(source_path)
+        elif path.suffix.lower() in (".xlsx", ".xls"):
+            df = pd.read_excel(source_path)
+        else:
+            logger.warning("Unsupported source file format for spatial layer: %s", path.suffix)
+            return None
+
+        # Normalise column names
+        df.columns = df.columns.str.strip()
+
+        if resolved_geom_col not in df.columns:
+            logger.warning(
+                "Geometry column '%s' not found in source file columns: %s",
+                resolved_geom_col,
+                list(df.columns),
+            )
+            return None
+
+        # Determine the id column
+        id_col = None
+        if link_col and link_col in df.columns:
+            id_col = link_col
+        else:
+            # Fall back to first join key that exists in columns
+            for jk_name, jk_col in join_keys.items():
+                if jk_col and jk_col in df.columns:
+                    id_col = jk_col
+                    break
+
+        rows = []
+        for _, row in df.iterrows():
+            geom_val = row.get(resolved_geom_col)
+            if geom_val is None or (isinstance(geom_val, str) and not geom_val.strip()):
+                continue
+            link_val = str(row[id_col]) if id_col and id_col in df.columns else None
+            entry = {"geometry": geom_val}
+            if link_val:
+                entry["link_id"] = link_val
+            rows.append(entry)
+
+        if not rows:
+            logger.warning("No geometry rows loaded from spatial layer source: %s", source_path)
+            return None
+
+        return rows
+
+    except Exception as exc:
+        logger.warning("Failed to load geometry from spatial layer source '%s': %s", source_path, exc)
+        return None
+
+
+def _build_emission_data_from_source_file(
+    source_path: str,
+    spatial_layer: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Build minimal emission_data payload from a source file when no macro result exists.
+
+    Used by _resolve_emission_source when emission_source is a file path and a
+    spatial_emission_layer with direct geometry is available.  Constructs the
+    expected {status: success, data: {results: [...]}} structure for the adapter.
+    """
+    try:
+        import pandas as pd
+        from pathlib import Path
+
+        path = Path(source_path)
+        if not path.exists():
+            return None
+
+        if path.suffix.lower() == ".csv":
+            df = pd.read_csv(source_path)
+        elif path.suffix.lower() in (".xlsx", ".xls"):
+            df = pd.read_excel(source_path)
+        else:
+            return None
+
+        df.columns = df.columns.str.strip()
+        join_keys = spatial_layer.get("join_key_columns") or {}
+        link_col = join_keys.get("link_id") or join_keys.get("road_id")
+
+        results = []
+        for _, row in df.iterrows():
+            rec = {}
+            # Map link_id
+            if link_col and link_col in df.columns:
+                rec["link_id"] = row[link_col]
+            else:
+                # Try to find any id-like column
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(t in col_lower for t in ("link_id", "link", "road_id", "segment_id")):
+                        rec["link_id"] = row[col]
+                        break
+                if "link_id" not in rec:
+                    continue
+
+            # Map length
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(t in col_lower for t in ("length", "link_length")):
+                    rec["link_length_km"] = float(row[col]) if pd.notna(row[col]) else 0.0
+                    break
+
+            # Synthetic emission value (placeholder — real values come from macro)
+            rec.setdefault("link_length_km", 0.5)
+            rec.setdefault("total_emissions_kg_per_hr", {"NOx": 0.0})
+            results.append(rec)
+
+        if not results:
+            return None
+
+        return {"status": "success", "data": {"results": results}}
+
+    except Exception as exc:
+        logger.warning("Failed to build emission data from source file '%s': %s", source_path, exc)
+        return None
 
 
 __all__ = ["DispersionTool"]
