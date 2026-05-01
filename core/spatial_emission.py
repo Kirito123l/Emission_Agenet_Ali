@@ -168,3 +168,55 @@ class SpatialEmissionCandidate:
             "row_count": self.row_count,
             "provenance": dict(self.provenance),
         }
+
+
+# ── Phase 7.6: join-key geometry resolution ────────────────────────────
+
+JOIN_RESOLUTION_ACCEPT = "ACCEPT"
+JOIN_RESOLUTION_NEEDS_USER_CONFIRMATION = "NEEDS_USER_CONFIRMATION"
+JOIN_RESOLUTION_REJECT = "REJECT"
+JOIN_RESOLUTION_INSUFFICIENT_INPUT = "INSUFFICIENT_INPUT"
+
+
+@dataclass
+class JoinGeometryResolutionResult:
+    """Deterministic result of join-key geometry resolution.
+
+    Produced by resolve_join_key_geometry_layer() — never invokes the LLM.
+    Carries enough provenance to decide whether the emission file's join keys
+    reliably match the geometry file's keys so a valid SpatialEmissionLayer
+    can be built.
+    """
+
+    status: str = JOIN_RESOLUTION_INSUFFICIENT_INPUT
+    reason_code: str = "insufficient_input"
+    message: str = ""
+    match_rate: float = 0.0
+    matched_count: int = 0
+    unmatched_emission_count: int = 0
+    duplicate_geometry_key_count: int = 0
+    join_key_mapping: Dict[str, str] = field(default_factory=dict)
+    emission_key_column: Optional[str] = None
+    geometry_key_column: Optional[str] = None
+    evidence: List[str] = field(default_factory=list)
+    limitations: List[str] = field(default_factory=list)
+    spatial_emission_layer: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "status": self.status,
+            "reason_code": self.reason_code,
+            "message": self.message,
+            "match_rate": self.match_rate,
+            "matched_count": self.matched_count,
+            "unmatched_emission_count": self.unmatched_emission_count,
+            "duplicate_geometry_key_count": self.duplicate_geometry_key_count,
+            "join_key_mapping": dict(self.join_key_mapping),
+            "emission_key_column": self.emission_key_column,
+            "geometry_key_column": self.geometry_key_column,
+            "evidence": list(self.evidence),
+            "limitations": list(self.limitations),
+            "spatial_emission_layer": (
+                dict(self.spatial_emission_layer) if self.spatial_emission_layer else None
+            ),
+        }
