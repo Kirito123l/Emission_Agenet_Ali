@@ -220,8 +220,13 @@ def test_spatial_emission_candidate_stored_for_dispersion():
         current_tool_results=[_macro_tool_result()],
         current_response_payloads=None,
     )
-    # Should have spatial_emission_candidate in available_conditions
-    assert "spatial_emission_candidate" in result.available_conditions
+    # Should have spatial emission metadata in available_conditions.
+    # Phase 7.5 layer bridge may produce spatial_emission_layer_available
+    # instead of spatial_emission_candidate when a macro result is present.
+    assert (
+        "spatial_emission_candidate" in result.available_conditions
+        or "spatial_emission_layer_available" in result.available_conditions
+    )
 
 
 # ── 10. readiness with missing geometry returns REPAIRABLE ──────────

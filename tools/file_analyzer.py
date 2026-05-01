@@ -1045,6 +1045,7 @@ class FileAnalyzerTool(BaseTool):
         _JOIN_KEY_TOKENS = (
             "link_id", "road_id", "segment_id", "edge_id", "link", "road", "segment",
             "路段编号", "道路编号", "路段id",
+            "link_name", "linkname",
         )
 
         # ── Normalise helpers ───────────────────────────────────────────

@@ -704,6 +704,7 @@ def _build_spatial_payload_reason(token: str) -> BlockedReason:
 # ── Spatial emission precondition (Phase 7.4B) ──────────────────────────
 
 _SPATIAL_REASON_HINTS: Dict[str, str] = {
+    "spatial_emission_layer_available": "",
     "spatial_emission_available": "",
     "point_geometry_not_road_geometry": (
         "文件仅包含点坐标 (lon/lat)，不具备路段线几何。"
@@ -734,22 +735,68 @@ def _build_spatial_emission_reason(reason_code: str, message: str) -> BlockedRea
     )
 
 
+def _build_spatial_emission_layer_from_results(
+    file_context: Dict[str, Any],
+    current_tool_results: Sequence[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Try to build a spatial emission layer from a prior macro emission result.
+
+    When calculate_macro_emission has succeeded and the file has direct road
+    geometry, this helper produces a spatial_emission_layer dict that the
+    dispersion preflight can consume without re-resolving from FileContext.
+
+    Returns None when no macro result exists or geometry is not available.
+    """
+    # Find a successful macro emission result
+    macro_result = None
+    macro_result_ref = None
+    for item in (current_tool_results or []):
+        if isinstance(item, dict) and item.get("name") == "calculate_macro_emission":
+            result = item.get("result") or {}
+            if isinstance(result, dict) and result.get("success"):
+                macro_result = result
+                label = item.get("label") or "baseline"
+                macro_result_ref = f"macro_emission:{label}"
+                break
+
+    if macro_result is None:
+        return None
+
+    from core.spatial_emission_resolver import build_spatial_emission_layer
+
+    layer = build_spatial_emission_layer(
+        file_context=file_context,
+        emission_result_ref=macro_result_ref,
+        emission_output_path=None,
+        macro_result=macro_result,
+    )
+
+    if not layer.layer_available:
+        return None
+
+    return layer.to_dict()
+
+
 def resolve_spatial_precondition(
     tool_name: str,
     file_context: Optional[Dict[str, Any]] = None,
     emission_result_ref: Optional[str] = None,
+    spatial_emission_layer: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Evaluate spatial emission precondition for a tool.
 
     Wraps the Phase 7.4A spatial emission resolver and returns a readiness-
-    compatible diagnostic dict.
+    compatible diagnostic dict.  When a spatial_emission_layer (Phase 7.5) is
+    provided and layer_available is true, the precondition is satisfied via
+    the direct geometry bridge rather than re-resolving from FileContext.
 
     For tools that do NOT require road geometry, returns satisfied=true
     immediately with reason_code=no_road_geometry_requirement.
 
     Returns:
-        Dict with keys: satisfied, reason_code, message, candidate_dict.
+        Dict with keys: satisfied, reason_code, message, candidate_dict, layer_dict.
         candidate_dict is the serialised SpatialEmissionCandidate (or None).
+        layer_dict is the spatial_emission_layer (or None).
     """
     from core.tool_dependencies import requires_road_geometry
     from core.spatial_emission_resolver import resolve_spatial_emission_candidate
@@ -760,6 +807,17 @@ def resolve_spatial_precondition(
             "reason_code": "no_road_geometry_requirement",
             "message": f"Tool '{tool_name}' does not require road geometry.",
             "candidate_dict": None,
+            "layer_dict": None,
+        }
+
+    # Phase 7.5: spatial_emission_layer bridge takes priority
+    if isinstance(spatial_emission_layer, dict) and spatial_emission_layer.get("layer_available"):
+        return {
+            "satisfied": True,
+            "reason_code": "spatial_emission_layer_available",
+            "message": "Spatial emission layer available from upstream macro emission result.",
+            "candidate_dict": None,
+            "layer_dict": dict(spatial_emission_layer),
         }
 
     candidate = resolve_spatial_emission_candidate(
@@ -772,6 +830,7 @@ def resolve_spatial_precondition(
         "reason_code": candidate.reason_code,
         "message": candidate.message,
         "candidate_dict": candidate.to_dict() if candidate.available or True else candidate.to_dict(),
+        "layer_dict": None,
     }
 
 
@@ -1230,14 +1289,24 @@ def assess_action_readiness(
                 guidance_enabled=action.guidance_enabled,
             )
 
-    # Phase 7.4B: spatial emission precondition for road-geometry-requiring tools
+    # Phase 7.5: build spatial emission layer from upstream macro result when
+    # file has direct road geometry and a successful macro emission is available.
+    spatial_layer = _build_spatial_emission_layer_from_results(
+        file_context=file_context,
+        current_tool_results=current_tool_results,
+    )
+
+    # Phase 7.4B/7.5: spatial emission precondition for road-geometry-requiring tools.
     spatial_precondition = resolve_spatial_precondition(
         tool_name=action.tool_name,
         file_context=file_context,
         emission_result_ref=None,
+        spatial_emission_layer=spatial_layer,
     )
     if spatial_precondition.get("candidate_dict"):
         available_conditions.append("spatial_emission_candidate")
+    if spatial_precondition.get("layer_dict"):
+        available_conditions.append("spatial_emission_layer_available")
 
     if action.requires_geometry_support and not has_geometry_support:
         # Use targeted spatial precondition diagnostic when available

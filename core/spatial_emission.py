@@ -66,6 +66,78 @@ class SpatialEmissionGeometry:
 
 
 @dataclass
+class SpatialEmissionLayer:
+    """Serializable layer binding an emission result to its detected road geometry.
+
+    Produced by build_spatial_emission_layer() after macro emission completes on a
+    file with direct road geometry (WKT, GeoJSON, LineString, or shapefile).  Stored
+    in readiness metadata so the dispersion preflight can recognize geometry availability
+    without re-resolving from FileContext.
+    """
+
+    layer_available: bool = False
+    spatial_product_type: str = "spatial_emission_layer"
+    source_file_path: Optional[str] = None
+    emission_result_ref: Optional[str] = None
+    emission_output_path: Optional[str] = None
+    geometry_type: str = "none"
+    geometry_column: Optional[str] = None
+    geometry_columns: List[str] = field(default_factory=list)
+    coordinate_columns: Dict[str, Optional[str]] = field(default_factory=dict)
+    join_key_columns: Dict[str, Optional[str]] = field(default_factory=dict)
+    row_count: Optional[int] = None
+    confidence: float = 0.0
+    evidence: List[str] = field(default_factory=list)
+    limitations: List[str] = field(default_factory=list)
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "layer_available": self.layer_available,
+            "spatial_product_type": self.spatial_product_type,
+            "source_file_path": self.source_file_path,
+            "emission_result_ref": self.emission_result_ref,
+            "emission_output_path": self.emission_output_path,
+            "geometry_type": self.geometry_type,
+            "geometry_column": self.geometry_column,
+            "geometry_columns": list(self.geometry_columns),
+            "coordinate_columns": dict(self.coordinate_columns),
+            "join_key_columns": dict(self.join_key_columns),
+            "row_count": self.row_count,
+            "confidence": self.confidence,
+            "evidence": list(self.evidence),
+            "limitations": list(self.limitations),
+            "provenance": dict(self.provenance),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "SpatialEmissionLayer":
+        return cls(
+            layer_available=bool(payload.get("layer_available", False)),
+            spatial_product_type=str(payload.get("spatial_product_type", "spatial_emission_layer")),
+            source_file_path=payload.get("source_file_path"),
+            emission_result_ref=payload.get("emission_result_ref"),
+            emission_output_path=payload.get("emission_output_path"),
+            geometry_type=str(payload.get("geometry_type", "none")),
+            geometry_column=payload.get("geometry_column"),
+            geometry_columns=[str(c) for c in (payload.get("geometry_columns") or [])],
+            coordinate_columns={
+                str(k): (str(v) if v is not None else None)
+                for k, v in (payload.get("coordinate_columns") or {}).items()
+            },
+            join_key_columns={
+                str(k): (str(v) if v is not None else None)
+                for k, v in (payload.get("join_key_columns") or {}).items()
+            },
+            row_count=payload.get("row_count"),
+            confidence=float(payload.get("confidence", 0.0)),
+            evidence=[str(e) for e in (payload.get("evidence") or [])],
+            limitations=[str(li) for li in (payload.get("limitations") or [])],
+            provenance=dict(payload.get("provenance") or {}),
+        )
+
+
+@dataclass
 class SpatialEmissionCandidate:
     """Deterministic result of resolving geometry for an emission result.
 

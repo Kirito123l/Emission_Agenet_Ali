@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from core.spatial_emission import SpatialEmissionCandidate, SpatialEmissionGeometry
+from core.spatial_emission import SpatialEmissionCandidate, SpatialEmissionGeometry, SpatialEmissionLayer
 
 # Geometry types that unambiguously carry road-segment geometry.
 _ACCEPTABLE_TYPES = {"wkt", "geojson", "lonlat_linestring", "spatial_metadata"}
@@ -146,4 +146,86 @@ def resolve_spatial_emission_candidate(
             "Please upload a file with WKT, GeoJSON, start-end coordinates, "
             "or a shapefile."
         ),
+    )
+
+
+# ── Phase 7.5: spatial emission layer builder ──────────────────────────
+
+def build_spatial_emission_layer(
+    file_context: Optional[Dict[str, Any]] = None,
+    emission_result_ref: Optional[str] = None,
+    emission_output_path: Optional[str] = None,
+    macro_result: Optional[Dict[str, Any]] = None,
+) -> SpatialEmissionLayer:
+    """Build a spatial emission layer from FileContext geometry metadata.
+
+    Only succeeds when the file has direct road geometry (WKT, GeoJSON,
+    lonlat_linestring, or spatial_metadata).  Rejects point-only, join-key-only,
+    and no-geometry files.
+
+    Args:
+        file_context: FileContext serialised dict (must contain geometry_metadata).
+        emission_result_ref: Reference key for the upstream emission result
+            (e.g. ``"macro_emission:baseline"``).
+        emission_output_path: Optional output path for the emission result file.
+        macro_result: Reserved for future per-result enrichment. Not consumed yet.
+
+    Returns:
+        SpatialEmissionLayer with ``layer_available``, geometry provenance,
+        and metadata suitable for readiness assessment.
+    """
+    fc = dict(file_context or {})
+    gm = dict(fc.get("geometry_metadata") or {})
+
+    geometry_type = str(gm.get("geometry_type", "none")).strip().lower()
+    road_available = bool(gm.get("road_geometry_available", False))
+    geometry_columns = [str(c) for c in (gm.get("geometry_columns") or [])]
+    geometry_column = geometry_columns[0] if len(geometry_columns) == 1 else (
+        geometry_columns[0] if geometry_columns else None
+    )
+    coordinate_columns = {
+        str(k): (str(v) if v is not None else None)
+        for k, v in (gm.get("coordinate_columns") or {}).items()
+    }
+    join_key_columns = {
+        str(k): (str(v) if v is not None else None)
+        for k, v in (gm.get("join_key_columns") or {}).items()
+    }
+    confidence = float(gm.get("confidence", 0.0))
+    evidence = [str(e) for e in (gm.get("evidence") or [])]
+    limitations = [str(li) for li in (gm.get("limitations") or [])]
+
+    source_file_path = str(fc.get("file_path") or fc.get("path") or "").strip() or None
+    row_count_raw = fc.get("row_count")
+    row_count: Optional[int] = int(row_count_raw) if row_count_raw is not None else None
+
+    _ACCEPTABLE = {"wkt", "geojson", "lonlat_linestring", "spatial_metadata"}
+    _REJECTED = {"lonlat_point", "join_key_only", "none"}
+
+    layer_available = False
+    if geometry_type in _ACCEPTABLE and road_available:
+        layer_available = True
+
+    return SpatialEmissionLayer(
+        layer_available=layer_available,
+        spatial_product_type="spatial_emission_layer",
+        source_file_path=source_file_path,
+        emission_result_ref=emission_result_ref,
+        emission_output_path=emission_output_path,
+        geometry_type=geometry_type,
+        geometry_column=geometry_column,
+        geometry_columns=geometry_columns,
+        coordinate_columns=coordinate_columns,
+        join_key_columns=join_key_columns,
+        row_count=row_count,
+        confidence=confidence,
+        evidence=evidence,
+        limitations=limitations,
+        provenance={
+            "builder_version": "7.5",
+            "resolver_version": "7.4A",
+            "geometry_metadata_confidence": confidence,
+            "geometry_metadata_evidence": evidence,
+            "geometry_metadata_limitations": limitations,
+        },
     )
