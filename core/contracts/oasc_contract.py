@@ -474,10 +474,14 @@ class OASCContract(BaseContract):
             elif success:
                 if matched_idx is not None:
                     step = state.steps[matched_idx]
+                    was_invalidated = step.status == ExecutionStepStatus.INVALIDATED
                     step.status = ExecutionStepStatus.COMPLETED
                     step.effective_args = dict(arguments)
                     step.updated_turn = turn
                     step.source = "tool_call"
+                    if was_invalidated:
+                        step.provenance["revalidated_at_turn"] = turn
+                        # stale_result_ref already in provenance from invalidation
                     result_ref = (
                         self.inner_router.memory.fact_memory._infer_result_ref(tool_name, tool_result)
                         if tool_result.get("success")

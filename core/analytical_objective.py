@@ -289,7 +289,10 @@ class AOExecutionState:
     @property
     def pending_next_tool(self) -> Optional[str]:
         pending = self.pending_steps
-        return pending[0].tool_name if pending else None
+        if pending:
+            return pending[0].tool_name
+        invalidated = [s for s in self.steps if s.status == ExecutionStepStatus.INVALIDATED]
+        return invalidated[0].tool_name if invalidated else None
 
     @property
     def current_tool(self) -> Optional[str]:

@@ -712,6 +712,13 @@ class AOManager:
                         reason=f"step[{idx}] {proposed} is pending but before cursor — may be re-execution",
                     )
 
+            if step.status == ExecutionStepStatus.INVALIDATED:
+                if idx == state.chain_cursor:
+                    return CanonicalExecutionResult(
+                        decision=CanonicalExecutionDecision.PROCEED,
+                        reason=f"step[{idx}] {proposed} was invalidated, re-executing at chain_cursor",
+                    )
+
         # Proposed tool not in steps at all
         if state.pending_next_tool:
             return CanonicalExecutionResult(
@@ -745,10 +752,10 @@ class AOManager:
                 s = state.steps[i]
                 if s.status not in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED):
                     return None
-        # Return the step at chain_cursor (may be PENDING or FAILED)
+        # Return the step at chain_cursor (may be PENDING, FAILED, or INVALIDATED)
         if 0 <= state.chain_cursor < len(state.steps):
             cursor_step = state.steps[state.chain_cursor]
-            if cursor_step.status in (ExecutionStepStatus.PENDING, ExecutionStepStatus.FAILED):
+            if cursor_step.status in (ExecutionStepStatus.PENDING, ExecutionStepStatus.FAILED, ExecutionStepStatus.INVALIDATED):
                 return cursor_step.tool_name
         return None
 
@@ -1244,6 +1251,18 @@ class AOManager:
                 proposed_fingerprint=proposed_fp,
             )
 
+        # Phase 6.E.4D: canonical INVALIDATED step must not be suppressed
+        if _canonical_state_enabled() and _revision_invalidation_enabled():
+            state = ensure_execution_state(ao)
+            if state is not None and state.steps:
+                for step in state.steps:
+                    if step.tool_name == proposed_tool and step.status == ExecutionStepStatus.INVALIDATED:
+                        return IdempotencyResult(
+                            decision=IdempotencyDecision.NO_DUPLICATE,
+                            decision_reason="canonical_step_invalidated",
+                            proposed_fingerprint=proposed_fp,
+                        )
+
         # Rule 1: explicit rerun signal
         rerun_signal = self._contains_rerun_signal(user_message)
         if rerun_signal:
@@ -1552,6 +1571,14 @@ def _canonical_state_enabled() -> bool:
     try:
         from config import get_config
         return bool(getattr(get_config(), "enable_canonical_execution_state", False))
+    except Exception:
+        return False
+
+
+def _revision_invalidation_enabled() -> bool:
+    try:
+        from config import get_config
+        return bool(getattr(get_config(), "enable_revision_invalidation", False))
     except Exception:
         return False
 
