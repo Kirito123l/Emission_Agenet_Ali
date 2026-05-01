@@ -415,6 +415,7 @@ def _collect_available_tokens(
 def _determine_geometry_support(
     file_context: Dict[str, Any],
     result_payloads: Dict[str, Dict[str, Any]],
+    geometry_file_context: Optional[Dict[str, Any]] = None,
 ) -> tuple[bool, Optional[str]]:
     # 1. Spatial metadata from shapefile/geojson (existing)
     spatial_metadata = file_context.get("spatial_metadata") or {}
@@ -438,7 +439,14 @@ def _determine_geometry_support(
             # Mark as False with source info for diagnostic messages.
             return False, "geometry_metadata_point_only"
 
-    # 4. Dataset roles (existing, fallback)
+    # 4. Phase 7.6D: geometry_file_context provides geometry support when
+    # emission file is join_key_only and a geometry file is available.
+    if isinstance(geometry_file_context, dict):
+        geo_gm = dict(geometry_file_context.get("geometry_metadata") or {})
+        if geo_gm.get("road_geometry_available"):
+            return True, "join_key_geometry_file_context"
+
+    # 5. Dataset roles (existing, fallback)
     dataset_roles = file_context.get("dataset_roles") or []
     if isinstance(dataset_roles, list):
         for item in dataset_roles:
@@ -449,13 +457,13 @@ def _determine_geometry_support(
             if _safe_lower_text(item.get("role")) in {"spatial_context", "supporting_spatial_dataset"}:
                 return True, "supporting_spatial_dataset"
 
-    # 5. Column-name heuristics (existing, fallback)
+    # 6. Column-name heuristics (existing, fallback)
     for column_name in _iter_candidate_column_names(file_context):
         normalized = _safe_lower_text(column_name)
         if any(token in normalized for token in _GEOMETRY_COLUMN_TOKENS):
             return True, "geometry_column_signal"
 
-    # 6. Emission result payload (existing, fallback)
+    # 7. Emission result payload (existing, fallback)
     if _result_has_spatial_payload("emission", result_payloads.get("emission")):
         return True, "emission_result_geometry"
 
@@ -738,6 +746,7 @@ def _build_spatial_emission_reason(reason_code: str, message: str) -> BlockedRea
 def _build_spatial_emission_layer_from_results(
     file_context: Dict[str, Any],
     current_tool_results: Sequence[Dict[str, Any]],
+    geometry_file_context: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Try to build a spatial emission layer from a prior macro emission result.
 
@@ -745,7 +754,13 @@ def _build_spatial_emission_layer_from_results(
     geometry, this helper produces a spatial_emission_layer dict that the
     dispersion preflight can consume without re-resolving from FileContext.
 
-    Returns None when no macro result exists or geometry is not available.
+    When the emission file is join_key_only and a geometry_file_context is
+    provided, the join-key resolver (Phase 7.6B) is invoked.  If the resolver
+    returns ACCEPT, the resulting layer is returned so that readiness can
+    treat it identically to a direct-geometry layer.
+
+    Returns None when no macro result exists, geometry is not available, or
+    join-key resolution is rejected.
     """
     # Find a successful macro emission result
     macro_result = None
@@ -760,6 +775,25 @@ def _build_spatial_emission_layer_from_results(
                 break
 
     if macro_result is None:
+        return None
+
+    # Phase 7.6D: try join-key resolver when emission is join_key_only and a
+    # geometry FileContext is explicitly provided.
+    gm = dict(file_context.get("geometry_metadata") or {})
+    geo_type = str(gm.get("geometry_type", "none")).strip().lower()
+    if geo_type == "join_key_only" and isinstance(geometry_file_context, dict):
+        from core.spatial_emission_resolver import resolve_join_key_geometry_layer
+
+        jk_result = resolve_join_key_geometry_layer(
+            emission_file_context=file_context,
+            geometry_file_context=geometry_file_context,
+            emission_result_ref=macro_result_ref,
+        )
+        if jk_result.status == "ACCEPT" and jk_result.spatial_emission_layer:
+            return jk_result.spatial_emission_layer
+        # For NEEDS_USER_CONFIRMATION, REJECT, or INSUFFICIENT_INPUT:
+        # return None so readiness uses the resolver's diagnostic via
+        # resolve_spatial_precondition (which also receives geometry_file_context).
         return None
 
     from core.spatial_emission_resolver import build_spatial_emission_layer
@@ -782,6 +816,7 @@ def resolve_spatial_precondition(
     file_context: Optional[Dict[str, Any]] = None,
     emission_result_ref: Optional[str] = None,
     spatial_emission_layer: Optional[Dict[str, Any]] = None,
+    geometry_file_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Evaluate spatial emission precondition for a tool.
 
@@ -789,6 +824,12 @@ def resolve_spatial_precondition(
     compatible diagnostic dict.  When a spatial_emission_layer (Phase 7.5) is
     provided and layer_available is true, the precondition is satisfied via
     the direct geometry bridge rather than re-resolving from FileContext.
+
+    Phase 7.6D: when the emission file_context is join_key_only and a
+    geometry_file_context is provided, the join-key resolver is invoked
+    to produce a targeted diagnostic (ACCEPT / NEEDS_USER_CONFIRMATION /
+    REJECT / INSUFFICIENT_INPUT).  ACCEPT results carry a spatial_emission_layer
+    dict; other statuses carry the resolver's reason_code and message.
 
     For tools that do NOT require road geometry, returns satisfied=true
     immediately with reason_code=no_road_geometry_requirement.
@@ -818,6 +859,39 @@ def resolve_spatial_precondition(
             "message": "Spatial emission layer available from upstream macro emission result.",
             "candidate_dict": None,
             "layer_dict": dict(spatial_emission_layer),
+        }
+
+    # Phase 7.6D: join-key resolver when emission is join_key_only and a
+    # geometry FileContext is explicitly provided.
+    fc = dict(file_context or {})
+    gm = dict(fc.get("geometry_metadata") or {})
+    geo_type = str(gm.get("geometry_type", "none")).strip().lower()
+    if geo_type == "join_key_only" and isinstance(geometry_file_context, dict):
+        from core.spatial_emission_resolver import resolve_join_key_geometry_layer
+
+        jk_result = resolve_join_key_geometry_layer(
+            emission_file_context=fc,
+            geometry_file_context=geometry_file_context,
+            emission_result_ref=emission_result_ref,
+        )
+
+        if jk_result.status == "ACCEPT" and jk_result.spatial_emission_layer:
+            return {
+                "satisfied": True,
+                "reason_code": "join_key_geometry_resolved",
+                "message": jk_result.message,
+                "candidate_dict": None,
+                "layer_dict": jk_result.spatial_emission_layer,
+            }
+
+        # NEEDS_USER_CONFIRMATION, REJECT, INSUFFICIENT_INPUT:
+        # surface the resolver's diagnostic
+        return {
+            "satisfied": False,
+            "reason_code": jk_result.reason_code,
+            "message": jk_result.message,
+            "candidate_dict": jk_result.to_dict(),
+            "layer_dict": None,
         }
 
     candidate = resolve_spatial_emission_candidate(
@@ -1058,6 +1132,7 @@ def assess_action_readiness(
     input_completion_overrides: Optional[Dict[str, Any]] = None,
     already_provided_dedup_enabled: bool = True,
     artifact_memory_state: Optional[ArtifactMemoryState] = None,
+    geometry_file_context: Optional[Dict[str, Any]] = None,
 ) -> ActionAffordance:
     diagnostics = file_context.get("missing_field_diagnostics") or {}
     task_type = str(file_context.get("task_type") or "").strip() or None
@@ -1080,7 +1155,9 @@ def assess_action_readiness(
     else:
         already_provided, provided_ids = [], set()
     artifact_by_id = {item.artifact_id: item for item in already_provided}
-    has_geometry_support, _geometry_source = _determine_geometry_support(file_context, result_payloads)
+    has_geometry_support, _geometry_source = _determine_geometry_support(
+        file_context, result_payloads, geometry_file_context=geometry_file_context,
+    )
     available_conditions = _build_available_conditions(
         available_tokens=available_tokens,
         has_geometry_support=has_geometry_support,
@@ -1289,26 +1366,36 @@ def assess_action_readiness(
                 guidance_enabled=action.guidance_enabled,
             )
 
-    # Phase 7.5: build spatial emission layer from upstream macro result when
-    # file has direct road geometry and a successful macro emission is available.
+    # Phase 7.5/7.6D: build spatial emission layer from upstream macro result
+    # when file has direct road geometry, or via join-key resolver when a
+    # geometry FileContext is explicitly provided.
     spatial_layer = _build_spatial_emission_layer_from_results(
         file_context=file_context,
         current_tool_results=current_tool_results,
+        geometry_file_context=geometry_file_context,
     )
 
-    # Phase 7.4B/7.5: spatial emission precondition for road-geometry-requiring tools.
+    # Phase 7.4B/7.5/7.6D: spatial emission precondition for road-geometry-requiring tools.
     spatial_precondition = resolve_spatial_precondition(
         tool_name=action.tool_name,
         file_context=file_context,
         emission_result_ref=None,
         spatial_emission_layer=spatial_layer,
+        geometry_file_context=geometry_file_context,
     )
     if spatial_precondition.get("candidate_dict"):
         available_conditions.append("spatial_emission_candidate")
     if spatial_precondition.get("layer_dict"):
         available_conditions.append("spatial_emission_layer_available")
 
-    if action.requires_geometry_support and not has_geometry_support:
+    # Phase 7.6D: when geometry support comes from a join-key geometry file but
+    # the resolver rejected or needs confirmation, surface the resolver's diagnostic.
+    _join_key_geo_needs_diagnostic = (
+        _geometry_source == "join_key_geometry_file_context"
+        and not spatial_precondition["satisfied"]
+    )
+
+    if (action.requires_geometry_support and not has_geometry_support) or _join_key_geo_needs_diagnostic:
         # Use targeted spatial precondition diagnostic when available
         if not spatial_precondition["satisfied"] and spatial_precondition["reason_code"] != "no_road_geometry_requirement":
             reason = _build_spatial_emission_reason(
@@ -1399,6 +1486,7 @@ def build_readiness_assessment(
     input_completion_overrides: Optional[Dict[str, Any]] = None,
     already_provided_dedup_enabled: bool = True,
     artifact_memory_state: Optional[ArtifactMemoryState] = None,
+    geometry_file_context: Optional[Dict[str, Any]] = None,
 ) -> ReadinessAssessment:
     normalized_file_context = _coerce_file_context(file_context)
     catalog = get_action_catalog()
@@ -1415,6 +1503,7 @@ def build_readiness_assessment(
     has_geometry_support, geometry_source = _determine_geometry_support(
         normalized_file_context,
         result_payloads,
+        geometry_file_context=geometry_file_context,
     )
 
     assessment = ReadinessAssessment(
@@ -1449,6 +1538,7 @@ def build_readiness_assessment(
             input_completion_overrides=input_completion_overrides,
             already_provided_dedup_enabled=already_provided_dedup_enabled,
             artifact_memory_state=artifact_memory_state,
+            geometry_file_context=geometry_file_context,
         )
         if affordance.status == ReadinessStatus.READY:
             assessment.available_actions.append(affordance)
