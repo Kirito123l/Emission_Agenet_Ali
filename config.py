@@ -161,6 +161,11 @@ class Config:
         self.enable_canonical_execution_state = (
             os.getenv("ENABLE_CANONICAL_EXECUTION_STATE", "false").lower() == "true"
         )
+        # Phase 6.E.4: revision-aware invalidation telemetry (read-only in 6.E.4A).
+        # Requires ENABLE_CANONICAL_EXECUTION_STATE=true to produce telemetry.
+        self.enable_revision_invalidation = (
+            os.getenv("ENABLE_REVISION_INVALIDATION", "false").lower() == "true"
+        )
         self.enable_conversational_stance = (
             os.getenv("ENABLE_CONVERSATIONAL_STANCE", "true").lower() == "true"
         )

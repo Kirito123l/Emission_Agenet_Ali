@@ -84,6 +84,69 @@ class CanonicalExecutionResult:
     reason: str = ""
 
 
+# ── Phase 6.E.4A: revision delta telemetry ──────────────────────────────
+
+
+class RevisionDeltaDecisionPreview:
+    """Read-only preview of what invalidation would do — no state mutation."""
+    NO_DELTA = "no_delta"
+    RERUN_SAME_PARAMS = "rerun_same_params"
+    PARAM_DELTA_SELF = "param_delta_self"
+    PARAM_DELTA_DOWNSTREAM = "param_delta_downstream"
+    DATA_SOURCE_DELTA_ALL = "data_source_delta_all"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+
+@dataclass
+class RevisionDeltaTelemetry:
+    """Read-only telemetry for revision parameter delta detection.
+
+    Does NOT mutate AOExecutionState, tool_call_log, result_ref, or chain_cursor.
+    """
+    detected: bool = False
+    trigger_source: str = ""  # classifier_revision|reversal_marker|explicit_rerun|parameter_delta|none
+    proposed_tool: str = ""
+    proposed_args_fingerprint: Dict[str, Any] = field(default_factory=dict)
+    previous_step_tool: str = ""
+    previous_args_fingerprint: Dict[str, Any] = field(default_factory=dict)
+    changed_keys: List[str] = field(default_factory=list)
+    unchanged_keys: List[str] = field(default_factory=list)
+    missing_keys: List[str] = field(default_factory=list)
+    rerun_signal_present: bool = False
+    would_invalidate_steps: bool = False
+    would_invalidate_tools: List[str] = field(default_factory=list)
+    transitive_dependents: List[str] = field(default_factory=list)
+    would_reset_chain_cursor_to: Optional[int] = None
+    decision_preview: str = ""  # RevisionDeltaDecisionPreview value
+    scope_expansion_detected: bool = False  # multi-pollutant add-only, etc.
+    reason: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "detected": self.detected,
+            "trigger_source": self.trigger_source,
+            "proposed_tool": self.proposed_tool,
+            "proposed_args_fingerprint": dict(self.proposed_args_fingerprint),
+            "previous_step_tool": self.previous_step_tool,
+            "previous_args_fingerprint": dict(self.previous_args_fingerprint),
+            "changed_keys": list(self.changed_keys),
+            "unchanged_keys": list(self.unchanged_keys),
+            "missing_keys": list(self.missing_keys),
+            "rerun_signal_present": self.rerun_signal_present,
+            "would_invalidate_steps": self.would_invalidate_steps,
+            "would_invalidate_tools": list(self.would_invalidate_tools),
+            "transitive_dependents": list(self.transitive_dependents),
+            "would_reset_chain_cursor_to": self.would_reset_chain_cursor_to,
+            "decision_preview": self.decision_preview,
+            "scope_expansion_detected": self.scope_expansion_detected,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def empty(cls) -> "RevisionDeltaTelemetry":
+        return cls()
+
+
 # ── Phase 6.E: canonical multi-turn execution state ─────────────────────
 
 

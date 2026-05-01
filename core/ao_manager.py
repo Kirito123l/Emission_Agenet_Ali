@@ -17,6 +17,8 @@ from core.analytical_objective import (
     IdempotencyDecision,
     IdempotencyResult,
     IntentConfidence,
+    RevisionDeltaDecisionPreview,
+    RevisionDeltaTelemetry,
     ToolCallRecord,
 )
 from core.ao_manager_keywords import MULTI_STEP_SIGNAL_PATTERNS as _MULTI_STEP_SIGNAL_PATTERNS
@@ -784,6 +786,231 @@ class AOManager:
         # Proposed tool not in planned_chain — independent, don't override
         return False
 
+    # ── Phase 6.E.4A: revision delta telemetry ────────────────────────────
+
+    def detect_revision_delta_telemetry(
+        self,
+        ao: AnalyticalObjective,
+        proposed_tool: str,
+        proposed_args: Dict[str, Any],
+        user_message: str = "",
+    ) -> RevisionDeltaTelemetry:
+        """Read-only revision parameter-delta telemetry.
+
+        Compares proposed effective_args against matching completed/pending
+        step effective_args in AOExecutionState.  Does NOT mutate any state.
+
+        Only active when both enable_canonical_execution_state AND
+        enable_revision_invalidation are true.
+        """
+        # Gate: both flags must be on
+        try:
+            from config import get_config
+            cfg = get_config()
+            canonical_on = bool(getattr(cfg, "enable_canonical_execution_state", False))
+            revision_on = bool(getattr(cfg, "enable_revision_invalidation", False))
+        except Exception:
+            canonical_on = False
+            revision_on = False
+        if not canonical_on or not revision_on:
+            return RevisionDeltaTelemetry(
+                reason="canonical or revision invalidation flag disabled",
+            )
+
+        proposed = str(proposed_tool or "").strip()
+        if not proposed or not isinstance(proposed_args, dict):
+            return RevisionDeltaTelemetry(
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason="missing proposed tool or args",
+            )
+
+        state = ensure_execution_state(ao)
+        if state is None or not state.steps:
+            return RevisionDeltaTelemetry(
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason="no execution state",
+            )
+
+        # Detect trigger source
+        msg = str(user_message or "").strip().lower()
+        rerun_signal = bool(self._contains_rerun_signal(msg))
+        reversal_marker = bool(
+            any(m in msg for m in ("改成", "换成", "改为"))
+        )
+        classifier_revision = bool(
+            getattr(ao, "relationship", None) is not None
+            and (
+                getattr(ao.relationship, "value", str(ao.relationship))
+                if hasattr(ao.relationship, "value")
+                else str(ao.relationship)
+            ) == "revision"
+        )
+
+        # Find matching completed or pending step in execution state
+        matched_step = None
+        matched_idx = None
+        for i, s in enumerate(state.steps):
+            if s.tool_name == proposed:
+                if s.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.PENDING, ExecutionStepStatus.FAILED):
+                    matched_step = s
+                    matched_idx = i
+                    break
+        # If no match found in first pass, try any step with matching tool_name
+        if matched_step is None:
+            for i, s in enumerate(state.steps):
+                if s.tool_name == proposed:
+                    matched_step = s
+                    matched_idx = i
+                    break
+
+        if matched_step is None:
+            # Proposed tool not in execution state — insufficient evidence
+            return RevisionDeltaTelemetry(
+                proposed_tool=proposed,
+                trigger_source=_trigger_source(classifier_revision, reversal_marker, rerun_signal),
+                rerun_signal_present=rerun_signal,
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason=f"{proposed} not found in AOExecutionState steps",
+            )
+
+        # Build fingerprints
+        proposed_fp = self._build_semantic_fingerprint(proposed, proposed_args)
+        previous_fp = dict(matched_step.effective_args or {})
+
+        # Filter to semantic keys only
+        semantic_keys = TOOL_SEMANTIC_KEYS.get(proposed)
+        if semantic_keys is None:
+            return RevisionDeltaTelemetry(
+                proposed_tool=proposed,
+                trigger_source=_trigger_source(classifier_revision, reversal_marker, rerun_signal),
+                rerun_signal_present=rerun_signal,
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason=f"no semantic keys defined for {proposed}",
+            )
+
+        # Compare proposed vs previous fingerprints
+        changed: List[str] = []
+        unchanged: List[str] = []
+        missing: List[str] = []
+        for key in sorted(semantic_keys):
+            p_val = proposed_fp.get(key)
+            prev_val = previous_fp.get(key)
+            p_empty = p_val is None or (isinstance(p_val, str) and not p_val.strip()) or (isinstance(p_val, (list, tuple)) and len(p_val) == 0)
+            prev_empty = prev_val is None or (isinstance(prev_val, str) and not prev_val.strip()) or (isinstance(prev_val, (list, tuple)) and len(prev_val) == 0)
+            if p_empty and prev_empty:
+                missing.append(key)
+            elif p_empty and not prev_empty:
+                changed.append(key)  # previously had value, now missing
+            elif not p_empty and prev_empty:
+                changed.append(key)  # previously missing, now has value
+            elif p_val != prev_val:
+                # Multi-pollutant expansion detection
+                if key in ("pollutant", "pollutants") and _is_pollutant_expansion(p_val, prev_val):
+                    changed.append(key)
+                else:
+                    changed.append(key)
+            else:
+                unchanged.append(key)
+
+        # If all semantic keys are missing (no effective args on either side),
+        # there is insufficient evidence to make a delta decision.
+        if missing and len(missing) == len(semantic_keys) and not changed and not unchanged:
+            return RevisionDeltaTelemetry(
+                proposed_tool=proposed,
+                proposed_args_fingerprint=proposed_fp,
+                previous_step_tool=matched_step.tool_name,
+                previous_args_fingerprint=previous_fp,
+                missing_keys=list(missing),
+                trigger_source=_trigger_source(classifier_revision, reversal_marker, rerun_signal),
+                rerun_signal_present=rerun_signal,
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason="all semantic keys missing — no effective args to compare",
+            )
+
+        # Multi-pollutant expansion: proposed list is a strict superset of previous
+        scope_expansion = False
+        for key in ("pollutant", "pollutants"):
+            p_val = proposed_fp.get(key)
+            prev_val = previous_fp.get(key)
+            if _is_pollutant_expansion(p_val, prev_val):
+                scope_expansion = True
+                break
+
+        # Check file_path/data-source change
+        data_source_changed = "file_path" in changed
+
+        # Determine decision preview
+        if not changed and not rerun_signal:
+            decision = RevisionDeltaDecisionPreview.NO_DELTA
+        elif not changed and rerun_signal:
+            decision = RevisionDeltaDecisionPreview.RERUN_SAME_PARAMS
+        elif data_source_changed:
+            decision = RevisionDeltaDecisionPreview.DATA_SOURCE_DELTA_ALL
+        elif changed:
+            # Compute transitive dependents
+            dependents = _preview_transitive_dependents(state.planned_chain, proposed)
+            if dependents:
+                decision = RevisionDeltaDecisionPreview.PARAM_DELTA_DOWNSTREAM
+            else:
+                decision = RevisionDeltaDecisionPreview.PARAM_DELTA_SELF
+        else:
+            decision = RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE
+
+        # Compute would_invalidate_tools
+        would_invalidate: List[str] = []
+        if decision in (
+            RevisionDeltaDecisionPreview.PARAM_DELTA_SELF,
+            RevisionDeltaDecisionPreview.PARAM_DELTA_DOWNSTREAM,
+        ):
+            would_invalidate.append(proposed)
+        if decision in (
+            RevisionDeltaDecisionPreview.PARAM_DELTA_DOWNSTREAM,
+            RevisionDeltaDecisionPreview.DATA_SOURCE_DELTA_ALL,
+        ):
+            dep_tools = _preview_transitive_dependents(state.planned_chain, proposed)
+            would_invalidate.extend(t for t in dep_tools if t not in would_invalidate)
+        if decision == RevisionDeltaDecisionPreview.DATA_SOURCE_DELTA_ALL:
+            # Also include all steps that use file_path
+            for s in state.steps:
+                if s.tool_name not in would_invalidate and "file_path" in dict(s.effective_args or {}):
+                    would_invalidate.append(s.tool_name)
+
+        # Compute would_reset_chain_cursor_to
+        would_reset: Optional[int] = None
+        if would_invalidate and matched_idx is not None:
+            # Find earliest step index that would be invalidated
+            earliest = None
+            for i, s in enumerate(state.steps):
+                if s.tool_name in would_invalidate:
+                    earliest = i
+                    break
+            would_reset = earliest
+
+        # Trigger source
+        trigger = _trigger_source(classifier_revision, reversal_marker, rerun_signal)
+        if trigger == "none" and changed:
+            trigger = "parameter_delta"
+
+        return RevisionDeltaTelemetry(
+            detected=bool(changed or rerun_signal),
+            trigger_source=trigger,
+            proposed_tool=proposed,
+            proposed_args_fingerprint=proposed_fp,
+            previous_step_tool=matched_step.tool_name,
+            previous_args_fingerprint=previous_fp,
+            changed_keys=changed,
+            unchanged_keys=unchanged,
+            missing_keys=missing,
+            rerun_signal_present=rerun_signal,
+            would_invalidate_steps=bool(would_invalidate),
+            would_invalidate_tools=would_invalidate,
+            transitive_dependents=_preview_transitive_dependents(state.planned_chain, proposed),
+            would_reset_chain_cursor_to=would_reset,
+            decision_preview=decision,
+            scope_expansion_detected=scope_expansion,
+            reason=f"delta={bool(changed)} rerun={rerun_signal} matched_step[{matched_idx}] status={matched_step.status.value}",
+        )
+
     # ── Phase 6.1: execution idempotency ──────────────────────────────────
 
     def check_execution_idempotency(
@@ -1270,3 +1497,78 @@ def get_result_ref_for_tool(ao: AnalyticalObjective, tool_name: str) -> Optional
         if step.tool_name == tool_name:
             return step.result_ref
     return None
+
+
+# ── Phase 6.E.4A: revision delta telemetry helpers ───────────────────────
+
+
+def _trigger_source(
+    classifier_revision: bool,
+    reversal_marker: bool,
+    rerun_signal: bool,
+) -> str:
+    """Resolve the trigger source for revision delta detection."""
+    if classifier_revision:
+        return "classifier_revision"
+    if reversal_marker:
+        return "reversal_marker"
+    if rerun_signal:
+        return "explicit_rerun"
+    return "none"
+
+
+def _preview_transitive_dependents(
+    planned_chain: List[str],
+    changed_tool: str,
+) -> List[str]:
+    """Return downstream tools that would be invalidated transitively.
+
+    Uses tool_contracts.yaml requires/provides when available.
+    Falls back to linear chain order within planned_chain.
+    """
+    changed = str(changed_tool or "").strip()
+    if not changed or not planned_chain:
+        return []
+    try:
+        from tools.contract_loader import get_tool_contract_registry
+        registry = get_tool_contract_registry()
+        tool_graph = registry.get_tool_graph()
+    except Exception:
+        tool_graph = {}
+
+    # If tool_graph is available, use it for transitive walk
+    if tool_graph:
+        invalidated: set = set()
+        provides = set(tool_graph.get(changed, {}).get("provides", []))
+        # Find downstream tools in planned_chain whose requires overlap with provides
+        for tool_name in planned_chain:
+            if tool_name == changed:
+                continue
+            reqs = set(tool_graph.get(tool_name, {}).get("requires", []))
+            if reqs & provides:
+                invalidated.add(tool_name)
+                # Add their provides for further transitive walk
+                next_provides = set(tool_graph.get(tool_name, {}).get("provides", []))
+                provides.update(next_provides)
+        # Return in planned_chain order
+        result = [t for t in planned_chain if t in invalidated]
+        if result:
+            return result
+
+    # Fallback: linear chain — all steps after changed_tool in planned_chain
+    try:
+        idx = planned_chain.index(changed)
+    except ValueError:
+        return []
+    return list(planned_chain[idx + 1:])
+
+
+def _is_pollutant_expansion(p_val: Any, prev_val: Any) -> bool:
+    """Detect multi-pollutant add-only expansion (not replacement)."""
+    if not isinstance(p_val, (list, tuple)) or not isinstance(prev_val, (list, tuple)):
+        return False
+    p_set = set(str(item).strip() for item in p_val if item is not None)
+    prev_set = set(str(item).strip() for item in prev_val if item is not None)
+    if not p_set or not prev_set:
+        return False
+    return prev_set.issubset(p_set) and prev_set != p_set
