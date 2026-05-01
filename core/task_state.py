@@ -138,6 +138,67 @@ class ParamEntry:
 
 
 @dataclass
+class GeometryMetadata:
+    """Deterministic geometry-capability metadata extracted from file analysis.
+
+    Captures what spatial information is available in an uploaded file without
+    executing any tool or synthesizing geometry.  Every field is backed by
+    column-name or sample-value evidence.
+    """
+
+    geometry_available: bool = False
+    road_geometry_available: bool = False
+    point_geometry_available: bool = False
+    line_geometry_constructible: bool = False
+    geometry_type: str = "none"
+    geometry_columns: List[str] = field(default_factory=list)
+    coordinate_columns: Dict[str, Optional[str]] = field(default_factory=dict)
+    join_key_columns: Dict[str, Optional[str]] = field(default_factory=dict)
+    confidence: float = 0.0
+    evidence: List[str] = field(default_factory=list)
+    limitations: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "geometry_available": self.geometry_available,
+            "road_geometry_available": self.road_geometry_available,
+            "point_geometry_available": self.point_geometry_available,
+            "line_geometry_constructible": self.line_geometry_constructible,
+            "geometry_type": self.geometry_type,
+            "geometry_columns": list(self.geometry_columns),
+            "coordinate_columns": dict(self.coordinate_columns),
+            "join_key_columns": dict(self.join_key_columns),
+            "confidence": self.confidence,
+            "evidence": list(self.evidence),
+            "limitations": list(self.limitations),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "GeometryMetadata":
+        if not isinstance(data, dict):
+            return cls()
+        return cls(
+            geometry_available=bool(data.get("geometry_available", False)),
+            road_geometry_available=bool(data.get("road_geometry_available", False)),
+            point_geometry_available=bool(data.get("point_geometry_available", False)),
+            line_geometry_constructible=bool(data.get("line_geometry_constructible", False)),
+            geometry_type=str(data.get("geometry_type", "none")),
+            geometry_columns=[str(item) for item in (data.get("geometry_columns") or [])],
+            coordinate_columns={
+                str(k): (str(v) if v is not None else None)
+                for k, v in (data.get("coordinate_columns") or {}).items()
+            },
+            join_key_columns={
+                str(k): (str(v) if v is not None else None)
+                for k, v in (data.get("join_key_columns") or {}).items()
+            },
+            confidence=float(data.get("confidence", 0.0)),
+            evidence=[str(item) for item in (data.get("evidence") or [])],
+            limitations=[str(item) for item in (data.get("limitations") or [])],
+        )
+
+
+@dataclass
 class FileContext:
     has_file: bool = False
     file_path: Optional[str] = None
@@ -158,6 +219,7 @@ class FileContext:
     spatial_metadata: Dict[str, Any] = field(default_factory=dict)
     missing_field_diagnostics: Dict[str, Any] = field(default_factory=dict)
     spatial_context: Dict[str, Any] = field(default_factory=dict)
+    geometry_metadata: GeometryMetadata = field(default_factory=GeometryMetadata)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -180,6 +242,7 @@ class FileContext:
             "spatial_metadata": _serialize_value(self.spatial_metadata),
             "missing_field_diagnostics": _serialize_value(self.missing_field_diagnostics),
             "spatial_context": _serialize_value(self.spatial_context),
+            "geometry_metadata": self.geometry_metadata.to_dict(),
         }
 
 
@@ -952,6 +1015,9 @@ class TaskState:
         self.file_context.spatial_metadata = dict(analysis_dict.get("spatial_metadata") or {})
         self.file_context.missing_field_diagnostics = dict(analysis_dict.get("missing_field_diagnostics") or {})
         self.file_context.spatial_context = dict(analysis_dict.get("spatial_context") or {})
+        self.file_context.geometry_metadata = GeometryMetadata.from_dict(
+            analysis_dict.get("geometry_metadata")
+        )
         self.file_context.column_mapping = {}
         if self.file_context.task_type == "micro_emission" and self.file_context.micro_mapping:
             self.file_context.column_mapping = dict(self.file_context.micro_mapping)

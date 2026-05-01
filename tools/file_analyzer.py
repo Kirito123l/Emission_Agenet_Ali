@@ -196,6 +196,11 @@ class FileAnalyzerTool(BaseTool):
             },
             "missing_field_diagnostics": missing_field_diagnostics,
             "data_quality_warnings": data_quality_warnings,
+            "geometry_metadata": self._detect_geometry_metadata(
+                columns=columns,
+                sample_rows=sample_rows,
+                spatial_metadata=None,
+            ),
             "value_features_summary": {
                 col: feat.get("feature_hints", [])
                 for col, feat in value_features.items()
@@ -1013,6 +1018,272 @@ class FileAnalyzerTool(BaseTool):
             "evidence": evidence,
         }
 
+    def _detect_geometry_metadata(
+        self,
+        columns: List[str],
+        sample_rows: Optional[List[Dict[str, Any]]],
+        spatial_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Deterministic geometry-capability detection for file analysis output.
+
+        Inspects column names and sample values to determine whether the file
+        contains usable road geometry, point geometry, coordinate pairs, or join keys.
+        Every conclusion is backed by evidence and does not involve LLM inference.
+        """
+        # ── Column-name token sets ──────────────────────────────────────
+        _WKT_COLUMN_TOKENS = (
+            "wkt", "geometry", "geom", "shape", "linestring", "polygon",
+            "geojson", "geometry_json", "geom_json",
+            "几何",  # "geometry" in Chinese
+        )
+        _LON_TOKENS = ("lon", "longitude", "lng", "x", "x_coord", "coord_x", "经度")
+        _LAT_TOKENS = ("lat", "latitude", "y", "y_coord", "coord_y", "纬度")
+        _START_LON_TOKENS = ("start_lon", "from_lon", "origin_lon", "slon", "起点经度")
+        _START_LAT_TOKENS = ("start_lat", "from_lat", "origin_lat", "slat", "起点纬度")
+        _END_LON_TOKENS = ("end_lon", "to_lon", "destination_lon", "elon", "终点经度")
+        _END_LAT_TOKENS = ("end_lat", "to_lat", "destination_lat", "elat", "终点纬度")
+        _JOIN_KEY_TOKENS = (
+            "link_id", "road_id", "segment_id", "edge_id", "link", "road", "segment",
+            "路段编号", "道路编号", "路段id",
+        )
+
+        # ── Normalise helpers ───────────────────────────────────────────
+        def _norm(name: str) -> str:
+            return name.strip().lower().replace("-", "_").replace(" ", "_")
+
+        # ── Value-inspection helpers ────────────────────────────────────
+        def _sample_values(col_name: str, max_samples: int = 3) -> List[str]:
+            vals: List[str] = []
+            for row in (sample_rows or [])[:max_samples]:
+                v = row.get(col_name)
+                if v is not None and str(v).strip():
+                    vals.append(str(v).strip())
+            return vals
+
+        def _is_wkt_value(val: str) -> bool:
+            upper = val.upper().strip()
+            return upper.startswith((
+                "LINESTRING", "POINT", "POLYGON", "MULTILINESTRING",
+                "MULTIPOINT", "MULTIPOLYGON", "GEOMETRYCOLLECTION",
+            ))
+
+        def _is_geojson_value(val: str) -> bool:
+            text = val.strip()
+            if not (text.startswith("{") and "type" in text):
+                return False
+            try:
+                obj = json.loads(text)
+                if isinstance(obj, dict):
+                    t = str(obj.get("type") or "").lower()
+                    if t in ("feature", "featurecollection", "linestring", "point", "polygon"):
+                        return True
+            except Exception:
+                pass
+            return False
+
+        # ── State accumulators ──────────────────────────────────────────
+        geometry_columns: List[str] = []
+        coordinate_columns: Dict[str, Optional[str]] = {}
+        join_key_columns: Dict[str, Optional[str]] = {}
+        evidence: List[str] = []
+        limitations: List[str] = []
+
+        road_geometry_available = False
+        point_geometry_available = False
+        line_geometry_constructible = False
+        geometry_type = "none"
+        confidence = 0.0
+
+        # If spatial_metadata already exists (shapefile/geojson), bootstrap
+        if isinstance(spatial_metadata, dict) and spatial_metadata:
+            geom_types = [
+                str(t).lower()
+                for t in (spatial_metadata.get("geometry_types") or [])
+            ]
+            if any("line" in t or "polygon" in t for t in geom_types):
+                road_geometry_available = True
+                geometry_type = "spatial_metadata"
+                confidence = 0.95
+                evidence.append(
+                    f"Shapefile/GeoJSON metadata with geometry types: {geom_types}"
+                )
+            elif any("point" in t for t in geom_types):
+                point_geometry_available = True
+                geometry_type = "spatial_metadata_point"
+                confidence = 0.80
+                evidence.append(
+                    f"Shapefile/GeoJSON metadata with point geometry: {geom_types}"
+                )
+                limitations.append(
+                    "Point geometry detected in spatial metadata; "
+                    "not sufficient for road-segment line dispersion"
+                )
+            else:
+                geometry_type = "spatial_metadata_unknown"
+                confidence = 0.60
+                evidence.append("Spatial metadata present but geometry type unclear")
+
+        # ── Column-name scan ─────────────────────────────────────────────
+        normalized_cols = {_norm(c): c for c in (columns or [])}
+
+        # WKT / geometry columns
+        for token in _WKT_COLUMN_TOKENS:
+            if token in normalized_cols:
+                col_name = normalized_cols[token]
+                if col_name not in geometry_columns:
+                    geometry_columns.append(col_name)
+
+        # Coordinate columns — detect pairs
+        lon_col: Optional[str] = None
+        lat_col: Optional[str] = None
+        for token in _LON_TOKENS:
+            if token in normalized_cols:
+                lon_col = normalized_cols[token]
+                break
+        for token in _LAT_TOKENS:
+            if token in normalized_cols:
+                lat_col = normalized_cols[token]
+                break
+
+        # Narrow lon/lat detection to avoid false-matching single-letter "x"/"y"
+        if lon_col and lat_col:
+            lon_norm = _norm(lon_col)
+            lat_norm = _norm(lat_col)
+            if lon_norm in ("x", "y") and lat_norm in ("x", "y"):
+                lon_col = None
+                lat_col = None
+
+        # Start/end coordinate columns
+        start_lon_col: Optional[str] = None
+        start_lat_col: Optional[str] = None
+        end_lon_col: Optional[str] = None
+        end_lat_col: Optional[str] = None
+        for token in _START_LON_TOKENS:
+            if token in normalized_cols:
+                start_lon_col = normalized_cols[token]
+                break
+        for token in _START_LAT_TOKENS:
+            if token in normalized_cols:
+                start_lat_col = normalized_cols[token]
+                break
+        for token in _END_LON_TOKENS:
+            if token in normalized_cols:
+                end_lon_col = normalized_cols[token]
+                break
+        for token in _END_LAT_TOKENS:
+            if token in normalized_cols:
+                end_lat_col = normalized_cols[token]
+                break
+
+        # Join key columns
+        for token in _JOIN_KEY_TOKENS:
+            if token in normalized_cols:
+                col_name = normalized_cols[token]
+                if col_name not in join_key_columns:
+                    join_key_columns[token] = col_name
+
+        # ── Value-based verification ─────────────────────────────────────
+        wkt_value_verified = False
+        geojson_value_verified = False
+
+        for col_name in geometry_columns:
+            samples = _sample_values(col_name, max_samples=3)
+            if not samples:
+                continue
+            wkt_hits = sum(1 for v in samples if _is_wkt_value(v))
+            geojson_hits = sum(1 for v in samples if _is_geojson_value(v))
+            if wkt_hits > 0:
+                wkt_value_verified = True
+                evidence.append(
+                    f"Column '{col_name}': {wkt_hits}/{len(samples)} sample(s) "
+                    f"contain WKT geometry (e.g. {samples[0][:60]}...)"
+                )
+            if geojson_hits > 0:
+                geojson_value_verified = True
+                evidence.append(
+                    f"Column '{col_name}': {geojson_hits}/{len(samples)} sample(s) "
+                    f"contain GeoJSON geometry"
+                )
+
+        # ── Determine geometry type and confidence ──────────────────────
+        # Priority: spatial_metadata > WKT values > GeoJSON values > start/end coords > lon/lat
+
+        if not isinstance(spatial_metadata, dict) or not spatial_metadata:
+            if wkt_value_verified:
+                road_geometry_available = True
+                geometry_type = "wkt"
+                confidence = 0.90
+                evidence.append("WKT geometry values confirmed in sample rows")
+            elif geojson_value_verified:
+                road_geometry_available = True
+                geometry_type = "geojson"
+                confidence = 0.90
+                evidence.append("GeoJSON geometry values confirmed in sample rows")
+            elif geometry_columns and not wkt_value_verified and not geojson_value_verified:
+                limitations.append(
+                    f"Columns {geometry_columns} match geometry-like names but "
+                    f"sample values do not contain recognizable WKT/GeoJSON"
+                )
+            elif start_lon_col and start_lat_col and end_lon_col and end_lat_col:
+                road_geometry_available = True
+                line_geometry_constructible = True
+                geometry_type = "lonlat_linestring"
+                confidence = 0.85
+                coordinate_columns["start_lon"] = start_lon_col
+                coordinate_columns["start_lat"] = start_lat_col
+                coordinate_columns["end_lon"] = end_lon_col
+                coordinate_columns["end_lat"] = end_lat_col
+                evidence.append(
+                    f"Start/end coordinate columns detected: "
+                    f"{start_lon_col}/{start_lat_col} → {end_lon_col}/{end_lat_col}"
+                )
+            elif lon_col and lat_col:
+                point_geometry_available = True
+                geometry_type = "lonlat_point"
+                confidence = 0.65
+                coordinate_columns["lon"] = lon_col
+                coordinate_columns["lat"] = lat_col
+                evidence.append(f"Point coordinate columns detected: {lon_col}, {lat_col}")
+                limitations.append(
+                    "Only point coordinates (lon/lat) found; "
+                    "not sufficient for road segment line geometry."
+                )
+            elif join_key_columns:
+                geometry_type = "join_key_only"
+                confidence = 0.40
+                evidence.append(
+                    f"Join key columns detected: {list(join_key_columns.keys())}"
+                )
+                limitations.append(
+                    "Join key columns present but no geometry columns or "
+                    "coordinates found; external geometry mapping required."
+                )
+            else:
+                geometry_type = "none"
+                confidence = 0.0
+                limitations.append(
+                    "No geometry columns, coordinate pairs, or join keys detected."
+                )
+
+        # ── Build result ─────────────────────────────────────────────────
+        geometry_available = (
+            road_geometry_available or point_geometry_available
+        )
+
+        return {
+            "geometry_available": geometry_available,
+            "road_geometry_available": road_geometry_available,
+            "point_geometry_available": point_geometry_available,
+            "line_geometry_constructible": line_geometry_constructible,
+            "geometry_type": geometry_type,
+            "geometry_columns": geometry_columns,
+            "coordinate_columns": coordinate_columns,
+            "join_key_columns": join_key_columns,
+            "confidence": round(confidence, 3),
+            "evidence": evidence,
+            "limitations": limitations,
+        }
+
     def _format_summary(self, analysis: Dict) -> str:
         """Format analysis summary for LLM — purely descriptive, no judgment"""
         import json
@@ -1308,6 +1579,11 @@ class FileAnalyzerTool(BaseTool):
             "missing_field_diagnostics": missing_field_diagnostics,
             "data_quality_warnings": data_quality_warnings,
             "spatial_metadata": spatial_metadata,
+            "geometry_metadata": self._detect_geometry_metadata(
+                columns=columns,
+                sample_rows=sample_rows,
+                spatial_metadata=spatial_metadata,
+            ),
             "evidence": task_identification["evidence"],
             "value_features_summary": {
                 col: feat.get("feature_hints", [])
@@ -1544,6 +1820,11 @@ class FileAnalyzerTool(BaseTool):
             "missing_field_diagnostics": missing_field_diagnostics,
             "data_quality_warnings": [],
             "spatial_metadata": spatial_metadata,
+            "geometry_metadata": self._detect_geometry_metadata(
+                columns=columns,
+                sample_rows=sample_rows,
+                spatial_metadata=spatial_metadata,
+            ),
             "evidence": task_identification["evidence"],
             "value_features_summary": {
                 col: feat.get("feature_hints", [])
