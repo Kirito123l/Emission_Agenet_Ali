@@ -65,6 +65,25 @@ class IdempotencyResult:
     explicit_rerun_absent: bool = True
 
 
+# ── Phase 6.E: canonical execution state consumption ──────────────────────
+
+
+class CanonicalExecutionDecision(Enum):
+    PROCEED = "proceed"
+    SKIP_COMPLETED_STEP = "skip_completed_step"
+    ADVANCE_TO_PENDING = "advance_to_pending"
+    NO_STATE = "no_state"
+
+
+@dataclass
+class CanonicalExecutionResult:
+    decision: CanonicalExecutionDecision
+    blocked_tool: Optional[str] = None
+    pending_next_tool: Optional[str] = None
+    matched_step_index: Optional[int] = None
+    reason: str = ""
+
+
 # ── Phase 6.E: canonical multi-turn execution state ─────────────────────
 
 

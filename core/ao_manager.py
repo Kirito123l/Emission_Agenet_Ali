@@ -10,6 +10,8 @@ from core.analytical_objective import (
     AOExecutionState,
     AOStatus,
     AnalyticalObjective,
+    CanonicalExecutionDecision,
+    CanonicalExecutionResult,
     ExecutionStep,
     ExecutionStepStatus,
     IdempotencyDecision,
@@ -636,6 +638,86 @@ class AOManager:
             groups_by_pattern[pattern_key].add(tool_name)
 
         return list(groups_by_pattern.values())
+
+    # ── Phase 6.E.2: canonical execution state consumption ─────────────────
+
+    def check_canonical_execution_state(
+        self,
+        ao: AnalyticalObjective,
+        proposed_tool: str,
+    ) -> "CanonicalExecutionResult":
+        """Check canonical AOExecutionState to suppress intra-AO duplicates.
+
+        Returns SKIP_COMPLETED_STEP when the proposed tool is already completed/skipped
+        in the current AO. Returns ADVANCE_TO_PENDING when there is a pending downstream
+        step that should be used instead.
+
+        AO-local only — does not scan other AOs (Phase 6.1 handles inter-AO).
+        """
+        if not _canonical_state_enabled():
+            return CanonicalExecutionResult(
+                decision=CanonicalExecutionDecision.NO_STATE,
+                reason="canonical state disabled",
+            )
+
+        state = ensure_execution_state(ao)
+        if state is None or not state.steps:
+            return CanonicalExecutionResult(
+                decision=CanonicalExecutionDecision.PROCEED,
+                reason="no execution state or empty steps",
+            )
+
+        proposed = str(proposed_tool or "").strip()
+        if not proposed:
+            return CanonicalExecutionResult(
+                decision=CanonicalExecutionDecision.PROCEED,
+                reason="no proposed tool",
+            )
+
+        # Find matching step(s)
+        matching_steps = [(i, s) for i, s in enumerate(state.steps) if s.tool_name == proposed]
+
+        for idx, step in matching_steps:
+            if step.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED):
+                pending_next = state.pending_next_tool
+                if pending_next and pending_next != proposed:
+                    return CanonicalExecutionResult(
+                        decision=CanonicalExecutionDecision.ADVANCE_TO_PENDING,
+                        blocked_tool=proposed,
+                        pending_next_tool=pending_next,
+                        matched_step_index=idx,
+                        reason=f"step[{idx}] {proposed} already {step.status.value}, pending_next_tool={pending_next}",
+                    )
+                return CanonicalExecutionResult(
+                    decision=CanonicalExecutionDecision.SKIP_COMPLETED_STEP,
+                    blocked_tool=proposed,
+                    matched_step_index=idx,
+                    reason=f"step[{idx}] {proposed} already {step.status.value}, no pending downstream",
+                )
+
+            if step.status == ExecutionStepStatus.PENDING:
+                if idx == state.chain_cursor:
+                    return CanonicalExecutionResult(
+                        decision=CanonicalExecutionDecision.PROCEED,
+                        reason=f"step[{idx}] {proposed} is pending at chain_cursor",
+                    )
+                # Pending but not at cursor (upstream step not done?)
+                if idx < state.chain_cursor:
+                    return CanonicalExecutionResult(
+                        decision=CanonicalExecutionDecision.PROCEED,
+                        reason=f"step[{idx}] {proposed} is pending but before cursor — may be re-execution",
+                    )
+
+        # Proposed tool not in steps at all
+        if state.pending_next_tool:
+            return CanonicalExecutionResult(
+                decision=CanonicalExecutionDecision.PROCEED,
+                reason=f"{proposed} not in planned_chain; pending_next_tool={state.pending_next_tool}",
+            )
+        return CanonicalExecutionResult(
+            decision=CanonicalExecutionDecision.PROCEED,
+            reason=f"{proposed} not in planned_chain {state.planned_chain}",
+        )
 
     # ── Phase 6.1: execution idempotency ──────────────────────────────────
 

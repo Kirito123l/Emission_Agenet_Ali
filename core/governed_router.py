@@ -6,7 +6,11 @@ import time
 from typing import Any, Dict, Optional
 
 from config import get_config
-from core.analytical_objective import ConversationalStance, StanceConfidence
+from core.analytical_objective import (
+    CanonicalExecutionDecision,
+    ConversationalStance,
+    StanceConfidence,
+)
 from core.ao_manager import AOManager
 from core.constraint_violation_writer import (
     ConstraintViolationWriter,
@@ -53,6 +57,43 @@ class _IdempotencyAwareExecutor:
         file_path: Optional[str] = None,
     ) -> Dict:
         gr = self._gr
+
+        # Phase 6.E.2: canonical execution state check (intra-AO duplicate suppression)
+        canonical_enabled = bool(getattr(gr.runtime_config, "enable_canonical_execution_state", False))
+        if canonical_enabled:
+            current_ao = gr.ao_manager.get_current_ao()
+            if current_ao is not None:
+                canonical = gr.ao_manager.check_canonical_execution_state(
+                    current_ao, proposed_tool=tool_name,
+                )
+                if canonical.decision in (
+                    CanonicalExecutionDecision.SKIP_COMPLETED_STEP,
+                    CanonicalExecutionDecision.ADVANCE_TO_PENDING,
+                ):
+                    logger.info(
+                        "Canonical state skip: %s (decision=%s reason=%s pending_next=%s)",
+                        tool_name, canonical.decision.value, canonical.reason,
+                        canonical.pending_next_tool,
+                    )
+                    # Canonical skip is NOT a tool success — it is a governance
+                    # decision to suppress duplicate execution.  The result must
+                    # carry canonical_skip=True so OASC can skip recording it,
+                    # and must NOT carry success=True (no tool executed).
+                    return {
+                        "success": False,
+                        "message": (
+                            f"canonical skip — {tool_name} already {canonical.decision.value}"
+                        ),
+                        "summary": (
+                            f"Canonical execution state skip: {tool_name} "
+                            f"(matched step[{canonical.matched_step_index}], "
+                            f"pending_next={canonical.pending_next_tool})"
+                        ),
+                        "canonical_skip": True,
+                        "canonical_decision": canonical.decision.value,
+                        "pending_next_tool": canonical.pending_next_tool,
+                    }
+
         if not bool(getattr(gr.runtime_config, "enable_execution_idempotency", False)):
             return await self._delegate.execute(tool_name, arguments, file_path=file_path)
 

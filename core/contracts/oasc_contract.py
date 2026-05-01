@@ -128,6 +128,8 @@ class OASCContract(BaseContract):
             if isinstance(item, dict)
             and str(item.get("name") or "").strip()
             and bool((item.get("result") or {}).get("success"))
+            and not bool((item.get("result") or {}).get("idempotent_skip"))
+            and not bool((item.get("result") or {}).get("canonical_skip"))
         ]
         continuation_after = continuation_before
         transition_reason = str(transition_meta.get("transition_reason") or "no_change")
@@ -301,8 +303,8 @@ class OASCContract(BaseContract):
                     if active_file:
                         arguments = dict(arguments, file_path=str(active_file))
             tool_result = item.get("result") if isinstance(item.get("result"), dict) else {}
-            # Phase 6.1: skip idempotent skips — do not record as normal tool calls
-            if tool_result.get("idempotent_skip"):
+            # Phase 6.1 / 6.E.2: skip idempotent and canonical skips — do not record as normal tool calls
+            if tool_result.get("idempotent_skip") or tool_result.get("canonical_skip"):
                 continue
             summary = str(tool_result.get("summary") or tool_result.get("message") or "")
             record = ToolCallRecord(
@@ -419,6 +421,8 @@ class OASCContract(BaseContract):
             tool_result = item.get("result") if isinstance(item.get("result"), dict) else {}
             arguments = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
             is_idempotent_skip = bool(tool_result.get("idempotent_skip"))
+            is_canonical_skip = bool(tool_result.get("canonical_skip"))
+            is_skip = is_idempotent_skip or is_canonical_skip
             success = bool(tool_result.get("success"))
 
             # Find matching step
@@ -433,23 +437,36 @@ class OASCContract(BaseContract):
                         matched_idx = i
                         break
 
-            if is_idempotent_skip:
+            if is_skip:
                 if matched_idx is not None:
                     step = state.steps[matched_idx]
-                    step.status = ExecutionStepStatus.SKIPPED
-                    step.updated_turn = turn
-                    step.source = "idempotent_skip"
-                    step.provenance["idempotent_skip"] = True
-                    step.provenance["skip_recorded_at_turn"] = turn
+                    # Guard: canonical skip must NOT overwrite a COMPLETED step.
+                    # The completed step stays completed; we only record provenance.
+                    if is_canonical_skip and step.status == ExecutionStepStatus.COMPLETED:
+                        step.provenance["canonical_skip_attempted"] = True
+                        step.provenance["canonical_skip_attempted_at_turn"] = turn
+                        if step.updated_turn is None:
+                            step.updated_turn = turn
+                    else:
+                        step.status = ExecutionStepStatus.SKIPPED
+                        step.updated_turn = turn
+                        step.source = "canonical_skip" if is_canonical_skip else "idempotent_skip"
+                        step.provenance["idempotent_skip"] = is_idempotent_skip
+                        step.provenance["canonical_skip"] = is_canonical_skip
+                        step.provenance["skip_recorded_at_turn"] = turn
                 else:
                     new_step = ExecutionStep(
                         tool_name=tool_name,
                         status=ExecutionStepStatus.SKIPPED,
                         effective_args=dict(arguments),
-                        source="idempotent_skip",
+                        source="canonical_skip" if is_canonical_skip else "idempotent_skip",
                         created_turn=turn,
                         updated_turn=turn,
-                        provenance={"idempotent_skip": True, "skip_recorded_at_turn": turn},
+                        provenance={
+                            "idempotent_skip": is_idempotent_skip,
+                            "canonical_skip": is_canonical_skip,
+                            "skip_recorded_at_turn": turn,
+                        },
                     )
                     state.steps.append(new_step)
                     if tool_name not in state.planned_chain:
