@@ -701,6 +701,80 @@ def _build_spatial_payload_reason(token: str) -> BlockedReason:
     )
 
 
+# ── Spatial emission precondition (Phase 7.4B) ──────────────────────────
+
+_SPATIAL_REASON_HINTS: Dict[str, str] = {
+    "spatial_emission_available": "",
+    "point_geometry_not_road_geometry": (
+        "文件仅包含点坐标 (lon/lat)，不具备路段线几何。"
+        "请提供含 WKT、GeoJSON 或起终点坐标的路段几何文件。"
+    ),
+    "join_key_without_geometry": (
+        "文件仅包含路段标识列，不包含几何列。"
+        "请额外上传含路段几何的 Shapefile/GeoJSON 文件，或补充 WKT/起终点坐标列。"
+    ),
+    "missing_road_geometry": (
+        "文件中未检测到路段几何。"
+        "请上传含 WKT、GeoJSON、起终点坐标的几何文件，或使用 Shapefile。"
+    ),
+    "road_geometry_unavailable": (
+        "检测到几何候选列但内容不含可用路段线几何。"
+        "请检查几何列是否确实包含 LINESTRING/POLYGON 类型的空间数据。"
+    ),
+}
+
+
+def _build_spatial_emission_reason(reason_code: str, message: str) -> BlockedReason:
+    return BlockedReason(
+        reason_code=reason_code,
+        message=message,
+        missing_requirements=["road_geometry"],
+        repair_hint=_SPATIAL_REASON_HINTS.get(reason_code, ""),
+        severity="warning",
+    )
+
+
+def resolve_spatial_precondition(
+    tool_name: str,
+    file_context: Optional[Dict[str, Any]] = None,
+    emission_result_ref: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Evaluate spatial emission precondition for a tool.
+
+    Wraps the Phase 7.4A spatial emission resolver and returns a readiness-
+    compatible diagnostic dict.
+
+    For tools that do NOT require road geometry, returns satisfied=true
+    immediately with reason_code=no_road_geometry_requirement.
+
+    Returns:
+        Dict with keys: satisfied, reason_code, message, candidate_dict.
+        candidate_dict is the serialised SpatialEmissionCandidate (or None).
+    """
+    from core.tool_dependencies import requires_road_geometry
+    from core.spatial_emission_resolver import resolve_spatial_emission_candidate
+
+    if not requires_road_geometry(tool_name):
+        return {
+            "satisfied": True,
+            "reason_code": "no_road_geometry_requirement",
+            "message": f"Tool '{tool_name}' does not require road geometry.",
+            "candidate_dict": None,
+        }
+
+    candidate = resolve_spatial_emission_candidate(
+        file_context=file_context,
+        emission_result_ref=emission_result_ref,
+    )
+
+    return {
+        "satisfied": candidate.available,
+        "reason_code": candidate.reason_code,
+        "message": candidate.message,
+        "candidate_dict": candidate.to_dict() if candidate.available or True else candidate.to_dict(),
+    }
+
+
 def _build_required_result_reason(tokens: Sequence[str]) -> BlockedReason:
     readable = [_RESULT_LABELS.get(token, token) for token in tokens]
     if len(readable) == 1:
@@ -1156,8 +1230,24 @@ def assess_action_readiness(
                 guidance_enabled=action.guidance_enabled,
             )
 
+    # Phase 7.4B: spatial emission precondition for road-geometry-requiring tools
+    spatial_precondition = resolve_spatial_precondition(
+        tool_name=action.tool_name,
+        file_context=file_context,
+        emission_result_ref=None,
+    )
+    if spatial_precondition.get("candidate_dict"):
+        available_conditions.append("spatial_emission_candidate")
+
     if action.requires_geometry_support and not has_geometry_support:
-        reason = _build_geometry_reason()
+        # Use targeted spatial precondition diagnostic when available
+        if not spatial_precondition["satisfied"] and spatial_precondition["reason_code"] != "no_road_geometry_requirement":
+            reason = _build_spatial_emission_reason(
+                reason_code=spatial_precondition["reason_code"],
+                message=spatial_precondition["message"],
+            )
+        else:
+            reason = _build_geometry_reason()
         return ActionAffordance(
             action_id=action.action_id,
             status=ReadinessStatus.REPAIRABLE,
