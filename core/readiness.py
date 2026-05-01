@@ -13,6 +13,8 @@ from core.artifact_memory import (
     coerce_artifact_memory_state,
 )
 from core.tool_dependencies import (
+    check_road_geometry_from_metadata,
+    requires_road_geometry,
     suggest_prerequisite_tool,
     validate_tool_prerequisites,
 )
@@ -414,16 +416,29 @@ def _determine_geometry_support(
     file_context: Dict[str, Any],
     result_payloads: Dict[str, Dict[str, Any]],
 ) -> tuple[bool, Optional[str]]:
+    # 1. Spatial metadata from shapefile/geojson (existing)
     spatial_metadata = file_context.get("spatial_metadata") or {}
     if isinstance(spatial_metadata, dict) and spatial_metadata:
         return True, "file_spatial_metadata"
 
+    # 2. Spatial context from geometry recovery (existing)
     spatial_context = file_context.get("spatial_context") or {}
     if isinstance(spatial_context, dict) and spatial_context:
         if _safe_lower_text(spatial_context.get("mode")) == "supporting_spatial_input":
             return True, "supporting_spatial_input"
         return True, "file_spatial_context"
 
+    # 3. Phase 7.2 geometry_metadata — deterministic, evidence-backed (new)
+    geometry_metadata = file_context.get("geometry_metadata") or {}
+    if isinstance(geometry_metadata, dict):
+        if geometry_metadata.get("road_geometry_available"):
+            return True, "geometry_metadata"
+        if geometry_metadata.get("point_geometry_available"):
+            # Point geometry exists but not sufficient for road dispersion.
+            # Mark as False with source info for diagnostic messages.
+            return False, "geometry_metadata_point_only"
+
+    # 4. Dataset roles (existing, fallback)
     dataset_roles = file_context.get("dataset_roles") or []
     if isinstance(dataset_roles, list):
         for item in dataset_roles:
@@ -434,11 +449,13 @@ def _determine_geometry_support(
             if _safe_lower_text(item.get("role")) in {"spatial_context", "supporting_spatial_dataset"}:
                 return True, "supporting_spatial_dataset"
 
+    # 5. Column-name heuristics (existing, fallback)
     for column_name in _iter_candidate_column_names(file_context):
         normalized = _safe_lower_text(column_name)
         if any(token in normalized for token in _GEOMETRY_COLUMN_TOKENS):
             return True, "geometry_column_signal"
 
+    # 6. Emission result payload (existing, fallback)
     if _result_has_spatial_payload("emission", result_payloads.get("emission")):
         return True, "emission_result_geometry"
 

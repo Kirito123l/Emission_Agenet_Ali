@@ -92,6 +92,8 @@ class TraceStepType(str, Enum):
     GEOMETRY_RE_GROUNDING_FAILED = "geometry_re_grounding_failed"
     GEOMETRY_READINESS_REFRESHED = "geometry_readiness_refreshed"
     GEOMETRY_RECOVERY_RESUMED = "geometry_recovery_resumed"
+    SPATIAL_GEOMETRY_CHECK = "spatial_geometry_check"
+    SPATIAL_GEOMETRY_UNAVAILABLE = "spatial_geometry_unavailable"
     RESIDUAL_REENTRY_TARGET_SET = "residual_reentry_target_set"
     RESIDUAL_REENTRY_DECIDED = "residual_reentry_decided"
     RESIDUAL_REENTRY_INJECTED = "residual_reentry_injected"
@@ -916,6 +918,30 @@ class Trace:
                 "description": step.reasoning or "The repaired workflow became resumable without auto-executing downstream tools.",
                 "status": "success",
                 "step_type": step.step_type.value,
+            }
+
+        elif step.step_type == TraceStepType.SPATIAL_GEOMETRY_CHECK:
+            output = dict(step.output_summary or {})
+            geom_type = str(output.get("geometry_type") or "unknown")
+            road_avail = bool(output.get("road_geometry_available"))
+            satisfied = bool(output.get("satisfied"))
+            return {
+                "title": "空间几何依赖检查 / Spatial Geometry Check",
+                "description": step.reasoning or f"Deterministic geometry check: type={geom_type}, road_available={road_avail}, satisfied={satisfied}.",
+                "status": "success" if satisfied else "warning",
+                "step_type": step.step_type.value,
+                "metadata": output,
+            }
+
+        elif step.step_type == TraceStepType.SPATIAL_GEOMETRY_UNAVAILABLE:
+            output = dict(step.output_summary or {})
+            reason_code = str(output.get("reason_code") or "missing_road_geometry")
+            return {
+                "title": "空间几何不可用 / Spatial Geometry Unavailable",
+                "description": step.reasoning or f"Road geometry is unavailable for dispersion: reason_code={reason_code}.",
+                "status": "warning",
+                "step_type": step.step_type.value,
+                "metadata": output,
             }
 
         elif step.step_type == TraceStepType.RESIDUAL_REENTRY_TARGET_SET:

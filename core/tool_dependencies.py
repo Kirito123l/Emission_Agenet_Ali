@@ -24,6 +24,9 @@ CANONICAL_RESULT_ALIASES: Dict[str, str] = {
     "concentration": "dispersion",
     "raster": "dispersion",
     "contour": "dispersion",
+    "spatial_emission": "spatial_emission",
+    "spatial_emission_result": "spatial_emission",
+    "spatial_emission_layer": "spatial_emission",
 }
 
 
@@ -279,6 +282,153 @@ def suggest_prerequisite_tool(missing_result: str) -> Optional[str]:
 def get_tool_provides(tool_name: str) -> List[str]:
     """Get the canonical result types a tool provides."""
     return normalize_tokens(TOOL_GRAPH.get(tool_name, {}).get("provides", []))
+
+
+# ── Geometry dependency helpers (Phase 7.3) ──────────────────────────────
+
+_ACCEPTABLE_ROAD_GEOMETRY_TYPES: Set[str] = {
+    "wkt", "geojson", "lonlat_linestring", "spatial_metadata",
+}
+
+_REJECTED_ROAD_GEOMETRY_TYPES: Set[str] = {
+    "lonlat_point", "join_key_only", "none",
+}
+
+
+def get_geometry_requirements(tool_name: str) -> Dict[str, Any]:
+    """Return geometry_requirements metadata for a tool from its contract.
+
+    Returns an empty dict when the tool has no geometry_requirements block.
+    """
+    registry = get_tool_contract_registry()
+    contract = dict(registry._contracts.get(tool_name, {}))
+    geo_req = contract.get("geometry_requirements")
+    if isinstance(geo_req, dict):
+        return dict(geo_req)
+    return {}
+
+
+def requires_road_geometry(tool_name: str) -> bool:
+    """Check whether *tool_name* declares a road-geometry requirement."""
+    geo_req = get_geometry_requirements(tool_name)
+    return bool(geo_req.get("requires_road_geometry", False))
+
+
+def is_acceptable_road_geometry_type(geometry_type: str, tool_name: str = "calculate_dispersion") -> bool:
+    """Check whether *geometry_type* satisfies the road-geometry requirement for *tool_name*."""
+    geo_req = get_geometry_requirements(tool_name)
+    acceptable = set(geo_req.get("acceptable_geometry_types", _ACCEPTABLE_ROAD_GEOMETRY_TYPES))
+    if not acceptable:
+        acceptable = _ACCEPTABLE_ROAD_GEOMETRY_TYPES
+    return str(geometry_type).strip().lower() in acceptable
+
+
+def is_rejected_road_geometry_type(geometry_type: str, tool_name: str = "calculate_dispersion") -> bool:
+    """Check whether *geometry_type* is explicitly rejected for road-geometry requirements."""
+    geo_req = get_geometry_requirements(tool_name)
+    rejected = set(geo_req.get("rejected_geometry_types", _REJECTED_ROAD_GEOMETRY_TYPES))
+    if not rejected:
+        rejected = _REJECTED_ROAD_GEOMETRY_TYPES
+    return str(geometry_type).strip().lower() in rejected
+
+
+def check_road_geometry_from_metadata(
+    geometry_metadata: Optional[Dict[str, Any]],
+    tool_name: str = "calculate_dispersion",
+) -> Dict[str, Any]:
+    """Deterministic road-geometry availability check against geometry_metadata.
+
+    Returns a diagnostic dict with:
+      - satisfied: bool
+      - reason_code: str
+      - geometry_type: str
+      - road_geometry_available: bool
+      - message: str
+    """
+    geo_meta = dict(geometry_metadata or {})
+    geometry_type = str(geo_meta.get("geometry_type", "none")).strip().lower()
+    road_available = bool(geo_meta.get("road_geometry_available", False))
+    line_constructible = bool(geo_meta.get("line_geometry_constructible", False))
+    point_available = bool(geo_meta.get("point_geometry_available", False))
+    geo_available = bool(geo_meta.get("geometry_available", False))
+    join_keys = dict(geo_meta.get("join_key_columns") or {})
+
+    if not requires_road_geometry(tool_name):
+        return {
+            "satisfied": True,
+            "reason_code": "no_road_geometry_requirement",
+            "geometry_type": geometry_type,
+            "road_geometry_available": road_available,
+            "message": f"Tool '{tool_name}' does not require road geometry.",
+        }
+
+    # Acceptable road geometry types
+    if geometry_type in _ACCEPTABLE_ROAD_GEOMETRY_TYPES and road_available:
+        return {
+            "satisfied": True,
+            "reason_code": "road_geometry_available",
+            "geometry_type": geometry_type,
+            "road_geometry_available": True,
+            "message": f"Road geometry available (type={geometry_type}).",
+        }
+
+    # lonlat point only
+    if geometry_type == "lonlat_point" and point_available:
+        return {
+            "satisfied": False,
+            "reason_code": "missing_road_geometry_point_only",
+            "geometry_type": geometry_type,
+            "road_geometry_available": False,
+            "point_geometry_available": True,
+            "message": (
+                "Only point coordinates (lon/lat) found in file. "
+                "Dispersion requires road-segment line geometry (WKT, GeoJSON, "
+                "start-end coordinates, or shapefile)."
+            ),
+        }
+
+    # join key only
+    if geometry_type == "join_key_only" and join_keys:
+        jk_list = sorted(join_keys.keys())
+        return {
+            "satisfied": False,
+            "reason_code": "missing_road_geometry_join_key_only",
+            "geometry_type": geometry_type,
+            "road_geometry_available": False,
+            "join_key_columns": jk_list,
+            "message": (
+                f"Join key columns found ({', '.join(jk_list)}) but no road geometry. "
+                "Please provide a geometry file (shapefile/GeoJSON) or columns with WKT/"
+                "start-end coordinates for road-segment dispersion."
+            ),
+        }
+
+    # no geometry at all
+    if geometry_type == "none" or not geo_available:
+        return {
+            "satisfied": False,
+            "reason_code": "missing_road_geometry",
+            "geometry_type": geometry_type or "none",
+            "road_geometry_available": False,
+            "message": (
+                "No road geometry detected in the uploaded file. "
+                "Dispersion requires road-segment line geometry. "
+                "Please upload a file with WKT, GeoJSON, start-end coordinates, "
+                "or a shapefile."
+            ),
+        }
+
+    # unexpected / unknown geometry type — not road
+    return {
+        "satisfied": False,
+        "reason_code": "missing_road_geometry",
+        "geometry_type": geometry_type,
+        "road_geometry_available": False,
+        "message": (
+            f"Geometry type '{geometry_type}' is not usable for road-segment dispersion. "
+            "Required: WKT, GeoJSON, start-end coordinates, or shapefile geometry."
+        ),
+    }
 
 
 def _build_tool_graph_for_prompt() -> dict:

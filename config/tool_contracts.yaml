@@ -556,6 +556,20 @@ tools:
         - emission
       provides:
         - dispersion
+    geometry_requirements:
+      requires_road_geometry: true
+      road_geometry_source: file_context.geometry_metadata
+      acceptable_geometry_types:
+        - wkt
+        - geojson
+        - lonlat_linestring
+        - spatial_metadata
+      rejected_geometry_types:
+        - lonlat_point
+        - join_key_only
+        - none
+      missing_diagnostic_reason_code: missing_road_geometry
+      missing_diagnostic_message: "Dispersion requires road-segment geometry (WKT/GeoJSON/start-end coordinates/shapefile). The current file does not contain usable road geometry."
     readiness:
       required_result_tokens: []
       requires_geometry_support: true
