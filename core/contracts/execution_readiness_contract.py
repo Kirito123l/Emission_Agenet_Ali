@@ -3,7 +3,12 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional
 
-from core.analytical_objective import ConversationalStance, ExecutionStepStatus
+from core.analytical_objective import (
+    ConversationalStance,
+    ExecutionStepStatus,
+    RevisionDeltaDecisionPreview,
+    RevisionDeltaTelemetry,
+)
 from core.ao_manager import ensure_execution_state
 from core.continuation_signals import has_probe_abandon_marker, has_reversal_marker
 from core.contracts.base import ContractContext, ContractInterception
@@ -192,6 +197,14 @@ class ExecutionReadinessContract(SplitContractSupport):
         )
         missing_required = self._missing_slots(snapshot, active_required_slots)
         optional_classification = self._classify_missing_optionals(tool_name, snapshot, tool_spec)
+        self._sync_revision_invalidation_runtime(
+            context=context,
+            current_ao=current_ao,
+            tool_name=tool_name,
+            snapshot=snapshot,
+            missing_required=missing_required,
+            rejected_slots=rejected_slots,
+        )
         # Phase 5.3 Round 3.2: write stage3_yaml for A reconciler P2 source
         context.metadata["stage3_yaml"] = {
             "missing_required": list(missing_required),
@@ -741,6 +754,159 @@ class ExecutionReadinessContract(SplitContractSupport):
                 "readiness_gate": clarification_metadata["readiness_gate"],
             }
         )
+
+    # ── Phase 6.E.4C: revision invalidation runtime integration ─────────────
+
+    def _sync_revision_invalidation_runtime(
+        self,
+        *,
+        context: ContractContext,
+        current_ao: Any,
+        tool_name: str,
+        snapshot: Dict[str, Dict[str, Any]],
+        missing_required: List[str],
+        rejected_slots: List[str],
+    ) -> None:
+        """Detect and apply revision invalidation from final readiness args.
+
+        This runs after Stage 3 normalization, before router-level duplicate
+        suppression. It only mutates AOExecutionState through AOManager's
+        Phase 6.E.4B engine and does not dispatch or suppress tools itself.
+        """
+        if self.ao_manager is None or current_ao is None:
+            return
+        if not (
+            bool(getattr(self.runtime_config, "enable_canonical_execution_state", False))
+            and bool(getattr(self.runtime_config, "enable_revision_invalidation", False))
+        ):
+            return
+
+        state = ensure_execution_state(current_ao)
+        if state is None:
+            telemetry = RevisionDeltaTelemetry(
+                proposed_tool=str(tool_name or ""),
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason="no canonical execution state available",
+            )
+            self._store_revision_runtime_telemetry(context, current_ao, telemetry)
+            return
+
+        proposed_args = self._snapshot_to_effective_args(tool_name, snapshot)
+        if context.file_path and "file_path" not in proposed_args:
+            proposed_args["file_path"] = str(context.file_path)
+
+        if missing_required or rejected_slots:
+            fingerprint = self.ao_manager._build_semantic_fingerprint(tool_name, proposed_args)
+            telemetry = RevisionDeltaTelemetry(
+                proposed_tool=str(tool_name or ""),
+                proposed_args_fingerprint=fingerprint,
+                missing_keys=list(dict.fromkeys([*missing_required, *rejected_slots])),
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason="final effective args unavailable: missing or rejected slots",
+            )
+            self._store_revision_runtime_telemetry(context, current_ao, telemetry)
+            return
+
+        fingerprint = self.ao_manager._build_semantic_fingerprint(tool_name, proposed_args)
+        if not self.ao_manager._fingerprint_sufficient(fingerprint, tool_name):
+            telemetry = RevisionDeltaTelemetry(
+                proposed_tool=str(tool_name or ""),
+                proposed_args_fingerprint=fingerprint,
+                decision_preview=RevisionDeltaDecisionPreview.INSUFFICIENT_EVIDENCE,
+                reason="final effective args unavailable: insufficient semantic fingerprint",
+            )
+            self._store_revision_runtime_telemetry(context, current_ao, telemetry)
+            return
+
+        telemetry = self.ao_manager.detect_revision_delta_telemetry(
+            current_ao,
+            proposed_tool=tool_name,
+            proposed_args=proposed_args,
+            user_message=context.effective_user_message,
+        )
+        self._store_revision_runtime_telemetry(context, current_ao, telemetry)
+
+        if telemetry.scope_expansion_detected:
+            return
+        if telemetry.decision_preview not in (
+            RevisionDeltaDecisionPreview.PARAM_DELTA_SELF,
+            RevisionDeltaDecisionPreview.PARAM_DELTA_DOWNSTREAM,
+            RevisionDeltaDecisionPreview.DATA_SOURCE_DELTA_ALL,
+        ):
+            return
+        if not telemetry.would_invalidate_tools:
+            return
+
+        result = self.ao_manager.apply_revision_invalidation(current_ao, telemetry)
+        payload = {
+            **result.to_dict(),
+            "runtime_integration_point": "execution_readiness_stage3",
+        }
+        context.metadata["revision_invalidation_result"] = payload
+        if isinstance(getattr(current_ao, "metadata", None), dict):
+            current_ao.metadata["last_revision_invalidation"] = dict(payload)
+
+    def _store_revision_runtime_telemetry(
+        self,
+        context: ContractContext,
+        current_ao: Any,
+        telemetry: RevisionDeltaTelemetry,
+    ) -> None:
+        payload = {
+            **telemetry.to_dict(),
+            "runtime_integration_point": "execution_readiness_stage3",
+        }
+        context.metadata["revision_delta_telemetry"] = payload
+        if isinstance(getattr(current_ao, "metadata", None), dict):
+            current_ao.metadata["last_revision_delta_telemetry"] = dict(payload)
+
+    @staticmethod
+    def _snapshot_to_effective_args(
+        tool_name: str,
+        snapshot: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Convert final Stage 3 readiness snapshot to effective tool args."""
+        from core.snapshot_coercion import apply_coercion
+        from tools.contract_loader import get_tool_contract_registry
+
+        def read(slot_name: str):
+            payload = snapshot.get(slot_name)
+            if not isinstance(payload, dict):
+                return None
+            source = str(payload.get("source") or "").strip().lower()
+            value = payload.get("value")
+            if source in {"missing", "rejected"}:
+                return None
+            if isinstance(value, str) and value.strip().lower() in {
+                "missing", "unknown", "none", "n/a", "null", "",
+            }:
+                return None
+            return value
+
+        if tool_name in ("calculate_dispersion", "render_spatial_map"):
+            if read("pollutant") is None and read("pollutants") is not None:
+                pollutants_raw = read("pollutants")
+                if isinstance(pollutants_raw, list) and pollutants_raw:
+                    snapshot = dict(snapshot)
+                    snapshot["pollutant"] = {
+                        "value": pollutants_raw[0],
+                        "source": "inferred",
+                    }
+
+        registry = get_tool_contract_registry()
+        param_coercions = registry.get_type_coercion(tool_name)
+        args: Dict[str, Any] = {}
+        for slot_name in sorted(snapshot):
+            raw = read(slot_name)
+            if raw is None:
+                continue
+            coercion = param_coercions.get(slot_name)
+            if coercion is None:
+                continue
+            coerced = apply_coercion(coercion, raw, slot_name)
+            if coerced is not None:
+                args[slot_name] = coerced
+        return args
 
     async def after_turn(self, context: ContractContext, result: RouterResponse) -> None:
         clarification_state = dict(context.metadata.get("clarification") or {})

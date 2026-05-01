@@ -877,7 +877,10 @@ class AOManager:
 
         # Build fingerprints
         proposed_fp = self._build_semantic_fingerprint(proposed, proposed_args)
-        previous_fp = dict(matched_step.effective_args or {})
+        previous_fp = self._build_semantic_fingerprint(
+            proposed,
+            dict(matched_step.effective_args or {}),
+        )
 
         # Filter to semantic keys only
         semantic_keys = TOOL_SEMANTIC_KEYS.get(proposed)
@@ -1280,8 +1283,11 @@ class AOManager:
         # Rule 3/4: search for prior matching executions
         scope = self._search_idempotency_scope(ao, proposed_tool, proposed_args, user_message)
         best_mismatch: Optional[IdempotencyResult] = None
+        invalidated_tools = self._invalidated_tools_from_execution_state(ao)
         for record in scope:
             if record.tool != proposed_tool or not record.success:
+                continue
+            if record.tool in invalidated_tools:
                 continue
             prev_fp = self._build_semantic_fingerprint(record.tool, record.args_compact)
             if not prev_fp or not self._fingerprint_sufficient(prev_fp, record.tool):
@@ -1318,6 +1324,21 @@ class AOManager:
             decision_reason="no matching prior execution in scope",
             proposed_fingerprint=proposed_fp,
         )
+
+    def _invalidated_tools_from_execution_state(
+        self,
+        ao: Optional[AnalyticalObjective],
+    ) -> Set[str]:
+        if ao is None or not _canonical_state_enabled():
+            return set()
+        state = ensure_execution_state(ao)
+        if state is None:
+            return set()
+        return {
+            step.tool_name
+            for step in state.steps
+            if step.status == ExecutionStepStatus.INVALIDATED
+        }
 
     def _build_semantic_fingerprint(
         self,
@@ -1376,7 +1397,7 @@ class AOManager:
                 except Exception:
                     return v
             return v
-        if isinstance(value, list):
+        if isinstance(value, (list, tuple, set)):
             return tuple(sorted(
                 str(item) for item in value if item is not None and str(item).strip()
             ))
