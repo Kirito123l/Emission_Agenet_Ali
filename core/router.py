@@ -4004,6 +4004,12 @@ class UnifiedRouter:
         state.update_file_context(merged_analysis)
         setattr(state, "_file_analysis_cache", dict(merged_analysis))
 
+        # Phase 7.6F: store analyzed FileContext for multi-file geometry discovery.
+        try:
+            self._ensure_context_store().store_analyzed_file_context(merged_analysis)
+        except Exception:
+            pass
+
         result.updated_file_context_summary = {
             "file_path": materialized_ref,
             "task_type": merged_analysis.get("task_type"),

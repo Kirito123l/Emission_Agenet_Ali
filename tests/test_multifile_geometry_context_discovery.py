@@ -592,3 +592,174 @@ def test_non_join_key_emission_no_auto_discovery():
     assert result.reason.reason_code in (
         "missing_road_geometry", "missing_geometry_support",
     )
+
+
+# ── Phase 7.6F: wiring tests ─────────────────────────────────────────
+
+
+def test_router_wires_store_after_file_analysis():
+    """After merged_analysis is applied to state, context_store has the FileContext."""
+    from core.context_store import SessionContextStore
+
+    # Simulate what the router does after file analysis:
+    #   merged_analysis = await self._analyze_file(...)
+    #   state.update_file_context(merged_analysis)
+    #   self._ensure_context_store().store_analyzed_file_context(merged_analysis)
+    store = SessionContextStore()
+
+    merged = {
+        "file_path": "/tmp/test_emission.csv",
+        "task_type": "macro_emission",
+        "columns": ["link_id", "length", "flow", "speed"],
+        "row_count": 10,
+        "geometry_metadata": {
+            "geometry_type": "join_key_only",
+            "road_geometry_available": False,
+            "join_key_columns": {"link_id": "link_id"},
+            "confidence": 0.40,
+            "evidence": ["Join key columns detected: ['link_id']"],
+            "limitations": ["No geometry columns detected"],
+        },
+    }
+    store.store_analyzed_file_context(merged)
+
+    all_fcs = store.list_analyzed_file_contexts()
+    assert len(all_fcs) == 1
+    stored = all_fcs[0]
+    assert stored["file_path"] == "/tmp/test_emission.csv"
+    assert stored["task_type"] == "macro_emission"
+    assert stored["geometry_metadata"]["geometry_type"] == "join_key_only"
+    assert "_raw_dataframe" not in stored
+
+
+def test_router_wiring_does_not_store_raw_data():
+    """Even if raw data sneaks into the analysis result, it is stripped."""
+    from core.context_store import SessionContextStore
+
+    store = SessionContextStore()
+    merged = {
+        "file_path": "/tmp/test.csv",
+        "task_type": "macro_emission",
+        "columns": ["link_id", "length"],
+        "row_count": 10,
+        "geometry_metadata": {"geometry_type": "join_key_only",
+                              "join_key_columns": {"link_id": "link_id"}},
+        "_raw_dataframe": "PRETEND_BIG_DATAFRAME",
+        "sample_rows": [{"link_id": "L001", "length": 0.5}],
+    }
+    store.store_analyzed_file_context(merged)
+
+    stored = store.list_analyzed_file_contexts()[0]
+    assert "_raw_dataframe" not in stored
+    assert "sample_rows" not in stored
+    assert "geometry_metadata" in stored
+
+
+def test_router_end_to_end_store_and_discover():
+    """Store emission + geometry FileContext, verify readiness auto-discovers."""
+    from core.readiness import assess_action_readiness, get_action_catalog, ReadinessStatus
+    from core.context_store import SessionContextStore
+
+    store = SessionContextStore()
+
+    # Simulate analyze_file for the geometry file (first analysis)
+    store.store_analyzed_file_context({
+        "file_path": str(FIXTURE_DIR / "geometry_links_10.csv"),
+        "task_type": "unknown",
+        "columns": ["link_id", "geometry"],
+        "row_count": 10,
+        "geometry_metadata": {
+            "geometry_type": "wkt",
+            "road_geometry_available": True,
+            "geometry_columns": ["geometry"],
+            "join_key_columns": {"link_id": "link_id"},
+            "confidence": 0.90,
+            "evidence": ["WKT confirmed"],
+            "limitations": [],
+        },
+    })
+
+    # Simulate analyze_file for the emission file (second analysis)
+    em = {
+        "file_path": str(FIXTURE_DIR / "emission_links_10.csv"),
+        "task_type": "macro_emission",
+        "columns": ["link_id", "length", "flow", "speed"],
+        "row_count": 10,
+        "geometry_metadata": {
+            "geometry_type": "join_key_only",
+            "road_geometry_available": False,
+            "join_key_columns": {"link_id": "link_id"},
+            "confidence": 0.40,
+            "evidence": ["Join key detected"],
+            "limitations": ["No geometry"],
+        },
+    }
+    store.store_analyzed_file_context(em)
+
+    catalog = get_action_catalog()
+    dispersion = next((a for a in catalog if a.action_id == "run_dispersion"), None)
+    assert dispersion is not None
+
+    result = assess_action_readiness(
+        dispersion,
+        file_context=em,
+        context_store=store,
+        current_tool_results=[{
+            "name": "calculate_macro_emission",
+            "label": "baseline",
+            "arguments": {"pollutants": ["NOx"]},
+            "result": {
+                "success": True,
+                "data": {"results": [
+                    {"link_id": "L001", "link_length_km": 0.5,
+                     "total_emissions_kg_per_hr": {"NOx": 0.01}},
+                ]},
+            },
+        }],
+        current_response_payloads=None,
+        geometry_file_context=None,
+    )
+    assert result.status == ReadinessStatus.READY, (
+        f"Expected READY after storing both contexts, got {result.status}: "
+        f"{result.reason.message if result.reason else 'no reason'}"
+    )
+    assert "spatial_emission_layer_available" in result.available_conditions
+
+
+def test_router_wiring_noop_when_no_context_store():
+    """When context_store is None, readiness should still work (no crash)."""
+    from core.readiness import assess_action_readiness, get_action_catalog, ReadinessStatus
+
+    em = {
+        "file_path": str(FIXTURE_DIR / "emission_links_10.csv"),
+        "task_type": "macro_emission",
+        "columns": ["link_id", "length", "flow", "speed"],
+        "row_count": 10,
+        "geometry_metadata": {
+            "geometry_type": "join_key_only",
+            "road_geometry_available": False,
+            "join_key_columns": {"link_id": "link_id"},
+            "confidence": 0.40,
+        },
+    }
+
+    catalog = get_action_catalog()
+    dispersion = next((a for a in catalog if a.action_id == "run_dispersion"), None)
+
+    # context_store=None should be safe
+    result = assess_action_readiness(
+        dispersion,
+        file_context=em,
+        context_store=None,
+        current_tool_results=[{
+            "name": "calculate_macro_emission",
+            "label": "baseline",
+            "arguments": {"pollutants": ["NOx"]},
+            "result": {"success": True, "data": {"results": []}},
+        }],
+        current_response_payloads=None,
+        geometry_file_context=None,
+    )
+    assert result.status == ReadinessStatus.REPAIRABLE
+    assert result.reason is not None
+    assert result.reason.reason_code == "join_key_without_geometry"
