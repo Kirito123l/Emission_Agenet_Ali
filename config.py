@@ -158,6 +158,9 @@ class Config:
         self.enable_execution_idempotency = (
             os.getenv("ENABLE_EXECUTION_IDEMPOTENCY", "false").lower() == "true"
         )
+        self.enable_canonical_execution_state = (
+            os.getenv("ENABLE_CANONICAL_EXECUTION_STATE", "false").lower() == "true"
+        )
         self.enable_conversational_stance = (
             os.getenv("ENABLE_CONVERSATIONAL_STANCE", "true").lower() == "true"
         )

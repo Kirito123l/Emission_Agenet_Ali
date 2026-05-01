@@ -7,8 +7,11 @@ from typing import Any, Dict, List, Optional, Set
 
 from core.analytical_objective import (
     AORelationship,
+    AOExecutionState,
     AOStatus,
     AnalyticalObjective,
+    ExecutionStep,
+    ExecutionStepStatus,
     IdempotencyDecision,
     IdempotencyResult,
     IntentConfidence,
@@ -964,3 +967,159 @@ class AOManager:
     @staticmethod
     def _record_ao_id(record: ToolCallRecord, current_ao: Any) -> Optional[str]:
         return getattr(current_ao, "ao_id", None)
+
+
+# ── Phase 6.E.1: canonical execution state ──────────────────────────────────
+
+
+def _canonical_state_enabled() -> bool:
+    try:
+        from config import get_config
+        return bool(getattr(get_config(), "enable_canonical_execution_state", False))
+    except Exception:
+        return False
+
+
+def ensure_execution_state(ao: AnalyticalObjective) -> Optional[AOExecutionState]:
+    """Lazy-init or load AOExecutionState from AO metadata.
+
+    Returns None when the feature flag is off or ao is None.
+    Does NOT mutate routing behaviour.
+    """
+    if ao is None or not _canonical_state_enabled():
+        return None
+
+    metadata = getattr(ao, "metadata", None)
+    if isinstance(metadata, dict):
+        existing = metadata.get("execution_state")
+        if isinstance(existing, dict):
+            return AOExecutionState.from_dict(existing)
+
+    # Derive initial state from existing structures
+    state = _derive_execution_state(ao)
+    if state is not None and isinstance(ao.metadata, dict):
+        ao.metadata["execution_state"] = state.to_dict()
+    return state
+
+
+def _derive_execution_state(ao: AnalyticalObjective) -> AOExecutionState:
+    """Derive canonical execution state from projected_chain, tool_call_log, and continuation."""
+    state = AOExecutionState(objective_id=ao.ao_id)
+
+    # 1. Planned chain from tool_intent
+    tool_intent = getattr(ao, "tool_intent", None)
+    projected = list(getattr(tool_intent, "projected_chain", []) or [])
+    projected = [str(item) for item in projected if str(item).strip()]
+
+    # 2. Fall back to tool_call_log for single-tool AOs
+    tool_call_log = list(getattr(ao, "tool_call_log", []) or [])
+    executed_names = list(dict.fromkeys(
+        str(r.tool) for r in tool_call_log if str(r.tool).strip()
+    ))
+
+    if not projected:
+        projected = executed_names or []
+        if not projected:
+            resolved_tool = str(getattr(tool_intent, "resolved_tool", "") or "").strip()
+            if resolved_tool:
+                projected = [resolved_tool]
+
+    state.planned_chain = projected
+
+    # 3. Build steps from projected_chain (create pending steps)
+    for tool_name in projected:
+        step = ExecutionStep(
+            tool_name=tool_name,
+            status=ExecutionStepStatus.PENDING,
+            source="projected_chain",
+            created_turn=ao.start_turn,
+        )
+        # Back-fill from tool_call_log: mark as completed if matching record exists
+        for record in tool_call_log:
+            if record.tool == tool_name and record.success:
+                step.status = ExecutionStepStatus.COMPLETED
+                step.effective_args = dict(record.args_compact or {})
+                step.result_ref = record.result_ref
+                step.updated_turn = record.turn
+                step.source = "tool_call"
+                break
+        state.steps.append(step)
+
+    # 4. Add steps for executed tools not in projected_chain
+    for record in tool_call_log:
+        if record.tool not in projected:
+            step = ExecutionStep(
+                tool_name=record.tool,
+                status=ExecutionStepStatus.COMPLETED if record.success else ExecutionStepStatus.FAILED,
+                effective_args=dict(record.args_compact or {}),
+                result_ref=record.result_ref,
+                source="tool_call",
+                created_turn=record.turn,
+                updated_turn=record.turn,
+            )
+            state.steps.append(step)
+            if record.tool not in state.planned_chain:
+                state.planned_chain.append(record.tool)
+
+    # 5. Compute chain_cursor: index of first non-completed, non-skipped step
+    cursor = 0
+    for i, step in enumerate(state.steps):
+        if step.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED):
+            cursor = i + 1
+        else:
+            break
+    state.chain_cursor = cursor
+
+    # 6. Compute chain_status
+    if all(s.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED)
+           for s in state.steps) and state.steps:
+        state.chain_status = "complete"
+    elif any(s.status == ExecutionStepStatus.FAILED for s in state.steps):
+        state.chain_status = "failed"
+    elif state.steps:
+        state.chain_status = "active"
+
+    # 7. Last updated turn
+    turns = [s.updated_turn for s in state.steps if s.updated_turn is not None]
+    state.last_updated_turn = max(turns) if turns else ao.start_turn
+
+    return state
+
+
+def _turn_index_from_ao(ao: Any) -> int:
+    """Best-effort current turn from AO or memory."""
+    from core.execution_continuation_utils import load_execution_continuation
+    cont = load_execution_continuation(ao)
+    if cont.updated_turn is not None:
+        return cont.updated_turn
+    return int(getattr(ao, "start_turn", 0) or 0)
+
+
+# ── Compatibility view helpers ─────────────────────────────────────────────
+
+
+def get_pending_next_tool_from_execution_state(ao: AnalyticalObjective) -> Optional[str]:
+    """Read pending_next_tool from canonical execution state (compatibility view)."""
+    state = ensure_execution_state(ao)
+    if state is None:
+        return None
+    return state.pending_next_tool
+
+
+def get_completed_tools_from_execution_state(ao: AnalyticalObjective) -> List[str]:
+    """Read completed tool names from canonical execution state."""
+    state = ensure_execution_state(ao)
+    if state is None:
+        return []
+    return [s.tool_name for s in state.completed_steps]
+
+
+def get_result_ref_for_tool(ao: AnalyticalObjective, tool_name: str) -> Optional[str]:
+    """Look up result_ref for a completed tool from execution state."""
+    state = ensure_execution_state(ao)
+    if state is None:
+        return None
+    for step in state.completed_steps:
+        if step.tool_name == tool_name:
+            return step.result_ref
+    return None

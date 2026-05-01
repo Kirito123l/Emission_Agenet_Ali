@@ -65,6 +65,163 @@ class IdempotencyResult:
     explicit_rerun_absent: bool = True
 
 
+# ── Phase 6.E: canonical multi-turn execution state ─────────────────────
+
+
+class ExecutionStepStatus(Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+    INVALIDATED = "invalidated"
+
+
+@dataclass
+class ExecutionStep:
+    """One step in the canonical execution chain."""
+    tool_name: str
+    status: ExecutionStepStatus = ExecutionStepStatus.PENDING
+    effective_args: Dict[str, Any] = field(default_factory=dict)
+    result_ref: Optional[str] = None
+    error_summary: Optional[str] = None
+    source: str = ""                       # "projected_chain" | "tool_call" | "idempotent_skip" | "manual"
+    created_turn: Optional[int] = None
+    updated_turn: Optional[int] = None
+    revision_epoch: int = 0
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tool_name": self.tool_name,
+            "status": self.status.value,
+            "effective_args": dict(self.effective_args),
+            "result_ref": self.result_ref,
+            "error_summary": self.error_summary,
+            "source": self.source,
+            "created_turn": self.created_turn,
+            "updated_turn": self.updated_turn,
+            "revision_epoch": self.revision_epoch,
+            "provenance": dict(self.provenance),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ExecutionStep":
+        payload = data if isinstance(data, dict) else {}
+        status_raw = str(payload.get("status") or ExecutionStepStatus.PENDING.value)
+        try:
+            status = ExecutionStepStatus(status_raw)
+        except ValueError:
+            status = ExecutionStepStatus.PENDING
+        return cls(
+            tool_name=str(payload.get("tool_name") or ""),
+            status=status,
+            effective_args=dict(payload.get("effective_args") or {}),
+            result_ref=(
+                str(payload.get("result_ref")).strip()
+                if payload.get("result_ref") is not None else None
+            ),
+            error_summary=(
+                str(payload.get("error_summary")).strip()
+                if payload.get("error_summary") is not None else None
+            ),
+            source=str(payload.get("source") or ""),
+            created_turn=(
+                int(payload["created_turn"]) if payload.get("created_turn") is not None else None
+            ),
+            updated_turn=(
+                int(payload["updated_turn"]) if payload.get("updated_turn") is not None else None
+            ),
+            revision_epoch=int(payload.get("revision_epoch") or 0),
+            provenance=dict(payload.get("provenance") or {}),
+        )
+
+
+@dataclass
+class AOExecutionState:
+    """Canonical multi-turn execution state for one AnalyticalObjective."""
+    objective_id: str = ""
+    planned_chain: List[str] = field(default_factory=list)
+    chain_cursor: int = 0
+    steps: List[ExecutionStep] = field(default_factory=list)
+    revision_epoch: int = 0
+    chain_status: str = ""                 # "active" | "complete" | "failed" | "abandoned"
+    last_updated_turn: Optional[int] = None
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def pending_steps(self) -> List[ExecutionStep]:
+        return [s for s in self.steps if s.status == ExecutionStepStatus.PENDING]
+
+    @property
+    def completed_steps(self) -> List[ExecutionStep]:
+        return [s for s in self.steps if s.status == ExecutionStepStatus.COMPLETED]
+
+    @property
+    def skipped_steps(self) -> List[ExecutionStep]:
+        return [s for s in self.steps if s.status == ExecutionStepStatus.SKIPPED]
+
+    @property
+    def failed_steps(self) -> List[ExecutionStep]:
+        return [s for s in self.steps if s.status == ExecutionStepStatus.FAILED]
+
+    @property
+    def pending_next_tool(self) -> Optional[str]:
+        pending = self.pending_steps
+        return pending[0].tool_name if pending else None
+
+    @property
+    def current_tool(self) -> Optional[str]:
+        if 0 <= self.chain_cursor < len(self.planned_chain):
+            return self.planned_chain[self.chain_cursor]
+        return None
+
+    @property
+    def is_chain_complete(self) -> bool:
+        if not self.steps:
+            return False
+        return all(s.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED)
+                   for s in self.steps)
+
+    def active_tool_matches(self, tool_name: str) -> bool:
+        return self.current_tool == tool_name
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "objective_id": self.objective_id,
+            "planned_chain": [str(item) for item in self.planned_chain if str(item).strip()],
+            "chain_cursor": self.chain_cursor,
+            "steps": [step.to_dict() for step in self.steps],
+            "revision_epoch": self.revision_epoch,
+            "chain_status": self.chain_status,
+            "last_updated_turn": self.last_updated_turn,
+            "provenance": dict(self.provenance),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "AOExecutionState":
+        payload = data if isinstance(data, dict) else {}
+        return cls(
+            objective_id=str(payload.get("objective_id") or ""),
+            planned_chain=[
+                str(item) for item in list(payload.get("planned_chain") or [])
+                if str(item).strip()
+            ],
+            chain_cursor=int(payload.get("chain_cursor") or 0),
+            steps=[
+                ExecutionStep.from_dict(item)
+                for item in list(payload.get("steps") or [])
+                if isinstance(item, dict)
+            ],
+            revision_epoch=int(payload.get("revision_epoch") or 0),
+            chain_status=str(payload.get("chain_status") or ""),
+            last_updated_turn=(
+                int(payload["last_updated_turn"])
+                if payload.get("last_updated_turn") is not None else None
+            ),
+            provenance=dict(payload.get("provenance") or {}),
+        )
+
+
 @dataclass
 class ToolIntent:
     resolved_tool: Optional[str] = None

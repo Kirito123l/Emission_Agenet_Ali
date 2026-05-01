@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from config import get_config
-from core.analytical_objective import AORelationship, ToolCallRecord
+from core.analytical_objective import AORelationship, ExecutionStepStatus, ToolCallRecord
 from core.ao_classifier import AOClassification, OAScopeClassifier
-from core.ao_manager import AOManager, TurnOutcome
+from core.ao_manager import AOManager, TurnOutcome, ensure_execution_state
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.execution_continuation import ExecutionContinuation, PendingObjective
 from core.execution_continuation_utils import (
@@ -96,6 +96,10 @@ class OASCContract(BaseContract):
                     end_turn=self._current_turn_index(),
                     turn_outcome=turn_outcome,
                 )
+
+        # Phase 6.E.1: read-only canonical execution state sync
+        if context.router_executed:
+            self._sync_execution_state_telemetry(result)
 
         self._attach_oasc_trace(
             result,
@@ -386,6 +390,140 @@ class OASCContract(BaseContract):
                 bool(item.get("blocked")),
                 ao_id=current_ao.ao_id,
             )
+
+    # ── Phase 6.E.1: canonical execution state telemetry ─────────────────
+
+    def _sync_execution_state_telemetry(self, result: RouterResponse) -> None:
+        """Read-only sync: update AOExecutionState from turn result.
+
+        Does NOT change routing behaviour, tool suppression, or continuation logic.
+        Only writes telemetry to AO metadata when ENABLE_CANONICAL_EXECUTION_STATE=true.
+        """
+        current_ao = self.ao_manager.get_current_ao()
+        if current_ao is None:
+            return
+
+        state = ensure_execution_state(current_ao)
+        if state is None or not state.steps:
+            return
+
+        turn = self._current_turn_index()
+        tool_calls = list(result.executed_tool_calls or [])
+
+        for item in tool_calls:
+            if not isinstance(item, dict):
+                continue
+            tool_name = str(item.get("name") or "")
+            if not tool_name:
+                continue
+            tool_result = item.get("result") if isinstance(item.get("result"), dict) else {}
+            arguments = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
+            is_idempotent_skip = bool(tool_result.get("idempotent_skip"))
+            success = bool(tool_result.get("success"))
+
+            # Find matching step
+            matched_idx = None
+            for i, step in enumerate(state.steps):
+                if step.tool_name == tool_name and step.status == ExecutionStepStatus.PENDING:
+                    matched_idx = i
+                    break
+            if matched_idx is None:
+                for i, step in enumerate(state.steps):
+                    if step.tool_name == tool_name:
+                        matched_idx = i
+                        break
+
+            if is_idempotent_skip:
+                if matched_idx is not None:
+                    step = state.steps[matched_idx]
+                    step.status = ExecutionStepStatus.SKIPPED
+                    step.updated_turn = turn
+                    step.source = "idempotent_skip"
+                    step.provenance["idempotent_skip"] = True
+                    step.provenance["skip_recorded_at_turn"] = turn
+                else:
+                    new_step = ExecutionStep(
+                        tool_name=tool_name,
+                        status=ExecutionStepStatus.SKIPPED,
+                        effective_args=dict(arguments),
+                        source="idempotent_skip",
+                        created_turn=turn,
+                        updated_turn=turn,
+                        provenance={"idempotent_skip": True, "skip_recorded_at_turn": turn},
+                    )
+                    state.steps.append(new_step)
+                    if tool_name not in state.planned_chain:
+                        state.planned_chain.append(tool_name)
+            elif success:
+                if matched_idx is not None:
+                    step = state.steps[matched_idx]
+                    step.status = ExecutionStepStatus.COMPLETED
+                    step.effective_args = dict(arguments)
+                    step.updated_turn = turn
+                    step.source = "tool_call"
+                    result_ref = (
+                        self.inner_router.memory.fact_memory._infer_result_ref(tool_name, tool_result)
+                        if tool_result.get("success")
+                        else None
+                    )
+                    if result_ref:
+                        step.result_ref = result_ref
+                else:
+                    new_step = ExecutionStep(
+                        tool_name=tool_name,
+                        status=ExecutionStepStatus.COMPLETED,
+                        effective_args=dict(arguments),
+                        source="tool_call",
+                        created_turn=turn,
+                        updated_turn=turn,
+                    )
+                    state.steps.append(new_step)
+                    if tool_name not in state.planned_chain:
+                        state.planned_chain.append(tool_name)
+            elif not success:
+                if matched_idx is not None:
+                    step = state.steps[matched_idx]
+                    step.status = ExecutionStepStatus.FAILED
+                    step.error_summary = str(tool_result.get("message", "") or tool_result.get("error", "") or "")
+                    step.updated_turn = turn
+                else:
+                    new_step = ExecutionStep(
+                        tool_name=tool_name,
+                        status=ExecutionStepStatus.FAILED,
+                        effective_args=dict(arguments),
+                        error_summary=str(tool_result.get("message", "") or tool_result.get("error", "") or ""),
+                        source="tool_call",
+                        created_turn=turn,
+                        updated_turn=turn,
+                    )
+                    state.steps.append(new_step)
+                    if tool_name not in state.planned_chain:
+                        state.planned_chain.append(tool_name)
+
+        # Recompute chain_cursor
+        cursor = 0
+        for i, step in enumerate(state.steps):
+            if step.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED):
+                cursor = i + 1
+            else:
+                break
+        state.chain_cursor = cursor
+
+        # Recompute chain_status
+        if all(s.status in (ExecutionStepStatus.COMPLETED, ExecutionStepStatus.SKIPPED)
+               for s in state.steps):
+            state.chain_status = "complete"
+        elif any(s.status == ExecutionStepStatus.FAILED for s in state.steps):
+            state.chain_status = "failed"
+        else:
+            state.chain_status = "active"
+
+        state.last_updated_turn = turn
+        state.provenance["last_synced_at_turn"] = turn
+
+        # Write back to AO metadata
+        if isinstance(current_ao.metadata, dict):
+            current_ao.metadata["execution_state"] = state.to_dict()
 
     def _build_turn_outcome(self, result: RouterResponse) -> TurnOutcome:
         tool_calls = list(result.executed_tool_calls or [])
