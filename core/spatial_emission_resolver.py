@@ -855,3 +855,173 @@ def resolve_join_key_geometry_layer(
         limitations=limit_msgs,
         spatial_emission_layer=spatial_layer_dict,
     )
+
+
+# ── Phase 7.6E: auto-discover geometry file from stored contexts ────────
+
+
+def find_best_geometry_file_context(
+    emission_file_context: Dict[str, Any],
+    candidate_geometry_contexts: List[Dict[str, Any]],
+    auto_accept_threshold: float = 0.95,
+) -> Dict[str, Any]:
+    """Find the best matching geometry FileContext from stored candidates.
+
+    Evaluates each candidate via resolve_join_key_geometry_layer() and returns
+    the best result. Only ACCEPT-status candidates are considered for auto-selection.
+    NEEDS_USER_CONFIRMATION candidates are reported but not selected.
+
+    Args:
+        emission_file_context: FileContext dict for the join-key-only emission file.
+        candidate_geometry_contexts: List of stored FileContext dicts with
+            road_geometry_available=true (from context_store).
+        auto_accept_threshold: Match rate above which resolution is auto-accepted.
+
+    Returns:
+        Dict with keys:
+        - selected: bool — whether a single best geometry context was auto-selected.
+        - geometry_file_context: the selected FileContext dict (or None).
+        - spatial_emission_layer: the resolved layer dict (or None).
+        - reason_code: diagnostic code.
+        - message: human-readable diagnostic.
+        - candidates: list of dicts with {file_path, status, match_rate, matched_count}
+          for all evaluated candidates (for user clarification when needed).
+    """
+    _EMPTY: Dict[str, Any] = {
+        "selected": False,
+        "geometry_file_context": None,
+        "spatial_emission_layer": None,
+        "reason_code": "no_geometry_candidates",
+        "message": "No geometry file contexts available.",
+        "candidates": [],
+    }
+
+    if not candidate_geometry_contexts:
+        return _EMPTY
+
+    from core.spatial_emission import JOIN_RESOLUTION_ACCEPT, JOIN_RESOLUTION_NEEDS_USER_CONFIRMATION
+
+    evaluated = []
+    for geo_fc in candidate_geometry_contexts:
+        try:
+            jk_result = resolve_join_key_geometry_layer(
+                emission_file_context=emission_file_context,
+                geometry_file_context=geo_fc,
+                auto_accept_threshold=auto_accept_threshold,
+            )
+            evaluated.append({
+                "geometry_file_context": geo_fc,
+                "file_path": geo_fc.get("file_path", "unknown"),
+                "status": jk_result.status,
+                "reason_code": jk_result.reason_code,
+                "match_rate": jk_result.match_rate,
+                "matched_count": jk_result.matched_count,
+                "unmatched_emission_count": jk_result.unmatched_emission_count,
+                "message": jk_result.message,
+                "spatial_emission_layer": jk_result.spatial_emission_layer,
+            })
+        except Exception:
+            continue
+
+    if not evaluated:
+        return {
+            **_EMPTY,
+            "reason_code": "geometry_candidate_evaluation_failed",
+            "message": "Could not evaluate any geometry file candidates.",
+        }
+
+    accept_candidates = [
+        c for c in evaluated if c["status"] == JOIN_RESOLUTION_ACCEPT
+    ]
+    confirm_candidates = [
+        c for c in evaluated if c["status"] == JOIN_RESOLUTION_NEEDS_USER_CONFIRMATION
+    ]
+
+    # Build candidate summary for diagnostics
+    candidate_summaries = [
+        {
+            "file_path": c["file_path"],
+            "status": c["status"],
+            "match_rate": c["match_rate"],
+            "matched_count": c["matched_count"],
+        }
+        for c in evaluated
+    ]
+
+    if accept_candidates:
+        if len(accept_candidates) == 1:
+            best = accept_candidates[0]
+            return {
+                "selected": True,
+                "geometry_file_context": best["geometry_file_context"],
+                "spatial_emission_layer": best["spatial_emission_layer"],
+                "reason_code": "join_key_geometry_resolved",
+                "message": (
+                    f"Auto-selected geometry file: {best['file_path']} "
+                    f"({best['match_rate']:.1%} match, {best['matched_count']} keys)"
+                ),
+                "candidates": candidate_summaries,
+            }
+
+        # Multiple ACCEPT candidates: select highest match_rate if strictly dominant
+        best = max(accept_candidates, key=lambda c: c["match_rate"])
+        ties = [
+            c for c in accept_candidates
+            if abs(c["match_rate"] - best["match_rate"]) < 0.001
+        ]
+        if len(ties) == 1:
+            return {
+                "selected": True,
+                "geometry_file_context": best["geometry_file_context"],
+                "spatial_emission_layer": best["spatial_emission_layer"],
+                "reason_code": "join_key_geometry_resolved",
+                "message": (
+                    f"Auto-selected geometry file: {best['file_path']} "
+                    f"({best['match_rate']:.1%} match, {best['matched_count']} keys)"
+                ),
+                "candidates": candidate_summaries,
+            }
+
+        # Tied ACCEPT candidates: need user confirmation
+        tie_paths = [c["file_path"] for c in ties]
+        return {
+            "selected": False,
+            "geometry_file_context": None,
+            "spatial_emission_layer": None,
+            "reason_code": "multiple_geometry_candidates_tied",
+            "message": (
+                f"Multiple geometry files match at {best['match_rate']:.1%}: "
+                f"{tie_paths}. Please select one."
+            ),
+            "candidates": candidate_summaries,
+        }
+
+    if confirm_candidates:
+        # Best partial-match candidate — needs user confirmation
+        best = max(confirm_candidates, key=lambda c: c["match_rate"])
+        return {
+            "selected": False,
+            "geometry_file_context": None,
+            "spatial_emission_layer": None,
+            "reason_code": "join_key_geometry_needs_confirmation",
+            "message": (
+                f"Best geometry file candidate: {best['file_path']} "
+                f"({best['match_rate']:.1%} match, {best['matched_count']} keys). "
+                f"Match is below the auto-accept threshold. User confirmation required."
+            ),
+            "candidates": candidate_summaries,
+        }
+
+    # All REJECT — return diagnostic for best rejection reason
+    if evaluated:
+        first = evaluated[0]
+        return {
+            "selected": False,
+            "geometry_file_context": None,
+            "spatial_emission_layer": None,
+            "reason_code": first["reason_code"],
+            "message": first["message"],
+            "candidates": candidate_summaries,
+        }
+
+    return _EMPTY

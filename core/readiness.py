@@ -1366,41 +1366,77 @@ def assess_action_readiness(
                 guidance_enabled=action.guidance_enabled,
             )
 
-    # Phase 7.5/7.6D: build spatial emission layer from upstream macro result
-    # when file has direct road geometry, or via join-key resolver when a
-    # geometry FileContext is explicitly provided.
+    # Phase 7.6E: auto-discover geometry FileContext from stored analyzed files
+    # when emission is join_key_only and no explicit geometry_file_context provided.
+    _effective_geo_fc: Optional[Dict[str, Any]] = geometry_file_context
+    _discovery_diagnostic: Optional[Dict[str, Any]] = None
+    if _effective_geo_fc is None and context_store is not None:
+        gm = dict(file_context.get("geometry_metadata") or {})
+        if str(gm.get("geometry_type", "")).strip().lower() == "join_key_only":
+            geo_candidates = context_store.find_geometry_file_contexts()
+            if geo_candidates:
+                from core.spatial_emission_resolver import find_best_geometry_file_context
+                _discovery = find_best_geometry_file_context(
+                    emission_file_context=file_context,
+                    candidate_geometry_contexts=geo_candidates,
+                )
+                if _discovery.get("selected"):
+                    _effective_geo_fc = _discovery["geometry_file_context"]
+                else:
+                    # Store diagnostic for surfacing when auto-select fails
+                    _discovery_diagnostic = dict(_discovery)
+
+    # Phase 7.5/7.6D/7.6E: build spatial emission layer from upstream macro result.
     spatial_layer = _build_spatial_emission_layer_from_results(
         file_context=file_context,
         current_tool_results=current_tool_results,
-        geometry_file_context=geometry_file_context,
+        geometry_file_context=_effective_geo_fc,
     )
 
-    # Phase 7.4B/7.5/7.6D: spatial emission precondition for road-geometry-requiring tools.
+    # Phase 7.4B/7.5/7.6D/7.6E: spatial emission precondition.
     spatial_precondition = resolve_spatial_precondition(
         tool_name=action.tool_name,
         file_context=file_context,
         emission_result_ref=None,
         spatial_emission_layer=spatial_layer,
-        geometry_file_context=geometry_file_context,
+        geometry_file_context=_effective_geo_fc,
     )
     if spatial_precondition.get("candidate_dict"):
         available_conditions.append("spatial_emission_candidate")
     if spatial_precondition.get("layer_dict"):
         available_conditions.append("spatial_emission_layer_available")
 
-    # Phase 7.6D: when geometry support comes from a join-key geometry file but
-    # the resolver rejected or needs confirmation, surface the resolver's diagnostic.
+    # Phase 7.6D/7.6E: when geometry support comes from a join-key geometry file
+    # (explicit or auto-discovered) but the resolver rejected or needs confirmation,
+    # surface the resolver's diagnostic.  Also surface auto-discovery diagnostics
+    # when candidates were found but none could be auto-selected.
     _join_key_geo_needs_diagnostic = (
         _geometry_source == "join_key_geometry_file_context"
-        and not spatial_precondition["satisfied"]
-    )
+        or _effective_geo_fc is not None
+        or _discovery_diagnostic is not None
+    ) and not spatial_precondition["satisfied"]
 
-    if (action.requires_geometry_support and not has_geometry_support) or _join_key_geo_needs_diagnostic:
-        # Use targeted spatial precondition diagnostic when available
-        if not spatial_precondition["satisfied"] and spatial_precondition["reason_code"] != "no_road_geometry_requirement":
+    if (
+        not spatial_precondition["satisfied"]
+        and (
+            (action.requires_geometry_support and not has_geometry_support)
+            or _join_key_geo_needs_diagnostic
+        )
+    ):
+        # Phase 7.6E: prefer auto-discovery diagnostic over generic join_key_without_geometry
+        _reason_code = spatial_precondition["reason_code"]
+        _reason_msg = spatial_precondition["message"]
+        if (
+            _discovery_diagnostic is not None
+            and _reason_code in ("join_key_without_geometry", "no_road_geometry_requirement")
+        ):
+            _reason_code = _discovery_diagnostic.get("reason_code", _reason_code)
+            _reason_msg = _discovery_diagnostic.get("message", _reason_msg)
+
+        if not spatial_precondition["satisfied"] and _reason_code != "no_road_geometry_requirement":
             reason = _build_spatial_emission_reason(
-                reason_code=spatial_precondition["reason_code"],
-                message=spatial_precondition["message"],
+                reason_code=_reason_code,
+                message=_reason_msg,
             )
         else:
             reason = _build_geometry_reason()

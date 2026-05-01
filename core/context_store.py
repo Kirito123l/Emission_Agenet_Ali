@@ -109,6 +109,8 @@ class SessionContextStore:
         self._last_dispersion_result: Optional[StoredResult] = None
         self._latest_constraint_violations: List[Dict[str, Any]] = []
         self._session_violation_log: List[Dict[str, Any]] = []
+        # Phase 7.6E: store analyzed FileContext metadata for multi-file workflows.
+        self._analyzed_file_contexts: List[Dict[str, Any]] = []
 
     def store_result(self, tool_name: str, result: Dict[str, Any]) -> Optional[StoredResult]:
         """Store one successful tool result under semantic type + scenario label."""
@@ -488,6 +490,63 @@ class SessionContextStore:
     def clear_session_violations(self) -> None:
         """Clear the session violation log (for evaluation isolation)."""
         self._session_violation_log = []
+
+    # ── Phase 7.6E: analyzed FileContext storage ─────────────────────
+
+    def store_analyzed_file_context(self, file_context: Dict[str, Any]) -> None:
+        """Store metadata for an analyzed file for multi-file geometry discovery.
+
+        Only metadata is stored (geometry_type, join_key_columns, file_path,
+        columns list, row_count, confidence). Raw data is NOT stored.
+        """
+        if not isinstance(file_context, dict) or not file_context:
+            return
+        fc = dict(file_context)
+        gm = dict(fc.get("geometry_metadata") or {})
+        entry = {
+            "file_path": str(fc.get("file_path") or fc.get("path") or "").strip() or None,
+            "columns": [str(c) for c in (fc.get("columns") or [])],
+            "row_count": fc.get("row_count"),
+            "task_type": str(fc.get("task_type") or "").strip() or None,
+            "geometry_metadata": {
+                "geometry_type": str(gm.get("geometry_type", "none")),
+                "road_geometry_available": bool(gm.get("road_geometry_available", False)),
+                "point_geometry_available": bool(gm.get("point_geometry_available", False)),
+                "geometry_columns": [str(c) for c in (gm.get("geometry_columns") or [])],
+                "join_key_columns": {
+                    str(k): (str(v) if v is not None else None)
+                    for k, v in (gm.get("join_key_columns") or {}).items()
+                },
+                "confidence": float(gm.get("confidence", 0.0)),
+                "evidence": [str(e) for e in (gm.get("evidence") or [])],
+                "limitations": [str(li) for li in (gm.get("limitations") or [])],
+            },
+        }
+        # Deduplicate by file_path: replace existing entry for same path.
+        existing_idx = None
+        for i, existing in enumerate(self._analyzed_file_contexts):
+            if existing.get("file_path") == entry["file_path"]:
+                existing_idx = i
+                break
+        if existing_idx is not None:
+            self._analyzed_file_contexts[existing_idx] = entry
+        else:
+            self._analyzed_file_contexts.append(entry)
+
+    def list_analyzed_file_contexts(self) -> List[Dict[str, Any]]:
+        """Return all stored analyzed FileContext metadata dicts."""
+        return list(self._analyzed_file_contexts)
+
+    def find_geometry_file_contexts(self) -> List[Dict[str, Any]]:
+        """Return stored FileContexts that have road geometry available.
+
+        Excludes point-only and join-key-only contexts — these are not
+        usable as geometry sources for dispersion.
+        """
+        return [
+            fc for fc in self._analyzed_file_contexts
+            if (fc.get("geometry_metadata") or {}).get("road_geometry_available")
+        ]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
