@@ -999,7 +999,263 @@ The OFF→ON telemetry shifts are consistent with the code-level mechanism: the 
 3. Reconciler `proceed` path (line 979) emits no trace step — prevents counting proceed-through-reconciler invocations.
 4. `core/trace.py` has zero `TraceStepType` values for reconciler, B validator, or decision-field consumption — consistent with §1.2.4 audit finding on PCM telemetry.
 
----
+---
+
+## §8 5-State-Machine Coordination Audit
+
+**Date:** 2026-05-02
+**Status:** Step 1 complete, Step 2 (scope decision) pending user review
+
+### §8.1 Five State Machines: Current State
+
+#### §8.1.1 ClarificationContract
+
+**File:** `core/contracts/clarification_contract.py` (1735 lines)
+
+**Reads AOExecutionState?** **No.** Zero imports or references to `AOExecutionState`, `ensure_execution_state`, `ExecutionStep`, `chain_cursor`, or `execution_state` metadata key. Confirmed by grep: 0 matches across all 1735 lines.
+
+**Writes AOExecutionState?** **No.** The contract only writes to `ao.metadata["clarification_contract"]` (standalone dict, line 596–605).
+
+**Independent state maintained (ClarificationTelemetry, 30+ fields):**
+
+| Field Group | Fields | Purpose |
+|-------------|--------|---------|
+| Stage 1 | `stage1_filled_slots` | Pre-LLM slot population |
+| Stage 2 LLM | `stage2_called`, `stage2_missing_required`, `stage2_clarification_question`, `stage2_decision`, `stage2_latency_ms` | LLM decision capture |
+| Stage 3 YAML | `stage3_rejected_slots`, `stage3_normalizations` | Post-LLM normalization |
+| Decision | `final_decision`, `proceed_mode` | Contract's internal routing decision |
+| PCM | `collection_mode`, `pcm_trigger_reason`, `probe_optional_slot`, `probe_turn_count`, `probe_abandoned`, `pcm_advisory`, `pcm_advisory_delta` | Parameter collection state |
+| Intent | `llm_intent_raw`, `tool_intent_confidence`, `tool_intent_resolved_by` | Tool intent resolution |
+| Stance | `stance_value`, `stance_confidence`, `stance_resolved_by`, `stance_reversal_detected` | User stance tracking |
+| Bookkeeping | `turn`, `triggered`, `trigger_mode`, `ao_id`, `tool_name` | Turn/trigger metadata |
+
+**Storage location:** `ao.metadata["clarification_contract"]["telemetry"]` — a list of `ClarificationTelemetry` dicts, one per turn.
+
+**Overlap with AOExecutionState:**
+- `AOExecutionState.steps[].tool_name` ≈ `ClarificationTelemetry.tool_name` — same tool tracked in two places
+- `AOExecutionState.steps[].status` (PENDING/COMPLETED/FAILED/SKIPPED/INVALIDATED) ≈ `ClarificationTelemetry.final_decision` (proceed/clarify/deferred) — different semantics, same decision domain
+- `AOExecutionState.chain_cursor` has no equivalent in ClarificationContract — the contract doesn't track "which tool is next in chain"
+- ClarificationTelemetry has extensive LLM decision state (Stage 2 outputs, PCM advisory, stance) that AOExecutionState doesn't track
+
+**Classification: (c) — Fully independent.** Zero connection. Different metadata key. Different semantic scope (LLM decision vs chain progress).
+
+#### §8.1.2 ExecutionContinuation
+
+**File:** `core/execution_continuation.py` (88 lines)
+
+**Reads AOExecutionState?** **No.** Zero imports or references in `execution_continuation.py`. However, `ao_manager.py` reads ExecutionContinuation extensively (lines 193, 421-428, 470-471, 1290, 1694-1695) — the bridge is one-directional: ao_manager reads ExecutionContinuation, but ExecutionContinuation never reads AOExecutionState.
+
+**Writes AOExecutionState?** **No.** `_derive_execution_state` (line 1608) has a docstring claiming it reads "from projected_chain, tool_call_log, and continuation" but the implementation (lines 1608-1674) only reads from `ao.tool_intent.projected_chain` and `ao.tool_call_log`. It **never reads** from `ao.metadata["execution_continuation"]` or any ExecutionContinuation field. The docstring is inaccurate.
+
+**Independent state maintained (6 fields):**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `pending_objective` | PendingObjective enum | NONE / PARAMETER_COLLECTION / CHAIN_CONTINUATION |
+| `pending_slot` | str | Which parameter slot is being collected |
+| `pending_next_tool` | str | Next tool to execute in chain |
+| `pending_tool_queue` | list[str] | Ordered queue of remaining tools |
+| `probe_count` | int | Number of PCM probe attempts |
+| `probe_limit` | int | Max probes before abandoning (default 2) |
+
+**Storage location:** `ao.metadata["execution_continuation"]` — a different metadata key from `ao.metadata["execution_state"]` (AOExecutionState).
+
+**Dual source of truth for chain position:**
+
+| Aspect | ExecutionContinuation | AOExecutionState |
+|--------|----------------------|-----------------|
+| What tool comes next? | `pending_next_tool` + `pending_tool_queue` | `steps[chain_cursor].tool_name` |
+| What's the chain status? | `pending_objective` (CHAIN_CONTINUATION or not) | `chain_status` ("active"/"complete"/"failed") |
+| How is it updated? | Direct mutation within contracts | Derived from `tool_intent.projected_chain` + `tool_call_log` at `ensure_execution_state` time |
+| When is it written? | During contract execution (real-time) | Lazy-init or on-demand (`ensure_execution_state`) |
+| Who reads it? | Contracts (via `load_execution_continuation`), readiness checks | ExecutionReadinessContract (for chain handoff guard), GovernedToolExecutor (for idempotency) |
+
+These two systems independently track the same information (chain position) under different metadata keys with **zero synchronization**. Neither reads the other.
+
+**Classification: (c) — Fully independent.** Confirmed dual source of truth for chain position. Reality Audit §2 finding stands.
+
+#### §8.1.3 ExecutionReadiness
+
+**File:** `core/contracts/execution_readiness_contract.py` (1137 lines)
+
+**Reads AOExecutionState?** **Yes — for one guard clause only.**
+- Line 92: `ao_manager.get_canonical_pending_next_tool(current_ao)` — reads AOExecutionState to find next pending tool
+- Lines 100-106: `ensure_execution_state(current_ao)` — reads `chain_cursor` and `steps` to build `remaining_chain`
+- Lines 258-266: `enable_canonical_execution_state` gate for applying canonical chain as parameter source
+- Lines 773-784: `ensure_execution_state(current_ao)` — for duplicate suppression guard
+
+**Writes AOExecutionState?** **No.** The contract writes `context.metadata["canonical_chain_handoff"]` (line 108) and `context.metadata["applied_source"]` (line 266), but does not write to AOExecutionState directly.
+
+**Independent state maintained:**
+- `pending_state` (from ClarificationContract + ExecutionContinuation metadata)
+- `stage1_filled` / `missing_required` / `missing_optionals` (per-turn readiness computation)
+- `readiness_gate` disposition (stored in context.metadata)
+- PCM advisory computation (lines 139-162, flag=true only)
+
+**Overlap with AOExecutionState:** The chain handoff guard (lines 87-114) is the ONLY code path where AOExecutionState directly influences contract behavior. When the guard fires, it overrides the proposed tool with `canonical_pending_next_tool` and records the event in `context.metadata["canonical_chain_handoff"]`.
+
+**Classification: (a) — Reads AOExecutionState for one narrow guard.** The guard specifically addresses the macro→dispersion chain handoff case (Class E narrow). Reality Audit §2 finding stands — unchanged from freeze.
+
+#### §8.1.4 AO Scope
+
+**File:** `core/analytical_objective.py` (711 lines) + `core/ao_manager.py` (1803 lines)
+
+**Reads AOExecutionState?** **Yes — bidirectional sync.**
+- `ao_manager.py` has 9 call sites for `ensure_execution_state(ao)` (lines 667, 744, 784, 836, 1060, 1256, 1353, 1706, 1714, 1722)
+- Uses include: duplicate suppression, revision invalidation, chain handoff, telemetry sync
+
+**Writes AOExecutionState?** **Yes — derived from AO fields.**
+- `_derive_execution_state(ao)` (line 1608) builds AOExecutionState from `ao.tool_intent.projected_chain` and `ao.tool_call_log`
+- `ensure_execution_state(ao)` (line 1586) lazy-inits and writes to `ao.metadata["execution_state"]`
+- `_sync_execution_state_telemetry` in `oasc_contract.py:398` writes turn results into AOExecutionState
+- `apply_revision_invalidation` (line 1028) mutates AOExecutionState (invalidates steps, resets cursor)
+
+**AO is the source of truth; AOExecutionState is a derived view.** The AO's `tool_intent.projected_chain` and `tool_call_log` are the primary data. AOExecutionState is computed from them on demand. When AO fields change (revision, new tool call), AOExecutionState is re-derived.
+
+**Classification: (b) — Bidirectional sync with AO as primary.** Reality Audit §2 finding stands — unchanged from freeze. AOExecutionState is NOT the single source of truth for execution state; it's a derived ledger from AO fields.
+
+#### §8.1.5 Evaluator Follow-Up
+
+**Status: Does not exist as a distinct state machine.**
+
+No `Evaluator`, `Assessor`, `PostExecution`, or `FollowUp` class exists in `core/`. Follow-up tracking is embedded in `ClarificationContract` as `followup_slots` (a sub-feature of `ClarificationTelemetry`). The closest patterns:
+- `governed_router.py:808`: `_retain_pending_followups_after_direct_execution()` — writes to `ao.metadata["clarification_contract"]["followup_slots"]`
+- `router_render_utils.py:123-132`: `_append_follow_up_section()` — prompt rendering helper
+
+**Classification: (c) — Never existed as a distinct state machine.** The Round 1.5 audit's identification of "evaluator follow-up" as a fifth state machine was incorrect — it's a sub-feature of ClarificationContract. Reality Audit §2 finding confirmed.
+
+#### §8.1.6 Summary Table
+
+| State Machine | Reads AOExecState? | Writes AOExecState? | Location | Connection |
+|---|---|---|---|---|
+| ClarificationContract | **No** | **No** | `ao.metadata["clarification_contract"]` | (c) Zero connection |
+| ExecutionContinuation | **No** | **No** | `ao.metadata["execution_continuation"]` | (c) Zero connection; dual source of truth for chain position |
+| ExecutionReadiness | **Yes** (1 guard) | **No** | Reads via `ensure_execution_state` | (a) Reads for chain handoff guard only |
+| AO scope | **Yes** | **Yes** (derived) | `ao.metadata["execution_state"]` | (b) Bidirectional; AO is primary |
+| Evaluator follow-up | N/A | N/A | Embedded in ClarificationContract | (c) Never existed as distinct machine |
+
+**Net assessment:** 2 of 4 actual state machines (ClarificationContract, ExecutionContinuation) have zero connection to AOExecutionState. The Phase 6.E "canonical execution state" is a chain-progress ledger coexisting with two fully independent state machines that track overlapping information under different metadata keys.
+
+### §8.2 Class E Narrow Verification (macro→dispersion chain handoff)
+
+#### §8.2.1 Mechanism
+
+The Class E narrow repair (Phase 5.3, commit `47da89b`) implemented chain handoff through AOExecutionState:
+
+```
+ExecutionReadinessContract.before_turn()
+  → ao_manager.get_canonical_pending_next_tool(ao)    [line 92]
+  → ensure_execution_state(ao)                         [line 100]
+  → checks chain_cursor < len(steps)                   [line 102]
+  → overrides proposed_tool when chain handoff needed  [line 107]
+  → records canonical_chain_handoff in metadata        [line 108]
+```
+
+The mechanism is structurally sound: when an upstream tool (e.g., `calculate_macro_emission`) completes and AOExecutionState records it as COMPLETED with `chain_cursor` advanced, the next turn's contract check detects the pending downstream tool and overrides the proposed tool.
+
+#### §8.2.2 Trace Evidence from 30-Task Benchmark
+
+**Zero `canonical_chain_handoff` traces found in any Step 2 log (OFF or ON, all 30 tasks).**
+
+The trace_step_types for all tasks in both modes contain no chain-related traces (`canonical_chain_handoff`, `chain_cursor`, `chain_handoff` — all absent). This means the chain handoff guard at `execution_readiness_contract.py:87-114` **never fired** on the 30-task smoke benchmark.
+
+#### §8.2.3 Why the Guard Doesn't Fire
+
+Analysis of tasks 119 (expected: macro→spatial_map) and 120 (expected: macro→dispersion) reveals the root cause:
+
+1. **Per-turn AO isolation:** Each turn creates a new AO (`create` → `activate` → `revise` → `append_tool_call` → `complete`). The next turn creates a fresh AO.
+2. **Single-tool chain prediction:** Each AO's `tool_intent.projected_chain` is resolved independently. The LLM predicts only `[calculate_macro_emission]` (single tool), not `[calculate_macro_emission, calculate_dispersion]` (multi-step).
+3. **Resolution source:** `tool_intent_resolved_by: 'rule:file_task_type'` — the rule-based resolver resolves a single tool from the file/task type, not a multi-step chain.
+4. **Guard precondition not met:** With a single-tool `projected_chain`, `AOExecutionState.steps` has only 1 entry. After that tool completes, `chain_cursor` advances past the end of `steps`. On the next turn, `get_canonical_pending_next_tool` returns `None` (chain is complete). The guard doesn't fire because there's no pending next tool.
+
+**Root cause: The chain handoff mechanism works, but the chain is never populated with more than 1 step.** The LLM doesn't predict multi-step chains, and the rule-based resolver doesn't supplement the chain from file task type. The guard is correct; the input data (projected_chain) is insufficient.
+
+#### §8.2.4 Class E Narrow Verdict
+
+**The Class E narrow repair is structurally complete but has zero operational effect on the 30-task benchmark.** The chain handoff guard is correctly implemented and would fire if `projected_chain` contained multi-step chains. The gap is in chain prediction (LLM + rule-based), not in state-machine coordination.
+
+This is a **Class D/Class E boundary issue**: the state machine (AOExecutionState) can track chain progress, but the chain population step (which determines what tools are in the chain) happens in AO lifecycle management (Class D). Without multi-step chain prediction, the state machine never has a multi-step chain to track.
+
+### §8.3 State-Machine Coordination in Fail Task Attribution
+
+Analysis of all fail tasks from Step 2 OFF (8 tasks) and ON (6 tasks), using rep 1 logs:
+
+#### §8.3.1 OFF Fail Tasks (8 of 30)
+
+| Task | Category | Failure | Attribution | Class |
+|------|----------|---------|-------------|-------|
+| e2e_clarification_105 | multi_turn_clarification | chain_match=False, 输出不完整 | Multi-turn task executes same tool 3×; single-tool expected chain doesn't match 3-turn pattern. **Task design / evaluation metric issue.** | **B** |
+| e2e_clarification_110 | multi_turn_clarification | chain_match=False, 输出不完整 | 0 tool executions; LLM produces 4 clarification replies without converging. **LLM semantic understanding failure.** Round 1.5 classified as Class D (AO idempotency). | **B** (D per R1.5) |
+| e2e_clarification_119 | multi_turn_clarification | chain_match=False, 输出不完整 | Expected macro→spatial_map, actual 3× macro. Chain handoff guard never fires (single-tool projected_chain). **Chain prediction gap, not state-machine sync bug.** | **B** (D/E boundary) |
+| e2e_clarification_120 | multi_turn_clarification | chain_match=False, 输出不完整 | Expected macro→dispersion, actual 3× macro. Same root cause as 119. | **B** (D/E boundary) |
+| e2e_incomplete_001 | incomplete | tool_ok=False | PCM hard-blocks; task never reaches tool execution. **PCM design (resolved in Phase 8.1.2).** | **B** |
+| e2e_incomplete_013 | incomplete | tool_ok=False (OFF) | Same as 001. | **B** |
+| e2e_colloquial_143 | ambiguous_colloquial | params_legal=False | LLM resolves wrong parameter value. **LLM semantic understanding.** | **B** |
+| e2e_revision_135 | user_revision | chain_match=False | User revises parameters mid-task; chain changes. **AO revision lifecycle, not state-machine coordination.** | **B** |
+
+**OFF state-machine coordination attribution: 0 of 8 fail tasks are Class E (state-machine sync bug).**
+
+#### §8.3.2 ON Fail Tasks (6 of 30)
+
+| Task | Category | Failure | Attribution | Class |
+|------|----------|---------|-------------|-------|
+| e2e_clarification_105 | multi_turn_clarification | chain_match=False | Same as OFF — multi-turn eval mismatch. | **B** |
+| e2e_clarification_110 | multi_turn_clarification | chain_match=False | Same as OFF — LLM clarification loop (2 tool calls in ON vs 0 in OFF). | **B** |
+| e2e_clarification_119 | multi_turn_clarification | chain_match=False | Same as OFF — chain handoff doesn't fire. ON adds decision_field_clarify but still doesn't reach spatial_map. | **B** (D/E boundary) |
+| e2e_clarification_120 | multi_turn_clarification | chain_match=False | Same as OFF — chain handoff doesn't fire. ON adds decision_field_clarify + 2 tool executions but still doesn't reach dispersion. | **B** (D/E boundary) |
+| e2e_colloquial_143 | ambiguous_colloquial | params_legal=False | Same as OFF — LLM parameter error. | **B** |
+| e2e_revision_135 | user_revision | chain_match=False | Same as OFF — AO revision lifecycle. | **B** |
+
+**ON state-machine coordination attribution: 0 of 6 fail tasks are Class E.**
+
+#### §8.3.3 Attribution Summary
+
+| Failure Class | OFF count | ON count | Description |
+|--------------|-----------|---------|-------------|
+| **A. State-machine coordination (Class E proper)** | **0** | **0** | State-machine sync bug causing wrong tool/parameter/decision |
+| **B. Other (LLM, AO lifecycle, eval design)** | **8** | **6** | Semantic understanding, chain prediction, AO revision, task design |
+| **D/E boundary (chain prediction + handoff)** | 2 (119, 120) | 2 (119, 120) | These COULD benefit from better chain tracking but root cause is chain population, not state sync |
+
+**State-machine coordination (Class E proper) is responsible for 0 of the 8 OFF failures and 0 of the 6 ON failures on this 30-task benchmark.**
+
+The multi_turn_clarification category (4/4 fail) is the largest failure block. Its root causes are:
+1. **LLM chain prediction**: Single-tool `projected_chain` means multi-step tasks can't hand off
+2. **AO lifecycle**: Per-turn AO creation isolates chain state across turns
+3. **Task/eval design**: Expected chain doesn't account for multi-turn clarification turns
+
+None of these are state-machine sync bugs (Class E proper). The chain handoff mechanism (§8.2) is correctly implemented; it just never receives multi-step input.
+
+### §8.4 Evidence Summary for Scope Decision
+
+This section presents the data that Step 2 will use for the Class E full / narrow / defer decision. **No recommendation is made here.**
+
+#### Evidence for Option A (Class E full repair)
+
+- **Architecture coherence**: 2 of 4 state machines have zero connection to AOExecutionState. Unifying them would create a genuine single source of truth for execution state.
+- **Dual-source-of-truth risk**: ExecutionContinuation and AOExecutionState independently track chain position. A future change to one without updating the other could introduce silent bugs.
+- **Paper positioning**: The framework claim "model in contract/schema/state/trace container" requires the state dimension to be genuinely unified, not a partial ledger.
+
+#### Evidence for Option B (Class E narrow — connect ClarificationContract + ExecutionContinuation only)
+
+- **Clear targets**: The two "zero connection" state machines are well-defined and small (ExecutionContinuation: 88 lines).
+- **Lower risk**: Connecting 2 state machines is less invasive than rearchitecting all 5.
+- **Partial improvement**: Would eliminate the dual-source-of-truth for chain position while leaving AO scope and ExecutionReadiness unchanged.
+- **Minimal change surface estimate**:
+  - ExecutionContinuation → AOExecutionState bridge: ~50 LOC (add read/write hooks in `_derive_execution_state` and `ensure_execution_state`)
+  - ClarificationContract → AOExecutionState bridge: ~80 LOC (add AOExecutionState read in `before_turn`, sync `final_decision` with step status)
+  - Total: ~130 LOC, 3 files touched
+
+#### Evidence for Option C (Defer to Phase 9)
+
+- **Zero Class E failures in 30-task benchmark**: State-machine coordination is not a source of current benchmark failures. Fixing it would improve architecture coherence but would not improve benchmark scores.
+- **Chain handoff gap is in chain prediction, not state sync**: The macro→dispersion chain failure (119/120) is caused by single-tool `projected_chain`, not by AOExecutionState tracking bugs. Fixing state-machine coordination won't fix these tasks.
+- **Phase 8 scope discipline**: Phase 8.1.2 already switched reconciler to production active. Phase 8.2 (benchmark protocol + ablation) is the next high-value milestone. Deferring Class E to Phase 9 preserves scope discipline without blocking evaluation work.
+- **Risk of scope creep**: Connecting ClarificationContract and ExecutionContinuation to AOExecutionState touches 3 files and would require regression testing across all contract paths. The risk of introducing new bugs in the contract pipeline is non-trivial.
+
+---
+## Appendix A: Key File Reference
+
+---
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |
