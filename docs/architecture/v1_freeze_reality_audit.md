@@ -2370,3 +2370,209 @@ correct but has zero operational effect. The next step depends on user decision.
 | SpatialEmissionCandidate | `core/spatial_emission.py` | 141 |
 | ParameterState (PCM) | `core/analytical_objective.py` | 406–413 |
 | PendingObjective.PARAMETER_COLLECTION | `core/execution_continuation.py` | 10 |
+
+---
+
+## §15 `_revision_parent_tool` Pre-Audit (Phase 8.1.4e Sub-step 3A)
+
+### §15.1 `_revision_parent_tool` Current Behavior
+
+**Location:** `core/intent_resolver.py:310-324`
+
+**Input:**
+- `self` — IntentResolver instance (holds `inner_router` ref for AO lookup)
+- `ao` — the current `AnalyticalObjective` being resolved (the REVISION AO)
+
+**Logic (4 steps):**
+
+1. **Guard** (line 311): returns `None` immediately if `ao.relationship != AORelationship.REVISION`
+2. **Parent lookup** (lines 312-314): extracts `parent_ao_id` from `ao.parent_ao_id`, bails if empty
+3. **AO retrieval** (lines 316-318): calls `_get_ao_by_id(parent_ao_id)` which searches `ao_history` in `FactMemory` (or `tool_registry.get_ao_by_id` if available)
+4. **Tool extraction** (lines 319-323): scans parent's `tool_call_log` in reverse order, returns the **first successful tool name** found
+
+**Output:** `Optional[str]` — a single tool name string (e.g. `"calculate_macro_emission"`), or `None`.
+
+**Call site (single):** `resolve_fast()` at `intent_resolver.py:200-209`:
+
+```python
+parent_tool = self._revision_parent_tool(ao)
+if parent_tool:
+    return self._intent(
+        parent_tool,
+        IntentConfidence.HIGH,
+        resolved_by="rule:revision_parent",
+        evidence=[f"revision_parent_tool:{parent_tool}"],
+        state=state,
+        projected_chain=[parent_tool],  # ← HARDCODED single-element list
+    )
+```
+
+**Resolution order in `resolve_fast()`:** `_revision_parent_tool` is the **5th (last) rule**, checked only after all other rules fail:
+
+| Priority | Rule | Condition |
+|----------|------|-----------|
+| 1 | `desired_tool_chain` | Message hints contain `desired_tool_chain` entries |
+| 2 | `_pending_tool_name` | Execution continuation has pending tool |
+| 3 | `file_task_type` | File context has `task_type` (macro_emission / micro_emission) |
+| 4 | `wants_factor` | Message contains factor-query keywords |
+| **5** | **`_revision_parent_tool`** | AO is REVISION with parent having tool history |
+| fallback | NONE | Nothing matched |
+
+**Why single-tool only:** The function's sole purpose is extracting the parent's last successful tool. It has **zero code** to inspect or inherit the parent's `projected_chain`, `tool_intent`, or execution state. At the call site, `projected_chain` is hardcoded to `[parent_tool]` — this is the direct cause of why REVISION AOs always get single-step chains.
+
+### §15.2 "message keyword hints" Dependency Audit
+
+This audit addresses the Sub-step 2 STOP report concern: *"Path (A) still relies on message keyword hints."* We analyze exactly what the hint system is, how `_downstream_chain()` uses it, and whether a fix can avoid keyword dependency.
+
+#### §15.2.1 What "message keyword hints" are
+
+`_extract_message_execution_hints()` at `router.py:1657-1723` scans the **current turn's user message** for Chinese/English keywords:
+
+| Hint flag | Keywords matched |
+|-----------|-----------------|
+| `wants_factor` | 排放因子, emission factor |
+| `wants_emission` | 排放, emission |
+| `wants_dispersion` | 扩散, dispersion, 浓度场 |
+| `wants_hotspot` | 热点, hotspot |
+| `wants_map` | 地图, 渲染, 展示, 可视化, map, render |
+
+The function also builds `desired_tool_chain` from these flags (lines 1684-1699):
+
+```python
+desired_tool_chain: List[str] = []
+if wants_factor:
+    desired_tool_chain.append("query_emission_factors")
+else:
+    grounded_task_type = str(state.file_context.task_type or "").strip()
+    if grounded_task_type == "micro_emission" and wants_emission:
+        desired_tool_chain.append("calculate_micro_emission")
+    elif grounded_task_type == "macro_emission" and (wants_emission or wants_dispersion or wants_hotspot or wants_map):
+        desired_tool_chain.append("calculate_macro_emission")
+# downstream tools appended unconditionally based on flags:
+if wants_dispersion:
+    desired_tool_chain.append("calculate_dispersion")
+if wants_hotspot:
+    desired_tool_chain.append("analyze_hotspots")
+if wants_map:
+    desired_tool_chain.append("render_spatial_map")
+```
+
+**Critical observation:** Without a file (no `file_context.task_type`), `desired_tool_chain` **never** includes `calculate_macro_emission` or `calculate_micro_emission`. The chain starts empty, and only downstream tools (dispersion, hotspot, map) are appended. A message saying "算NOx然后做扩散" without a file produces `desired_tool_chain=["calculate_dispersion"]` — single-step, missing the emission prerequisite.
+
+With a file where `task_type="macro_emission"`, the same message produces `desired_tool_chain=["calculate_macro_emission", "calculate_dispersion"]` — multi-step.
+
+#### §15.2.2 How `_downstream_chain()` uses hints
+
+`_downstream_chain(resolved_tool, hints)` at `intent_resolver.py:25-74`:
+
+1. Starts chain with `[resolved_tool]`
+2. Queries TOOL_GRAPH to find downstream candidates (tools whose `requires` match what `resolved_tool` provides)
+3. **Conditionally appends** based on hint flags:
+   - `calculate_dispersion` — only if `hints.get("wants_dispersion")` is True
+   - `analyze_hotspots` — only if `hints.get("wants_hotspot")` is True AND dispersion was appended
+   - `render_spatial_map` — only if `hints.get("wants_map")` is True
+4. Returns chain (minimum `[resolved_tool]`)
+
+#### §15.2.3 The key test: would `_downstream_chain` help on Turn 2?
+
+Consider the Class D scenario:
+- **Turn 1:** User says "算NOx然后做扩散" (with file) → `wants_dispersion=True`, `desired_tool_chain=["calculate_macro_emission", "calculate_dispersion"]` → parent AO gets multi-step chain
+- **Turn 2:** User says "改成冬季再算" → `wants_dispersion=False` (no "扩散" keyword), `desired_tool_chain=[]`
+
+If we modify `_revision_parent_tool` to call `_downstream_chain(parent_tool, hints)` with Turn 2 hints:
+- `parent_tool = "calculate_macro_emission"`
+- `hints.get("wants_dispersion")` → **False** (Turn 2 message has no "扩散")
+- `_downstream_chain("calculate_macro_emission", hints)` → **`["calculate_macro_emission"]`** (single-step)
+
+**The chain is still single-step.** Calling `_downstream_chain()` from `_revision_parent_tool` does NOT solve the problem because Turn 2 message lacks downstream keywords.
+
+#### §15.2.4 The alternative: inherit parent AO's `projected_chain` directly
+
+Instead of re-deriving from current-message hints, inherit the parent AO's stored `projected_chain`:
+
+- Parent AO's `tool_intent.projected_chain` was computed in Turn 1 from Turn 1's message hints
+- This chain is **persisted** on the parent AO object (stored in `ao_history`)
+- `_get_ao_by_id(parent_ao_id)` retrieves the full AO object, including `tool_intent`
+- We can call `_advance_chain_cursor(parent_chain, ao)` to skip already-executed tools
+
+In the Turn 2 scenario above:
+- Parent AO's `projected_chain = ["calculate_macro_emission", "calculate_dispersion"]`
+- Parent's `tool_call_log` shows `calculate_macro_emission` succeeded
+- After advancing: `resolved_tool = "calculate_dispersion"`, `chain = ["calculate_dispersion"]`
+- REVISION AO gets: `resolved_tool="calculate_dispersion"`, `projected_chain=["calculate_dispersion"]`
+
+This produces a meaningful result without depending on Turn 2 keywords.
+
+### §15.3 Fix Path Classification
+
+#### Classification: **Class A1** — chain from parent AO `projected_chain`
+
+The fix inherits the parent AO's stored `projected_chain` (persisted from Turn 1), rather than re-deriving from Turn 2 message keywords. The chain source is **parent AO data**, not current-message hints.
+
+**Why this is A1, not A2:**
+- A2 would mean "fix depends on Turn 2 message keywords" — e.g., calling `_downstream_chain(parent_tool, hints)` where `hints` is extracted from Turn 2 message. Our approach does NOT do this.
+- A3 would mean "chain inference requires LLM" — not applicable; we use already-computed parent chain.
+- The chain was originally keyword-derived **in Turn 1**, but that derivation happened before the fix. The fix itself only reads stored data.
+
+#### Prerequisite: parent AO must have multi-step `projected_chain`
+
+The fix inherits whatever chain the parent has. Parent chain availability:
+
+| Turn 1 scenario | Parent `projected_chain` | Multi-step? |
+|-----------------|--------------------------|-------------|
+| File + "算排放做扩散" | `["calculate_macro_emission", "calculate_dispersion"]` | Yes |
+| File + "算排放" | `["calculate_macro_emission"]` | No |
+| No file + "算排放做扩散" | `["calculate_dispersion"]` (via `desired_tool_chain`) | No — missing prerequisite |
+| No file + "查因子做扩散" | `["query_emission_factors", "calculate_dispersion"]` (via `wants_factor`) | Yes |
+
+Parent multi-step chain is most likely when: (a) a file is provided with `task_type` set, AND (b) Turn 1 message contains downstream keywords (扩散, 热点, 地图).
+
+**This is the same fundamental constraint as Phase 8.1.4b:** multi-step chain capture depends on message keywords in Turn 1. The difference is that once captured in Turn 1, the chain survives into Turn 2 via inheritance — which is an improvement over the current behavior where it's discarded.
+
+#### LOC estimate
+
+~10 LOC at `intent_resolver.py:200-209` (the `_revision_parent_tool` call site in `resolve_fast`).
+
+No changes needed to:
+- `_revision_parent_tool()` itself (it correctly returns the parent's last tool)
+- `_downstream_chain()` (not called)
+- `_advance_chain_cursor()` (already exists, already handles completed-tool detection)
+- `complete_ao()` gate (Phase 8.1.4e Sub-step 2, unchanged)
+
+The change is at the call site only: instead of `projected_chain=[parent_tool]`, read `parent.tool_intent.projected_chain`, advance past completed tools, and use the remainder.
+
+#### Expected post-fix outcomes
+
+| Metric | Current (Phase 8.1.4e Sub-step 2) | Post-fix expectation |
+|--------|-----------------------------------|---------------------|
+| Chain handoff guard activation | 0 | **> 0** when Turn 1 had downstream keywords + file |
+| Multi-turn clarification | 0/4 PASS | **1-2/4** possible (tasks with file + Turn 1 downstream keywords) |
+| Completion rate | 0.7000 | Unchanged (gate activates but doesn't affect pass/fail of unrelated tasks) |
+| user_revision regression | 0 | 0 expected (gate only fires for multi-step chains) |
+| AO unit tests | 48/48 | 48/48 expected (no AO state machine changes) |
+
+**Confidence: medium.** The mechanism is correct (chain inheritance survives Turn 2 keyword absence), but effectiveness depends on Turn 1 having captured multi-step intent. If the test tasks' Turn 1 messages lack downstream keywords or file context, the fix still has zero activation.
+
+#### Risk: third narrow patch with zero activation
+
+This is the third narrow patch in the chain prediction line (Phase 5.1 → Phase 8.1.4b → Phase 8.1.4e Sub-step 2). The previous two had zero operational trigger. The user's working discipline explicitly states: *"如果本次 STOP 触发, 接受推 Phase 9, 不继续第四次 narrow patch."*
+
+The risk of zero activation for this fix is **real but lower** than Sub-step 2 because:
+- Sub-step 2's gate had zero activation because REVISION chains are always single-step — a structural invariant
+- Sub-step 3B's inheritance fix changes that invariant: REVISION chains CAN be multi-step when parent had multi-step
+- Whether they ARE multi-step depends on Turn 1 data, which varies per task
+
+**Mitigation:** After implementation, run the 30-task smoke and check `chain handoff guard activation > 0`. If still 0, STOP immediately and defer to Phase 9.
+
+### §15.4 Decision Gate
+
+**Sub-step 3A is complete.** The audit confirms:
+
+1. `_revision_parent_tool` returns a single tool, and the call site hardcodes `projected_chain=[parent_tool]` — this is the structural cause of zero chain handoff
+2. Calling `_downstream_chain()` with Turn 2 hints would NOT fix it (Turn 2 lacks keywords) — ruling out a naive A2 approach
+3. Inheriting parent AO's `projected_chain` directly IS Class A1 — chain source is stored parent data, not current-message keywords
+4. Parent chain availability depends on Turn 1 keywords/file — the fix helps when Turn 1 captured multi-step, does nothing when it didn't
+
+**Awaiting user decision:**
+- **GO Sub-step 3B**: implement the ~10 LOC chain inheritance fix at `intent_resolver.py:200-209`, run 30-task smoke, check activation > 0
+- **Skip to Phase 9**: accept that chain handoff requires AO lifecycle redesign, defer all chain progress
