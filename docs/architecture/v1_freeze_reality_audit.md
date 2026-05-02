@@ -1492,6 +1492,66 @@ Class P3 would require the architecture to lack chain generation concepts entire
 - **Class P2 defer**: Defer to Phase 9 alongside Class D/E (AO state machine redesign), since chain prediction and AO chain propagation are in the same architectural layer
 
 ---
+
+## §11 Chain Prediction Repair Outcome
+
+**Date:** 2026-05-02
+**Status:** Phase 8.1.4b closed
+
+### §11.1 Changes Summary
+
+| Sub-step | Commit | LOC Δ | Description |
+|----------|--------|-------|-------------|
+| 1 | `a7aab11` | +67/−6 | `_downstream_chain()` helper + 3 resolver paths extended |
+| 2 | `4f0dd73` | +72/−12 | `_advance_chain_cursor()` + chain-aware resolution |
+| 3 | `5581736` | +15/−4 | Stage 2 prompt: rule 5 + rule 14 + rule 19 (chain examples) |
+| **Total** | | **~154/−22** | Actual LOC ~130 (vs estimated ~85) |
+
+### §11.2 30-Task n=3 Sanity Results
+
+| Metric | Phase 8.1.4b final | Step 2B ON baseline | Delta |
+|--------|-------------------|---------------------|-------|
+| completion_rate | 0.7889 ± 0.0192 | 0.8000 ± 0.0000 | −0.0111 |
+| tool_accuracy | 0.8222 ± 0.0192 | 0.8333 ± 0.0000 | −0.0111 |
+| parameter_legal_rate | 0.8222 ± 0.0509 | 0.8222 ± 0.0192 | ±0.0000 |
+| result_data_rate | 0.8667 ± 0.0000 | 0.8667 ± 0.0000 | ±0.0000 |
+
+**No significant regression.** All deltas within single-rep noise on a 30-task benchmark.
+
+### §11.3 Chain Handoff Guard Activation
+
+| Metric | Before (Step 2) | After (Phase 8.1.4b) |
+|--------|-----------------|---------------------|
+| Chain handoff guard fires | 0 | 0 |
+| Stage 2 multi-step chain output | 0/51 | 0/51 |
+| Multi-step AO projected_chain | 0 | 0 |
+
+**Chain handoff guard remains at 0 activation.** The resolver changes (sub-steps 1-2) are structurally correct but cannot overcome AO-per-turn isolation (Class D territory, deferred to Phase 9). The prompt changes (sub-step 3) explicitly support multi-step chain output but the LLM (qwen3-max) does not produce `intent.chain` in its output.
+
+### §11.4 Multi-Turn Clarification 4/4 Status
+
+All 4 multi_turn_clarification tasks remain at 0% success rate (unchanged from Step 2 baseline):
+
+| Task | Expected | Actual | Root cause |
+|------|----------|--------|------------|
+| e2e_clarification_105 | 1× macro | 3× macro | Task/eval design (multi-turn vs single-tool expected chain) |
+| e2e_clarification_110 | 1× query | 0 or 2× query | LLM semantic understanding (can't converge through clarification) |
+| e2e_clarification_119 | macro→spatial_map | 2× macro | AO isolation (Class D) — chain handoff blocked by per-turn AO boundaries |
+| e2e_clarification_120 | macro→dispersion | 2-3× macro | AO isolation (Class D) — same root cause as 119 |
+
+### §11.5 Phase 8.1.4b Closeout
+
+**Outcome: Class P2 repair partially effective.**
+
+- **What was fixed:** Resolver now correctly handles multi-step chains when they are provided (via `desired_tool_chain` hints or Stage 2 LLM output). Chain persistence and propagation paths verified correct (§10.3).
+- **What was not fixed:** Two root causes remain:
+  1. **AO per-turn isolation (Class D):** Chain progress cannot cross AO boundaries. This blocks the chain handoff guard from firing even when multi-step `projected_chain` exists. Deferred to Phase 9 alongside Class E.
+  2. **LLM chain output (model behavior):** qwen3-max does not produce `intent.chain` despite explicit prompt instructions and examples. The prompt scaffolding is correct; the model does not follow it. Future model improvements may activate this path without code changes.
+- **Data impact:** 0 benchmark task improvements. The fix is architecturally sound but has zero operational effect until Class D (AO lifecycle) is resolved in Phase 9.
+
+**Phase 8.1.4b closed.** The resolver and prompt are chain-ready. The bottleneck is AO lifecycle isolation (Class D), which is Phase 9 scope alongside Class E (state-machine coordination).
+
+---
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |
