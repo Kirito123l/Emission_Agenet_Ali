@@ -589,6 +589,137 @@ It only activates when `ENABLE_LLM_DECISION_FIELD=true`, which is opt-in.
 
 ---
 
+## §6 Reconciler Activation History
+
+### 6.1 Audit Question
+
+This section reconstructs why the Phase 5.3 A/B/E narrow repairs did not also
+switch production default routing to Phase 4 Option B
+(`ENABLE_LLM_DECISION_FIELD=true`). It records historical evidence only. It does
+not decide whether the default should be changed now.
+
+### 6.2 Timeline
+
+| Date | Commit / Document | Treatment of `ENABLE_LLM_DECISION_FIELD` |
+|------|-------------------|-------------------------------------------|
+| 2026-04-27 | `docs/phase3_decision_field_design.md` | The initial decision-field design put Step 2A behind `enable_llm_decision_field`, default `False`, and required A/B comparison before making it default. The recorded risk was baseline regression if LLM conversational judgment was worse than hard rules. |
+| 2026-04-27 | `f34bd1a` (`feat(governance): Step 1.A...`) | Added `enable_llm_decision_field` to `config.py` with default `"false"`, before decision-field consumption was implemented. |
+| 2026-04-27 | `dc58999` (`feat(governance): Step 1.B...`) | Implemented the three-way decision field but kept the default disabled. Commit body records the reason: when enabled, `qwen-turbo-latest` over-clarified directive tasks and regressed 30-task smoke by `-6.67pp` (`80.00%` vs `86.67%`). Recalibration was deferred. |
+| 2026-04-27 | `85e5e7d` (`docs(phase3): expand Step 2...`) | Updated Phase 3 plan: Step 2.3 explicitly says to re-enable the decision field by setting default `true`, but only after reasoning-model / prompt-consolidation recalibration and dual-smoke verification with ON >= OFF. |
+| 2026-04-28 | `docs/phase4_pcm_redesign.md` + `9e7fd85` (`feat(governance): Phase 4...`) | Implemented Option B only when the flag is true. The same flag also preserves Option C fallback when false: PCM remains hard-blocking and behavior is backward-compatible. Commit body reports `flag=false` was bit-identical to Phase 3 on 30-task OFF smoke, while single-run ON was `76.67%` and OFF was `73.33%`, with statistical validation deferred to Phase 5 due benchmark noise. |
+| 2026-04-30 | `docs/phase5_3_round1_5_design_audit.md` | Phase 5.3 audit cites Phase 4 intent: PCM should become advisory context for Stage 2 rather than a hard blocker. The observed governance failures were attributed to Stage 2 hallucinated slots, raw-vs-final decision mismatch, and chain handoff, not to a need to change PCM mode. |
+| 2026-04-30 | `docs/phase5_3_round2_repair_design.md` | Records that production default is still `false` and that `governance_full` ablation overrides the env to `true`. It explicitly says A reconciliation and B validator only take effect when Stage 2 runs; with `flag=false`, PCM blocks Stage 2 and A/B naturally fall through to the existing hard-rule path. |
+| 2026-04-30 | `47da89b` (`feat: implement phase5.3 A/B/E narrow governance repairs`) | Added B validator and A reconciler, integrated them in `_consume_decision_field()`, and left `config.py` unchanged. The archived implementation summary reports 111 targeted tests passed and 30-task sanity `23/30` (`completion_rate=0.7667`), but also states the commit does not redesign PCM and does not claim full benchmark pass. |
+| 2026-05-01 | Phase 6 / Phase 7 commits and closeouts | Later work added idempotency, canonical execution state, revision invalidation, and geometry data-flow changes behind their own flags or with explicit "no PCM" scope. No later commit changed the decision-field default. |
+| 2026-05-02 | `1391b9f` freeze + `3292844` reality audit | Freeze documentation described the reconciler as an active architecture component but did not record that production default still keeps the decision-field/reconciler path inactive. The reality audit identified the operational gap. |
+
+### 6.3 Phase 4 Design Intent
+
+Phase 4 did not choose an unconditional Option B production default. It chose a
+two-mode flag:
+
+- `flag=false`: PCM keeps current hardcoded governance behavior
+  (missing-required hard block, optional probe, confirm-first detection, probe
+  limit). This is effectively Option C fallback.
+- `flag=true`: PCM becomes advisory and Stage 2 decision-field routing becomes
+  the active path. This is Option B.
+
+The Phase 4 rationale was compatibility and controlled comparison:
+
+- **Backward compatibility:** default deployments should behave like the
+  pre-Phase-3 hard-rule path.
+- **Baseline comparability:** OFF remains the control group; ON measures the
+  LLM-deferential path.
+- **Risk reduction:** operators can roll back to `false` without redeployment if
+  the new path misbehaves.
+
+Phase 4's own decision text records this as a final design choice: `flag=false`
+keeps PCM's "current full hardcoded governance behavior"; `flag=true` "enables
+Option B advisory routing." The same section says this preserves OFF as the
+control group and makes the behavior change an explicit opt-in.
+
+This explains why leaving the default at `false` was a deliberate Phase 4
+engineering decision, not an accidental omission at that point.
+
+### 6.4 Phase 5.3 Interaction With Phase 4 Option B
+
+Phase 5.3 was designed and verified primarily in `governance_full` ablation,
+where the runner sets:
+
+- `ENABLE_LLM_DECISION_FIELD=true`
+- `ENABLE_CONTRACT_SPLIT=true`
+- `ENABLE_GOVERNED_ROUTER=true`
+- `ENABLE_CLARIFICATION_CONTRACT=true`
+
+In that mode, PCM is already advisory and Stage 2 is invoked. The Round 2 design
+document explicitly says the observed Task 105/110/120 failures happened with
+PCM advisory mode active, and that PCM short-circuit was not the cause. The
+repair scope was therefore:
+
+- B validator: filter hallucinated Stage 2 missing slots against tool contracts.
+- A reconciler: arbitrate Stage 2, YAML/readiness, and validator evidence.
+- E narrow: preserve macro-to-dispersion handoff state.
+
+Phase 5.3 also explicitly treated PCM redesign as out of scope. The design says
+A/B only apply when Stage 2 has run; under `flag=false`, Stage 2 does not run on
+PCM-blocked paths, so A/B have no input and the existing hard-rule path remains.
+
+### 6.5 Root Cause Classification
+
+**Root cause: compatibility concern.**
+
+The historical evidence shows a deliberate compatibility/control decision:
+
+1. Phase 3 kept the decision field off because enabled mode regressed the smoke
+   benchmark on the fast model.
+2. Phase 4 implemented Option B behind the same flag while intentionally keeping
+   `flag=false` as the stable fallback and experimental control.
+3. Phase 5.3 repaired the `flag=true` advisory path and did not reopen production
+   default activation as part of its accepted A/B/E narrow scope.
+
+No document or commit reviewed here shows that Phase 5.3 found Option B
+fundamentally incompatible with the reconciler design. The evidence also does
+not support "B validator/reconciler edge-case failure" as the reason the default
+remained false. The gap is that activation of the repaired advisory path was
+never turned into a later production-default checkpoint after Phase 5.3 closed.
+
+### 6.6 Known Risks Before Switching Default to `true`
+
+1. **Decision-field calibration risk:** the original Phase 3 ON path regressed
+   by `-6.67pp` before recalibration. Phase 5.3 improved the advisory path, but
+   production-default activation still needs a fresh sanity run on the current
+   code.
+
+2. **PCM behavior change risk:** switching default to `true` changes PCM from a
+   hard-blocking user-visible probe mechanism into advisory input for Stage 2.
+   Optional-slot probing and confirm-first behavior may change.
+
+3. **Real hard-block bypass risk:** A reconciler is intended to respect genuine
+   readiness hard blocks, but activation increases the number of routes that
+   depend on this arbitration. Telemetry should confirm B remains filtering-only
+   and A does not become "P2 always wins" or "always proceed."
+
+4. **Unknown-contract / contract-shape risk:** B validator treats unknown tool
+   contracts as diagnostics and relies on tool-contract metadata. Future contract
+   drift, especially inconsistent `clarification_followup_slots`, can reduce
+   filter quality.
+
+5. **Residual Phase 6 debt risk:** Phase 5.3 adjusted gates closed for 105/110/120,
+   but the implementation summary still records residual idempotency,
+   canonical-state, and dispersion data-flow debts. Default activation can expose
+   these failures on production paths.
+
+6. **Observability risk:** PCM telemetry is not a first-class `core/trace.py`
+   event. A post-switch sanity must count reconciler calls, B filtering, PCM
+   short-circuits, and Stage 2 calls directly from available contract metadata or
+   augmented analysis scripts.
+
+7. **Cost/latency risk:** advisory mode routes more tasks through Stage 2 and the
+   reconciler path. The Phase 5.3 governance runs had high Stage 2 hit rate; a
+   production default switch should monitor wall-clock and model-call volume.
+
+---
+
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |
