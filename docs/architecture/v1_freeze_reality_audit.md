@@ -1304,6 +1304,194 @@ Class D + Class E are both AO state-machine layer defects. Treating them separat
 **Phase 8.1.3 closed.** Class E full deferred to Phase 9 as part of joint AO state-machine redesign (Class D + Class E bundle). The chain handoff guard (Class E narrow) is preserved and ready for future chain prediction improvements.
 
 ---
+
+## §10 Chain Prediction Gap Audit
+
+**Date:** 2026-05-02
+**Status:** Step 1 (audit) complete, Step 2 (scope decision) pending user review
+
+### §10.1 Stage 2 LLM Chain Output Capability
+
+#### Prompt Design
+
+The Stage 2 system prompt (`clarification_contract.py:837-880`) explicitly instructs the LLM to output multi-step tool chains:
+
+**Rule 14 (K6), lines 860-862:**
+> "tool_graph 字段列出了工具间的依赖关系（requires/provides/upstream_tools）。如果用户请求的工具需要上游结果（如 calculate_dispersion 需要 emission），且 available_results 中不包含对应结果类型，请在 intent.chain 里按依赖顺序规划执行序列。"
+
+**Rule 16 (K8), lines 866-867:**
+> "available_results 字段列出了当前会话中已完成的工具结果类型。在规划工具链时避免重复已存在的结果；如果用户请求的结果已存在，告知用户可复用。"
+
+**Rule 5, line 846:**
+> "同时判断工具意图，输出 intent: {resolved_tool, intent_confidence, reasoning}。"
+
+Note: Rule 5 does NOT mention `chain` or `projected_chain` in the intent schema description — it only lists `resolved_tool, intent_confidence, reasoning`. The chain instruction appears only in rule 14 (K6), which is conditional on tool_graph showing dependencies.
+
+#### Output Schema
+
+The LLM output extraction (`_extract_llm_intent_hint`, lines 888-911) reads `projected_chain` from:
+- `raw.get("projected_chain")` or `raw.get("chain")` or `llm_payload.get("chain")` or `[]` (line 900)
+- `llm_payload.get("chain")` or `[]` (line 908, legacy path)
+
+The extraction code handles `List[str]` — multi-step chains are structurally supported.
+
+#### Empirical Data (30-task ON rep 1)
+
+| Metric | Value |
+|--------|-------|
+| Total Stage 2 calls | 51 |
+| Calls with multi-step chain output | **0** |
+| Calls with single-step chain output | **0** |
+| Lines in log containing "chain" or "projected_chain" | **0** (entire log) |
+| AOs with multi-step `tool_intent.projected_chain` | **0** (all AOs) |
+
+**Finding:** Despite the prompt explicitly asking for `intent.chain` in rule 14, the LLM (qwen3-max) outputs zero chains — not even single-step chains. The `stage2_intent_chars` field averages ~50 characters per call, indicating the LLM outputs `intent` blocks with `resolved_tool` + `intent_confidence` but without `chain` or `projected_chain`. The `stage2_decision` and `llm_intent_raw` telemetry fields are None for all Stage 2 calls, meaning the raw LLM JSON is not preserved in evaluation logs.
+
+**Assessment:** The prompt design supports multi-step chain output (rule 14 explicitly asks for it). The output schema supports it. The LLM is not producing it. This is a **prompt effectiveness gap**, not an architectural absence.
+
+### §10.2 Rule-Based Resolver Design
+
+#### Resolver Architecture
+
+The `IntentResolver.resolve_fast()` method (`intent_resolver.py:23-97`) uses a priority chain of rules:
+
+1. **`rule:desired_chain`** (lines 26-35): Extracts `desired_tool_chain` from hints, uses `desired_chain[0]` as `resolved_tool`, passes full `desired_chain` as `projected_chain`. **This is the only path that supports multi-step chains.**
+2. **`rule:pending`** (lines 37-47): Uses `_pending_tool_name(ao)` + `_projected_chain_from_ao(ao)`. The chain comes from ExecutionContinuation's `pending_tool_queue` or AO's `projected_chain`.
+3. **`rule:file_task_type`** (lines 49-67): Hardcodes single-tool chains:
+   - `macro_emission` → `["calculate_macro_emission"]`
+   - `micro_emission` → `["calculate_micro_emission"]`
+4. **`rule:wants_factor_strict`** (lines 69-77): Hardcodes `["query_emission_factors"]`
+5. **`rule:revision_parent`** (lines 79-88): Hardcodes `[parent_tool]`
+6. **Fallback** (lines 90-97): Empty chain `[]`
+
+#### Chain Builder (Legacy Router)
+
+The `desired_tool_chain` hint is built by `EmissionRouter._extract_message_execution_hints()` (`router.py:1684-1720`). This method constructs multi-step chains:
+
+```python
+desired_tool_chain: List[str] = []
+if wants_factor:
+    desired_tool_chain.append("query_emission_factors")
+else:
+    # ... task_type-based append
+    desired_tool_chain.append("calculate_macro_emission")  # or calculate_micro_emission
+
+if wants_dispersion:
+    desired_tool_chain.append("calculate_dispersion")
+if wants_hotspot:
+    desired_tool_chain.append("analyze_hotspots")
+if wants_map:
+    desired_tool_chain.append("render_spatial_map")
+```
+
+For a task like 120 (macro→dispersion), this produces `["calculate_macro_emission", "calculate_dispersion"]`.
+
+#### Reachability in Governed Router Path
+
+`intent_resolver.py:144-149` calls `self.inner_router._extract_message_execution_hints(state)` where `inner_router` is the legacy `EmissionRouter`. The `state` passed is a `TaskState` initialized by the governed router at `governed_router.py:706`. However, `TaskState.initialize()` does not populate `file_context`, which `_extract_message_execution_hints` needs to determine `task_type`.
+
+**Empirical evidence confirms the path is not producing multi-step chains:** 0 AOs in the 30-task ON run have multi-step `projected_chain`. Either the hint builder crashes silently, or `file_context` is None and `task_type` defaults to empty string, causing the resolver to fall through to other single-tool rules.
+
+#### LLM Hint Merge
+
+`resolve_with_llm_hint()` (lines 99-142) merges rule-based resolution with Stage 2 LLM output. When the fast resolver already has HIGH confidence, it adds the LLM's `projected_chain` as evidence but only replaces the chain when the LLM's chain is **longer** (line 117: `len(parsed_chain) > len(fast.projected_chain)`). This is a correct merge strategy for multi-step chain enrichment — but it never triggers because the LLM never outputs chains.
+
+#### Assessment
+
+The resolver design supports multi-step chain (`projected_chain: List[str]`) in one rule path (desired_chain). The chain builder (`router.py:1684-1720`) constructs multi-step chains. But the integration between the governed router's `TaskState` and the legacy router's hint builder appears broken or silent-failing. Two of five rule paths hardcode single-tool chains. **This is a design gap — the resolver has the right data structures but the integration path is incomplete.**
+
+### §10.3 Chain Persistence Path
+
+#### Storage: `tool_intent.projected_chain`
+
+**File:** `core/analytical_objective.py:357`
+```python
+projected_chain: List[str] = field(default_factory=list)
+```
+
+Multi-step storage is supported: the field is `List[str]`, not `str`.
+
+#### Writing Paths
+
+| Writer | File:Line | Multi-step? |
+|--------|-----------|-------------|
+| `resolve_fast()` — desired_chain hint | `intent_resolver.py:34` | Yes — passes full `desired_chain` list |
+| `resolve_fast()` — all other rules | `intent_resolver.py:46-96` | No — hardcoded single-element lists |
+| `resolve_with_llm_hint()` LLM merge | `intent_resolver.py:120` | Yes — replaces chain if LLM's is longer |
+| Chain propagation | `clarification_contract.py:1038-1048` | Yes — preserves `len(existing_chain) > 1` |
+| `_derive_execution_state()` | `ao_manager.py:1614` | Yes — iterates all elements of list |
+| ExecutionContinuation `pending_tool_queue` | `execution_continuation.py:19` | Yes — `List[str]`, independent chain storage |
+
+#### Consumption Paths
+
+| Consumer | File:Line | Multi-step aware? |
+|----------|-----------|-------------------|
+| `_derive_execution_state` — builds steps | `ao_manager.py:1632-1649` | Yes — iterates all elements, creates PENDING steps |
+| `get_canonical_pending_next_tool` | `ao_manager.py:735-760` | Yes — returns tool at `chain_cursor`, advances through chain |
+| `should_prefer_canonical_pending_tool` | `ao_manager.py:762-794` | Yes — checks completed steps in chain |
+| `ExecutionReadinessContract` chain handoff | `execution_readiness_contract.py:87-114` | Yes — reads `remaining_chain` from AOExecutionState |
+| `_projected_chain_from_ao` | `intent_resolver.py:178-187` | Yes — reads `pending_tool_queue` or `tool_intent.projected_chain` |
+
+#### Assessment
+
+**The persistence path fully supports multi-step chains.** The storage type (`List[str]`), all write paths (when given multi-step input), and all consumption paths (AOExecutionState derivation, chain handoff guard) are multi-step-aware. The chain propagation logic at `clarification_contract.py:1038-1048` explicitly preserves existing multi-step chains against single-step overwrites.
+
+**No persistence changes are needed.** When a multi-step `projected_chain` is populated (by whatever fix in §10.1/§10.2), the existing persistence and consumption infrastructure will handle it correctly.
+
+### §10.4 Fix Classification: P2 (Design Gap)
+
+Based on the three audit tasks, the chain prediction gap is classified as **Class P2 (design gap)** — the architecture has the right data structures, persistence paths, and consumption logic, but the chain population paths are incomplete.
+
+#### Evidence Grid
+
+| Component | Multi-step Support | Gap |
+|-----------|-------------------|-----|
+| Stage 2 LLM prompt | Designed for chain (rule 14) | LLM doesn't output it (prompt effectiveness) |
+| Stage 2 output schema | `projected_chain` / `chain` extraction | LLM never populates these fields |
+| Rule-based resolver | `desired_chain` path supports multi-step | 4 of 5 rule paths hardcode single-tool; hint builder reachability unclear |
+| Chain builder (router.py) | Builds multi-step `desired_tool_chain` | May not reach governed router's TaskState |
+| Persistence (projected_chain) | `List[str]`, multi-step storage | No gap — storage supports multi-step |
+| Persistence (AOExecutionState) | Iterates all chain elements | No gap — derivation handles multi-step |
+| Persistence (ExecutionContinuation) | `pending_tool_queue: List[str]` | No gap — parallel storage ready |
+| Chain handoff guard | Reads `remaining_chain` from AOExecState | No gap — guard is correct, awaits multi-step input |
+| Chain propagation logic | Preserves `len(existing_chain) > 1` | No gap — anti-regression logic exists |
+
+#### Not P1 (Complete Design)
+
+Class P1 would require all three components (prompt, resolver, persistence) to be fully designed and only needing tuning. The rule-based resolver has 4 of 5 paths hardcoding single-tool chains, and the hint builder integration with the governed router's TaskState is unverified. This exceeds "tuning."
+
+#### Not P3 (Invent New Design)
+
+Class P3 would require the architecture to lack chain generation concepts entirely. The architecture HAS: multi-step chain storage (`projected_chain: List[str]`), chain derivation in AOExecutionState, chain handoff guard in ExecutionReadinessContract, chain propagation anti-regression logic, and an explicit Stage 2 prompt instruction to output chains. These are design-level artifacts, not accidental features.
+
+#### Fix Scope Estimate
+
+| Component | Change | LOC | Risk |
+|-----------|--------|-----|------|
+| IntentResolver: extend single-tool rule paths to multi-step | Add chain building to `file_task_type` and `wants_factor` rules based on tool_graph dependencies | ~40 | Low |
+| Verify/restore `desired_tool_chain` hint flow in governed router path | Ensure `_extract_message_execution_hints` reaches resolver with populated `file_context` | ~20 | Medium (touches TaskState initialization) |
+| Stage 2 prompt: strengthen chain instruction | Move chain instruction to rule 5 (intent schema description), add explicit example | ~15 | Low |
+| Stage 2 prompt: add multi-step chain example | Few-shot example of `intent.chain: ["calculate_macro_emission", "calculate_dispersion"]` | ~10 | Low |
+| **Total** | | **~85** | **Low-Medium** |
+
+#### Expected Impact on Fail Tasks
+
+| Task | Current Failure | Expected After Fix | Confidence |
+|------|----------------|-------------------|------------|
+| e2e_clarification_119 (macro→spatial_map) | chain_match=False, only macro executed | chain_match=True if macro completes and spatial_map fires through chain handoff | **Medium** — depends on LLM correctly predicting spatial_map as next tool |
+| e2e_clarification_120 (macro→dispersion) | chain_match=False, only macro executed | chain_match=True if macro completes and dispersion fires through chain handoff | **Medium** — depends on LLM correctly predicting dispersion as next tool |
+| e2e_clarification_105 (multi-turn, single-tool expected) | chain_match=False (3× macro vs 1 expected) | Unchanged — this is task design, not chain prediction | **Low** — multi-turn eval mismatch, not chain gap |
+| e2e_clarification_110 (LLM clarification loop) | chain_match=False, LLM can't converge | Unchanged — this is LLM semantic understanding, not chain | **Low** — root cause is LLM capability, not chain prediction |
+
+**Confidence caveat for 119/120:** Even with multi-step `projected_chain` and working chain handoff, the LLM must correctly predict the second tool in the chain. If the LLM predicts `["calculate_macro_emission", "calculate_macro_emission"]` (repeating the same tool), the fix won't help. The rule-based resolver can supplement chain predictions using tool_graph dependencies (known upstream/downstream relationships), which would improve robustness beyond LLM-only prediction. This rule-based supplement is included in the fix scope (extending `file_task_type` paths).
+
+### §10.5 Scope Decision Deferred
+
+§10 provides audit data only. Phase 8.1.4b makes the scope decision:
+- **Class P2 go**: Implement ~85 LOC fix + sanity verify on 119/120
+- **Class P2 defer**: Defer to Phase 9 alongside Class D/E (AO state machine redesign), since chain prediction and AO chain propagation are in the same architectural layer
+
+---
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |
