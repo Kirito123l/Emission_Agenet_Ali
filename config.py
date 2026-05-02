@@ -186,7 +186,7 @@ class Config:
         # User-reply parser (user→agent direction).
         # DO NOT confuse with `enable_llm_reply_parser` which governs agent→user reply LLM.
         self.enable_llm_user_reply_parser = os.getenv("ENABLE_LLM_USER_REPLY_PARSER", "false").lower() == "true"
-        self.enable_llm_decision_field = os.getenv("ENABLE_LLM_DECISION_FIELD", "false").lower() == "true"
+        self.enable_llm_decision_field = os.getenv("ENABLE_LLM_DECISION_FIELD", "true").lower() == "true"
         self.enable_llm_retry_backoff = os.getenv("ENABLE_LLM_RETRY_BACKOFF", "true").lower() == "true"
         self.enable_contour_output = os.getenv("ENABLE_CONTOUR_OUTPUT", "true").lower() == "true"
         self.contour_interp_resolution_m = float(

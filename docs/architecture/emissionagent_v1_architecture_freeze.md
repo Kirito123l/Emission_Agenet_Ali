@@ -294,3 +294,111 @@ new architecture phase when they do not change these contracts.
    data-flow contributions.
 4. Consolidate paper method and results sections around the frozen v1
    architecture.
+
+## 11. Errata (post-freeze corrections)
+
+This section records discrepancies between the v1 freeze document (commit
+`1391b9f`) and codebase reality, discovered and resolved during Phase 8.1.2 audit.
+Each entry states whether it has been resolved and, if so, in which commit.
+
+### 11.1 Reconciler activation gap (RESOLVED)
+
+**Discovery:** Phase 8.1.2 Step 1 audit (§6 of `v1_freeze_reality_audit.md`)
+revealed that at freeze time (`1391b9f`), the production default
+`ENABLE_LLM_DECISION_FIELD=false` kept the reconciler and B validator at **0%
+production invocation**. The gate at `core/governed_router.py:267` prevents
+`_consume_decision_field()` from being entered when the flag is `false`, and
+`_consume_decision_field()` is the sole production caller of `reconcile()` (line
+912) and `filter_stage2_missing_required()` (line 910).
+
+**Severity at freeze:** The freeze document §3 governance principle 4 ("reconciler
+arbitrates between evidence sources; it is not 'P2 always wins'") was a
+**substantive error** — not a limitation, an advisory-mode-by-design caveat, or a
+future-work item. In production (default) mode, the reconciler was dead code.
+Section §2 Parameter Governance described a "layered contract pipeline" (Stage 2 →
+YAML/readiness → B validator → reconciler) that omitted PCM entirely, and PCM
+short-circuited that entire pipeline on ~83% of tasks with unfilled optional
+parameters (per Phase 4 design doc estimate).
+
+**Historical context:** Phase 4 (`9e7fd85`) explicitly designed `flag=false` as
+Option C hard-block fallback and `flag=true` as Option B advisory mode, for backward
+compatibility and controlled comparison. Phase 5.3 (`47da89b`) repaired the A/B/E
+narrow paths but verified them only under `governance_full` ablation (flag=true).
+Phase 5.3 sanity 23/30 (76.67%) was run with flag=true, not with the production
+default flag=false. No later phase changed the default or verified reconciler
+activation under default routing.
+
+**Resolution:** Phase 8.1.2 Step 3 production-default switch (this commit) changes
+`config.py:189` default from `"false"` to `"true"`. The reconciler is now an active
+component on the production main path.
+
+**Verification:**
+- Step 2 sanity (commit `880ad1f`): OFF vs ON n=3 — ON completion_rate=0.80 vs
+  OFF 0.7333 (+6.67pp), incomplete category rescued from 33.3% to 100%.
+- Step 2.5 telemetry verification (commit `cd9a2e0`): OFF reconciler=0 confirmed
+  (0 `decision_field_clarify` traces); ON reconciler ≥6 confirmed (6
+  `decision_field_clarify` traces across 6 tasks, 3 of which are the incomplete
+  rescue tasks).
+- Step 3 default-verify sanity (this commit): n=1 with no `ENABLE_LLM_DECISION_FIELD`
+  env var, completion_rate=0.80, reconciler activity confirmed (5 tasks, 6
+  `decision_field_clarify` events), consistent with Step 2B ON explicit-flag data.
+
+### 11.2 PCM role in the governance pipeline
+
+**Discovery:** Phase 8.1.2 Step 1 audit revealed that PCM (Parameter Collection
+Module) is absent from the freeze document §2 Parameter Governance description, yet
+PCM is the pre-Stage-2 gate that determines whether Stage 2, B validator, and
+reconciler are reached at all.
+
+**Current state (post-resolution):**
+
+| Flag State | PCM Mode | Behavior |
+|-----------|----------|----------|
+| `true` (new default) | Advisory (Option B) | PCM computes `pcm_advisory` dict, sets `should_proceed=True`, injects advisory context into Stage 2 LLM payload. Does NOT block Stage 2 or reconciler. |
+| `false` (opt-out fallback) | Hard-block (Option C) | PCM probes optional slots, blocks execution with `proceed=False` when optional parameters are missing. Prevents Stage 2 and reconciler invocation on ~83% of affected tasks. |
+
+**Documentation note:** The freeze document §2 Parameter Governance should be read
+with the understanding that PCM is a pre-pipeline gate whose mode determines whether
+the described pipeline (Stage 2 → YAML/readiness → B validator → reconciler) is
+reached. Under the new default (`true`), PCM is advisory and the pipeline is
+reached. Under the opt-out fallback (`false`), PCM hard-blocks and the pipeline is
+bypassed.
+
+### 11.3 AOExecutionState scope (PENDING Phase 8.1.3)
+
+**Discovery:** Phase 8.1.2 Step 1 audit §2 revealed that `AOExecutionState`
+(`core/analytical_objective.py:262-271`) is not a unification of the five
+state machines as the freeze document §2 implies. It is a new, additional execution
+ledger that covers chain progress (tool-by-tool step tracking), while
+`ClarificationContract` and `ExecutionContinuation` persist independently under
+separate `ao.metadata` keys with zero connection to `AOExecutionState`.
+
+The Round 1.5 audit Class E full identified five supposedly independent state
+machines (ClarificationContract, ExecutionReadiness, AO scope,
+ExecutionContinuation, Evaluator follow-up). Phase 6.E canonical execution state
+resolved 1 of 5 (AO scope → bidirectional sync with AOExecutionState), but
+ExecutionContinuation and ClarificationContract remain fully independent, and
+Evaluator follow-up was never a distinct state machine.
+
+**Status: PENDING.** Phase 8.1.3 will audit the five state-machine co-design and
+produce a scoping decision (merge, synchronize, or document as intentional
+separation). This errata entry is a placeholder until Phase 8.1.3 closes.
+
+### 11.4 Spatial component layer assignment (Cosmetic)
+
+**Discovery:** Phase 8.1.2 Step 1 audit §3 found that `GeometryMetadata`
+(`core/task_state.py:141`), `SpatialEmissionLayer` (`core/spatial_emission.py:69`),
+and `SpatialEmissionCandidate` (`core/spatial_emission.py:141`) are not explicitly
+assigned to an architecture layer in the freeze document. Code-level evidence
+confirms they belong to **Layer 4 (Agent Decision)**, not Layer 3 (Domain Schema):
+they carry `provenance`, `reason_code`, and `confidence` diagnostic fields; they are
+consumed exclusively by Layer 4 components (readiness.py, router.py,
+spatial_emission_resolver.py); and Layer 3 (`emission_domain_schema.yaml`,
+`emission_schema.py`) has zero spatial references.
+
+**Severity:** Low. No code change needed. The three-path spatial data-flow contract
+described in freeze doc §2 and §5 is accurate. Only the layer assignment is missing
+from documentation.
+
+**Status:** Cosmetic, low priority. Corrected in this errata; paper writing can
+reference this assignment.
