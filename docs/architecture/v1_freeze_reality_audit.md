@@ -2715,3 +2715,124 @@ The evidence shows that:
 **Awaiting user decision:**
 - **Accept recommendation**: close Phase 8.1.4e, enter Phase 8.1.4c (trace backfill) or Phase 9 (AO lifecycle redesign)
 - **Override**: GO Sub-step 3B anyway (accepting ~0 activation risk)
+
+---
+
+## §17 Phase 8.1.4e Closeout — A1-Latent Defer to Phase 9 (Infrastructure Status)
+
+### §17.1 Sub-step Summary and Commit Chain
+
+| Sub-step | Commit | Description | Code changed? | Operational effect |
+|----------|--------|-------------|---------------|-------------------|
+| Sub-step 1 | `bc11fca` | AO classifier behavior pre-verification | No (audit only) | S1 self-sufficient confirmed |
+| Sub-step 2 | `a165bf6` | `complete_ao()` chain gate implementation | Yes (~108 LOC) | 0 activation (REVISION chains always single-step) |
+| Sub-step 3A | `ba08d5c` | `_revision_parent_tool` pre-audit | No (audit only) | Classified A1: chain inheritance feasible |
+| Sub-step 3A.5 | `5683314` | Turn 1 parent chain data audit | No (audit only) | Reclassified A1-Latent: 0/4 tasks would benefit |
+| Closeout | (this commit) | Infrastructure status + Phase 9 deferral | No (doc only) | — |
+
+**Key findings across all sub-steps:**
+
+1. **AO classifier is self-sufficient (S1):** When an ACTIVE AO exists, the classifier outputs CONTINUATION 3/3 for parameter completion and chain continuation scenarios. The classifier is NOT the bottleneck.
+
+2. **The bottleneck is dual:**
+   - (a) REVISION AOs always get single-step `projected_chain` (`_revision_parent_tool` hardcodes `[parent_tool]`) — Sub-step 2 gate defeats this structurally but gate has nothing to hold because chain is always single-step
+   - (b) Even when parent chain IS multi-step (task 120), the CONTINUATION path in `intent_resolution_contract` bypasses `_revision_parent_tool` entirely
+
+3. **Layer 3 keyword dependency defeats all Layer 1-2 fixes:** Multi-step chain capture requires Turn 1 message to contain exact downstream keywords (扩散/地图/热点). Natural-language expressions of multi-step intent ("带坐标路网", "分析然后出图") produce empty `desired_tool_chain` and single-step resolved chains.
+
+### §17.2 A1-Latent Data-Driven Decision
+
+**Decision: Skip Sub-step 3B implementation. Defer to Phase 9.**
+
+This is not a risk-aversion retreat. It is a data-driven decision:
+
+- Sub-step 3A.5 extracted Turn 1 data for all 4 multi_turn_clarification tasks from Phase 8.1.4e Sub-step 2 smoke logs
+- 0/4 tasks have Turn 1 parent chain >= 2 steps where Sub-step 3B chain inheritance would produce a meaningful change
+- 3 independent blocking layers cover all 4 tasks (single-step by design, keyword gap, CONTINUATION bypass)
+- Sub-step 3B would be the fourth narrow patch with zero operational trigger in the chain prediction line
+
+The decision follows the user's working discipline: *"如果本次 STOP 触发, 接受推 Phase 9, 不继续第四次 narrow patch."*
+
+### §17.3 Multi-Turn Clarification Root Cause Attribution
+
+Each of the 4 tasks fails for a different reason, spanning architecture, task design, and LLM behavior:
+
+| Task | Expected Chain | Root Cause | Layer | Phase 9 Work Type |
+|------|---------------|------------|-------|-------------------|
+| **105** | `[macro_emission]` (len=1) | Task designed as single-step. AO classifier → REVISION → AO complete immediately → next turn creates new REVISION AO. The AO per-turn isolation (Class D) is real, but the task doesn't need chain handoff — it needs parameter refinement across turns | Partially Class D (architecture), partially task design | AO lifecycle redesign supports multi-turn parameter refinement without AO churn |
+| **110** | `[query_emission_factors]` (len=1) | Task designed as single-step. No file → resolver has no `task_type` → `rule:revision_parent` returns parent tool. Additionally, LLM hallucinates parameters (pollutant="CO2" etc.) without valid emission factor query results | Primarily LLM behavior, not architecture | Non-architecture fix: prompt engineering or LLM choice. Phase 9 scope boundary |
+| **119** | `[macro_emission, render_spatial_map]` (len=2) | Turn 1 message "帮我分析这个带坐标路网" matches **zero** of 4 keyword flags. `wants_map=False` because "坐标路网" is not in the map keyword list ("地图"/"渲染"/"展示"/"可视化"/"map"/"render"). `desired_tool_chain=[]`, `_downstream_chain` produces single-step. The "出地图" keyword appears in Turn 3 — too late; parent AO already completed | Architecture: chain prediction infrastructure lacks file-metadata-driven chain inference | Chain prediction redesign: infer downstream tools from file metadata (columns, task_type) + task semantics, not solely from message keywords |
+| **120** | `[macro_emission, calculate_dispersion]` (len=2) | Turn 1 message "我需要扩散结果" has `wants_dispersion=True` + file with `task_type=macro_emission`. Classifier correctly outputs **CONTINUATION** targeting pre-existing AO#81. The CONTINUATION path in `intent_resolution_contract.py:45-162` fires — `_revision_parent_tool` is never called because no new REVISION AO is created. The parent AO's chain (whatever it was) is not consumed by the CONTINUATION path | Architecture: CONTINUATION path does not consume parent chain | AO lifecycle redesign: CONTINUATION path must inherit and advance parent AO's projected_chain |
+
+**Key insight for Phase 9:** Tasks 119 and 120 represent the two failure modes of the current chain prediction architecture:
+- **Task 119 (keyword gap):** Chain prediction depends on message keyword match, misses natural-language multi-step intent
+- **Task 120 (CONTINUATION gap):** Even when keywords ARE present and classifier IS correct, the code path that handles CONTINUATION doesn't consume parent chain
+
+### §17.4 Phase 9 Work Checklist
+
+Based on cumulative findings from Phase 8.1.4b, 8.1.4d, and 8.1.4e:
+
+#### 1. AO Lifecycle Redesign (Class D + CONTINUATION-chain coordination)
+
+- **AO multi-status semantics:** Replace binary ACTIVE/COMPLETED with finer states — "active & satisfied", "active with pending chain", "chain stalled", "complete"
+- **REVISION AO chain inheritance:** REVISION AO inherits parent's `projected_chain`, advanced past completed tools. (This is Sub-step 3B's mechanism, activated only within the redesigned lifecycle where parent chains can be multi-step.)
+- **CONTINUATION path chain consumption:** `intent_resolution_contract` CONTINUATION branch must consume and advance parent AO's `projected_chain` (fixes Task 120)
+- **user_revision lifecycle coordination:** Ensure user_revision tasks (121, 131, 135) stay at 0 regression through lifecycle changes
+- **Multi-turn parameter refinement:** AO stays ACTIVE across parameter refinement turns without creating new REVISION AOs (fixes Task 105 pattern)
+
+#### 2. Chain Prediction Infrastructure Cross-Layer Activation (Class E + Phase 8.1.4b)
+
+- **5 state machines consume AOExecutionState (Class E):** Ensure AOExecutionState flows through all 5 governance state machines, not just the resolver
+- **File-metadata-driven chain inference:** Infer downstream tools from file columns (e.g., `geometry` column → `render_spatial_map` candidate) and task semantics, not solely from message keywords (fixes Task 119)
+- **Chain handoff guard end-to-end verification:** After upstream fixes, verify `complete_ao()` gate and chain handoff actually fire in multi-turn scenarios
+- **Stage 2 LLM prompt redesign:** Address 0/51 multi-step output. Either switch LLM or redesign prompt to produce multi-step chains without keyword prompting
+
+#### 3. Non-Architecture Work (Phase 9 Scope Boundary)
+
+- **LLM hallucination in parameter refinement:** Task 110 class failures (factor queries with hallucinated parameters). Prompt engineering or LLM choice — not architecture work, can be a separate round
+- **Keyword list expansion:** Add natural-language synonyms to `_extract_message_execution_hints` keyword lists (e.g., "出图" → wants_map, "坐标" → wants_map). Quick fix but doesn't address the structural keyword-dependency problem
+
+### §17.5 Phase 8.1.4 Infrastructure Status — "Built, Waiting for Activation"
+
+The following infrastructure is implemented and correct at the code level, but has zero operational effect until Phase 9 upstream fixes are complete. This section is the project's honest self-audit: none of this is dead code, all of it activates when the chain prediction bottleneck is resolved.
+
+| Infrastructure | Phase | Commit | LOC | Current Status | Phase 9 Activation Condition |
+|---------------|-------|--------|-----|---------------|------------------------------|
+| Chain handoff guard (E narrow) | 5.3 | `47da89b` | ~80 | 0 activation | Multi-step chain exists + AO lifecycle supports chain hold |
+| Canonical downstream chain handoff | 5.3+ | `9ccc3e3` | ~60 | 0 activation | AOExecutionState populated with multi-step chain |
+| Resolver multi-step path | 8.1.4b | `a7aab11` | ~80 | Resolver CAN produce multi-step (verified), but downstream doesn't consume | AO lifecycle redesign consumes multi-step chains |
+| Stage 2 prompt multi-step strengthening | 8.1.4b | `5581736` | ~30 | LLM still outputs 0/51 multi-step | LLM choice or prompt redesign |
+| Governed router hint builder flow | 8.1.4b | `4f0dd73` | ~40 | Hints flow correctly to resolver, but keyword-dependent | File-metadata-driven inference supplements keywords |
+| Chain persistence | 8.1.4b | verified | 0 (existing) | Path correct, waiting for multi-step chains to flow in | Upstream produces multi-step chains |
+| `complete_ao()` gate | 8.1.4e | `a165bf6` | ~108 | 0 activation (always single-step chains) | REVISION AO inherits multi-step chain + CONTINUATION path consumes chain |
+| `has_pending_chain_steps()` | 8.1.4e | `a165bf6` | ~15 | Always returns False | Multi-step chains exist on AOs |
+| Chain inheritance mechanism | 8.1.4e | NOT implemented (Sub-step 3B skipped) | 0 | — | Phase 9 lifecycle redesign includes this |
+
+**Total "waiting for activation" LOC: ~413 across 3 phases.**
+
+**Phase 9 entry protocol:** The first action upon entering Phase 9 is to verify whether any of this infrastructure spontaneously activates after upstream fixes. Do not add more infrastructure before confirming existing infrastructure works. The accumulation of correct-but-inactive code is a liability if not monitored.
+
+### §17.6 Phase 8.1.4 Overall Closeout
+
+**Completed sub-phases:**
+
+| Sub-phase | Commit | Outcome |
+|-----------|--------|---------|
+| 8.1.4a: Chain prediction gap audit | `7d70a36` | 5-chain-audit complete; identified keyword dependency as root bottleneck |
+| 8.1.4b: Chain prediction repair | `1664d4b` (closeout) | Resolver extended, Stage 2 prompt strengthened; 0 benchmark impact; infrastructure ready |
+| 8.1.4d: Class D mechanism audit | `16e83df` | 2-task trace inspection + 5-candidate mechanism audit; confirmed AO classifier outputs REVISION for multi-turn follow-ups |
+| 8.1.4e: Class D narrow repair | `a165bf6` + audits | Gate implemented (correct but 0 activation); pre-audit + data audit confirmed A1-Latent; defer to Phase 9 |
+
+**Pending:**
+
+| Sub-phase | Status |
+|-----------|--------|
+| 8.1.4c: Trace completeness | Not yet started |
+
+**Key deliverables for Phase 9:**
+
+1. **Infrastructure activation map** (§17.5): ~413 LOC of correct-but-inactive code across 8 infrastructure items, all waiting for chain prediction upstream fix
+2. **Root cause taxonomy** (§17.3): 4 multi_turn_clarification tasks each mapped to specific architectural deficiency (not a generic "LLM is bad" diagnosis)
+3. **Phase 9 work checklist** (§17.4): 3 workstreams (AO lifecycle redesign, chain prediction infrastructure, non-architecture)
+
+**Phase 8.1.4e is closed.** The decision to defer to Phase 9 is data-driven (0/4 tasks would benefit from Sub-step 3B), not risk-averse. The infrastructure built in Phase 8.1.4e is correct and will activate when upstream chain prediction produces multi-step chains within a redesigned AO lifecycle.
