@@ -75,18 +75,63 @@ class IntentResolver:
 
     # ── End Phase 8.1.4b Sub-step 1 ──────────────────────────────────────
 
+    # ── Phase 8.1.4b Sub-step 2: chain-cursor advancement ────────────────
+
+    @staticmethod
+    def _advance_chain_cursor(chain: List[str], ao: Any) -> tuple:
+        """Return (resolved_tool, chain) advancing past already-completed tools.
+
+        Checks the current AO's tool_call_log to determine whether earlier
+        chain steps have already been executed (either by this AO or recorded
+        via continuation state).  Advances *resolved_tool* to the first
+        non-completed tool in *chain*.
+
+        Returns ``(chain[0], chain)`` when no advancement is needed.
+        """
+        if not chain:
+            return (None, chain)
+        completed: set = set()
+        for record in list(getattr(ao, "tool_call_log", []) or []):
+            tool = str(getattr(record, "tool", "") or "").strip()
+            if tool and getattr(record, "success", False):
+                completed.add(tool)
+        # Also check continuation: if pending_next_tool points further in
+        # the chain, treat earlier steps as completed.
+        continuation = load_execution_continuation(ao)
+        cont_next = str(getattr(continuation, "pending_next_tool", "") or "").strip()
+        if cont_next and cont_next in chain:
+            cont_idx = chain.index(cont_next)
+            for t in chain[:cont_idx]:
+                completed.add(t)
+
+        cursor = 0
+        for i, tool in enumerate(chain):
+            if tool in completed:
+                cursor = i + 1
+            else:
+                break
+        if cursor >= len(chain):
+            return (chain[-1], chain)
+        return (chain[cursor], chain)
+
+    # ── End Phase 8.1.4b Sub-step 2 ───────────────────────────────────────
+
     def resolve_fast(self, state: Any, ao: Any) -> ToolIntent:
         """Rules-only fast path. Returns HIGH when a legacy resolver rule hits."""
         hints = self._extract_hints(state)
         desired_chain = [str(item) for item in hints.get("desired_tool_chain") or [] if item]
         if desired_chain:
+            resolved_tool, chain = self._advance_chain_cursor(desired_chain, ao)
+            evidence = [f"desired_chain:{';'.join(desired_chain)}"]
+            if resolved_tool != desired_chain[0]:
+                evidence.append(f"chain:advanced_from:{desired_chain[0]}")
             return self._intent(
-                desired_chain[0],
+                resolved_tool,
                 IntentConfidence.HIGH,
                 resolved_by="rule:desired_chain",
-                evidence=[f"desired_chain:{';'.join(desired_chain)}"],
+                evidence=evidence,
                 state=state,
-                projected_chain=desired_chain,
+                projected_chain=chain,
             )
 
         pending_tool = self._pending_tool_name(ao)
@@ -104,35 +149,50 @@ class IntentResolver:
         task_type = str(getattr(getattr(state, "file_context", None), "task_type", "") or "").strip()
         if task_type == "macro_emission":
             chain = self._downstream_chain("calculate_macro_emission", hints)
+            resolved_tool, chain = self._advance_chain_cursor(chain, ao)
+            evidence = ["file_task_type:macro_emission"]
+            if resolved_tool != "calculate_macro_emission":
+                evidence.append(f"chain:advanced_to:{resolved_tool}")
+            elif len(chain) > 1:
+                evidence.append("chain:downstream")
             return self._intent(
-                "calculate_macro_emission",
+                resolved_tool,
                 IntentConfidence.HIGH,
                 resolved_by="rule:file_task_type",
-                evidence=["file_task_type:macro_emission"]
-                + (["chain:downstream"] if len(chain) > 1 else []),
+                evidence=evidence,
                 state=state,
                 projected_chain=chain,
             )
         if task_type == "micro_emission":
             chain = self._downstream_chain("calculate_micro_emission", hints)
+            resolved_tool, chain = self._advance_chain_cursor(chain, ao)
+            evidence = ["file_task_type:micro_emission"]
+            if resolved_tool != "calculate_micro_emission":
+                evidence.append(f"chain:advanced_to:{resolved_tool}")
+            elif len(chain) > 1:
+                evidence.append("chain:downstream")
             return self._intent(
-                "calculate_micro_emission",
+                resolved_tool,
                 IntentConfidence.HIGH,
                 resolved_by="rule:file_task_type",
-                evidence=["file_task_type:micro_emission"]
-                + (["chain:downstream"] if len(chain) > 1 else []),
+                evidence=evidence,
                 state=state,
                 projected_chain=chain,
             )
 
         if hints.get("wants_factor"):
             chain = self._downstream_chain("query_emission_factors", hints)
+            resolved_tool, chain = self._advance_chain_cursor(chain, ao)
+            evidence = ["wants_factor:true"]
+            if resolved_tool != "query_emission_factors":
+                evidence.append(f"chain:advanced_to:{resolved_tool}")
+            elif len(chain) > 1:
+                evidence.append("chain:downstream")
             return self._intent(
-                "query_emission_factors",
+                resolved_tool,
                 IntentConfidence.HIGH,
                 resolved_by="rule:wants_factor_strict",
-                evidence=["wants_factor:true"]
-                + (["chain:downstream"] if len(chain) > 1 else []),
+                evidence=evidence,
                 state=state,
                 projected_chain=chain,
             )
