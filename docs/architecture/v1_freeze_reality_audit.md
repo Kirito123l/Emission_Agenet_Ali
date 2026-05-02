@@ -1253,7 +1253,55 @@ This section presents the data that Step 2 will use for the Class E full / narro
 - **Risk of scope creep**: Connecting ClarificationContract and ExecutionContinuation to AOExecutionState touches 3 files and would require regression testing across all contract paths. The risk of introducing new bugs in the contract pipeline is non-trivial.
 
 ---
-## Appendix A: Key File Reference
+
+## §9 Class E Decision — Defer to Phase 9
+
+**Date:** 2026-05-02
+**Status:** Step 2 complete, Phase 8.1.3 closed
+
+### §9.1 Decision
+
+**Class E full (5-state-machine coordination repair) is deferred to Phase 9.**
+
+**Basis:** §8.3 fail task attribution shows zero of 14 benchmark failures (8 OFF + 6 ON) are attributable to state-machine coordination (Class E proper). The repair cost (~130-300 LOC, 4-6 weeks) has zero data-supported benefit on the current 30-task benchmark. This is a data-driven engineering priority decision, not a capability concession.
+
+Phase 9 will bundle Class E with Class D (AO lifecycle state machine, per Round 1.5 audit) as a joint AO state-machine redesign round. The two classes share the same architectural layer (AO execution state) and are more efficiently addressed together.
+
+### §9.2 Class E Narrow Current State
+
+Phase 5.3's chain handoff guard (`execution_readiness_contract.py:87-114`) is **code-level correct and preserved as-is.** It is not removed or gated.
+
+The guard currently fires zero times on the 30-task benchmark because `projected_chain` is always single-tool (§8.2.3). This is a chain prediction gap (LLM + rule-based resolver), not a handoff bug. The guard is architecturally ready: whenever `projected_chain` becomes multi-step (through improved chain prediction, Phase 8.1.4 or Phase 9), the handoff guard will automatically begin triggering without any code changes.
+
+### §9.3 Five State Machine Status — Archived for Phase 9
+
+The Reality Audit §2 and Phase 8.1.3 §8.1 findings are archived as Phase 9 input:
+
+| State Machine | AOExecutionState Connection | Phase 9 Action |
+|---|---|---|
+| ClarificationContract | Zero connection | Connect to AOExecutionState (read final_decision → step status) |
+| ExecutionContinuation | Zero connection; dual source of truth for chain position | Merge pending_next_tool/pending_tool_queue into AOExecutionState chain |
+| ExecutionReadiness | Reads for chain handoff guard | Keep as-is; guard already correct |
+| AO scope | Bidirectional; AO is primary | Evaluate whether AOExecutionState should become primary (reverse derivation) |
+| Evaluator follow-up | Never existed as distinct machine | Remove from architecture taxonomy |
+
+### §9.4 Relationship to Class D (Phase 9 Bundling)
+
+Round 1.5 audit identified Class D (AO lacks "AO satisfied" lifecycle state) alongside Class E as AO-state-machine-level design gaps. §8.3 data shows Class D contributes to task 105 and 135 failures (AO lifecycle isolation causing chain_match=False).
+
+Class D + Class E are both AO state-machine layer defects. Treating them separately would require touching the same files twice with conflicting intermediate states. Phase 9 will:
+1. Audit Class D + Class E jointly
+2. Design a unified AO state machine covering lifecycle (Class D) + chain coordination (Class E)
+3. Implement as a single coherent change
+
+### §9.5 Phase 8.1.3 Closeout
+
+| Step | Commit | Status |
+|------|--------|--------|
+| Step 1: 5-state-machine coordination audit | `86c3ada` | Closed |
+| Step 2: Scope decision (Option C — defer) | this commit | Closed |
+
+**Phase 8.1.3 closed.** Class E full deferred to Phase 9 as part of joint AO state-machine redesign (Class D + Class E bundle). The chain handoff guard (Class E narrow) is preserved and ready for future chain prediction improvements.
 
 ---
 ## Appendix A: Key File Reference
