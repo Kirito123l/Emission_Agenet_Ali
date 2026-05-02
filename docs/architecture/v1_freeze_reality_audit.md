@@ -2576,3 +2576,142 @@ The risk of zero activation for this fix is **real but lower** than Sub-step 2 b
 **Awaiting user decision:**
 - **GO Sub-step 3B**: implement the ~10 LOC chain inheritance fix at `intent_resolver.py:200-209`, run 30-task smoke, check activation > 0
 - **Skip to Phase 9**: accept that chain handoff requires AO lifecycle redesign, defer all chain progress
+
+---
+
+## §16 Multi-Turn Clarification Turn 1 Parent Chain Audit (Phase 8.1.4e Sub-step 3A.5)
+
+### §16.1 Four-Task Turn 1 Parent Chain Analysis
+
+Data source: `evaluation/results/phase8_1_4e/smoke_rep1/end2end_logs.jsonl` (Phase 8.1.4e Sub-step 2 smoke, rep 1).
+
+**Telemetry gap:** The AO lifecycle events record `tool_intent_confidence` and `tool_intent_resolved_by` but do **not** record `projected_chain` length. `trace_steps` is empty for all 4 tasks. The analysis below uses: (a) user message keyword extraction matching `_extract_message_execution_hints` logic, (b) resolver rule identification from `tool_intent_resolved_by`, (c) expected chain from task definition.
+
+#### Task-by-task analysis
+
+| Field | e2e_clarification_105 | e2e_clarification_110 | e2e_clarification_119 | e2e_clarification_120 |
+|-------|----------------------|----------------------|----------------------|----------------------|
+| **Turn 1 user msg** | 用这个文件做排放计算 | 需要一个排放查询 | 帮我分析这个带坐标路网 | 我需要扩散结果 |
+| **File** | macro_direct.csv | **None** | test_6links.xlsx | macro_direct.csv |
+| **File task_type** | macro_emission | — | macro_emission | macro_emission |
+| **Expected tool_chain** | `["calculate_macro_emission"]` | `["query_emission_factors"]` | `["calculate_macro_emission", "render_spatial_map"]` | `["calculate_macro_emission", "calculate_dispersion"]` |
+| **Expected chain len** | 1 | 1 | 2 | 2 |
+| **wants_emission** | True ("排放") | True ("排放") | False | False |
+| **wants_dispersion** | False | False | False | **True** ("扩散") |
+| **wants_hotspot** | False | False | False | False |
+| **wants_map** | False | False | False | False |
+| **wants_factor** | False | False | False | False |
+| **Inferred desired_tool_chain** | `["calculate_macro_emission"]` (len=1) | `[]` (len=0, no file) | `[]` (len=0, no keyword) | `["calculate_macro_emission", "calculate_dispersion"]` (len=2) |
+| **Initial AO resolver rule** | `rule:file_task_type` | `rule:revision_parent` | `rule:file_task_type` | `rule:file_task_type` |
+| **Classifier output** | REVISION | REVISION | REVISION | **CONTINUATION** |
+| **Inferred parent projected_chain len** | **1** | **1** | **1** | **1 or 2** (see below) |
+| **Task turns (eval)** | 3 | 4 (partial) | 3 | 3 |
+
+#### Detailed analysis per task
+
+**Task 105** — "用这个文件做排放计算"
+- Single-step by design: expected chain is `["calculate_macro_emission"]` only
+- Message has `wants_emission=True` + file task_type=macro_emission → `desired_tool_chain=["calculate_macro_emission"]` (len=1)
+- Resolver fires `rule:file_task_type` → `_downstream_chain("calculate_macro_emission", hints)` with no downstream flags → chain stays `["calculate_macro_emission"]`
+- **Parent chain = 1. This is correct behavior.** The task doesn't require multi-step chain.
+- Subsequent turns are parameter refinement only ("CO2", "夏天")
+
+**Task 110** — "需要一个排放查询"
+- Single-step by design: expected chain is `["query_emission_factors"]` only
+- No file → `task_type=""` → `desired_tool_chain=[]` (empty!)
+- `wants_factor=False` ("排放查询" doesn't match "排放因子")
+- Resolver fires `rule:revision_parent` — parent's last successful tool returned
+- **Parent chain = 1. Correct behavior.** Factor query is inherently single-step.
+- Subsequent turns are parameter refinement ("CO2", "PM10", "2020年")
+
+**Task 119** — "帮我分析这个带坐标路网"
+- Multi-step by design: expected chain is `["calculate_macro_emission", "render_spatial_map"]` (len=2)
+- File present with task_type=macro_emission
+- **Zero of 4 keyword flags True.** "分析" doesn't match `wants_emission`; "带坐标路网" doesn't match `wants_map` (keywords are "地图"/"渲染"/"展示"/"可视化"/"map"/"render" — "坐标" is absent)
+- `desired_tool_chain=[]` (wants_emission=False → macro_emission not appended; wants_map=False → render_spatial_map not appended)
+- Resolver fires `rule:file_task_type` → `_downstream_chain("calculate_macro_emission", hints)` with all flags False → chain = `["calculate_macro_emission"]` only
+- **Parent chain = 1 despite expected chain = 2.** The "地图" step is discovered in Turn 3 ("出地图") — too late, parent AO already completed.
+- **This is the keyword-dependency failure mode:** Turn 1 message has no "地图"/"渲染" keyword → `wants_map=False` → resolver produces single-step chain.
+
+**Task 120** — "我需要扩散结果"
+- Multi-step by design: expected chain is `["calculate_macro_emission", "calculate_dispersion"]` (len=2)
+- File present with task_type=macro_emission
+- **`wants_dispersion=True`** ("扩散" keyword)
+- `desired_tool_chain=["calculate_macro_emission", "calculate_dispersion"]` (len=2)
+- **BUT:** Classifier outputs CONTINUATION targeting AO#81 (pre-existing, created before task 120). The continuation path in `intent_resolution_contract.py:45-50` fires — `_revision_parent_tool` is **NOT called** because no new REVISION AO is created.
+- AO#81's parent chain depends on the message that created it (previous task, turn unknown). Since AO#81's resolver rule is `rule:file_task_type`, its chain depends on the keyword flags present at creation time.
+- **Sub-step 3B fix would NOT affect this task** because the fix targets `_revision_parent_tool` (REVISION AO creation), but this task takes the CONTINUATION path.
+
+### §16.2 Sub-step 3B Post-Fix Expected Activation
+
+Based on Turn 1 chain analysis of the 4 multi_turn_clarification tasks:
+
+| Task | Expected chain len | Parent chain len | Sub-step 3B helps? | Reason |
+|------|-------------------|-------------------|-------------------|--------|
+| 105 | 1 | 1 | No | Single-step by design |
+| 110 | 1 | 1 | No | Single-step by design |
+| 119 | 2 | 1 | **No** | Turn 1 missing "地图" keyword → parent chain=1 |
+| 120 | 2 | 1 or 2 (unknown) | **No** | CONTINUATION path, not REVISION → `_revision_parent_tool` not called |
+
+**Expected chain handoff guard activation on multi_turn_clarification subset: 0/4.**
+
+**Expected activation on full 30-task smoke: 0** (no task benefits from Sub-step 3B fix).
+
+#### Why zero activation?
+
+There are two independent blockers, each sufficient to defeat the fix:
+
+1. **Keyword dependency (affects tasks 119):** Multi-step parent chain requires Turn 1 message to contain downstream keywords matching `_extract_message_execution_hints`. When the user expresses multi-step intent in natural language without using the exact keywords (e.g., "带坐标路网" instead of "地图"/"渲染"), `desired_tool_chain` stays single-step or empty. The resolver's `_downstream_chain()` also depends on hint flags. **This is the Phase 8.1.4b keyword-dependency problem in a different location.**
+
+2. **CONTINUATION path bypass (affects task 120):** When the classifier correctly outputs CONTINUATION (as it does for task 120), the `intent_resolution_contract` takes a short-circuit path that never creates a new REVISION AO. `_revision_parent_tool` is never called because there's no REVISION AO to resolve. **The fix modifies a code path that isn't reached for CONTINUATION-classified tasks.**
+
+3. **Single-step by design (affects tasks 105, 110):** Two of the four "multi_turn_clarification" tasks have single-step expected chains. Their multi-turn nature is about parameter refinement (pollutant, season, year), not about tool-chain progression. No chain handoff is needed.
+
+### §16.3 Fix Path Re-Classification
+
+**Classification: Class A1-Latent**
+
+The fix mechanism is structurally Class A1 (chain inheritance from parent AO data, not from current message keywords), but:
+
+- **0/4 multi_turn_clarification tasks would benefit** — the fix has zero expected activation on the target task category
+- **0/30 overall smoke tasks expected to benefit** — the combination of keyword-dependency + CONTINUATION bypass + single-step-by-design covers all cases
+- The true bottleneck is NOT in `_revision_parent_tool` but further upstream: **Turn 1 chain prediction cannot produce multi-step chains without exact keyword matches**
+
+#### Root cause chain (3 layers deep)
+
+```
+Layer 1: complete_ao() gate checks has_pending_chain_steps() → always False
+         ↑ FIXED by Phase 8.1.4e Sub-step 2 (correct but 0 activation)
+Layer 2: REVISION AOs always have single-step projected_chain
+         ↑ Would be FIXED by Sub-step 3B chain inheritance
+Layer 3: Parent AO's projected_chain is single-step because Turn 1
+         message lacks downstream keywords
+         ↑ NOT addressed by any Phase 8.1.4e fix. This is the Phase 8.1.4b
+           keyword-dependency problem, now confirmed to block the REVISION
+           inheritance path as well.
+```
+
+The keyword dependency revealed by Phase 8.1.4b ("LLM 0/51 multi-step output") operates at Layer 3. All Phase 8.1.4e narrow patches (Sub-step 2 gate, Sub-step 3B inheritance) operate at Layers 1-2 and are defeated by Layer 3.
+
+#### Evidence strength
+
+- **High confidence** for tasks 105, 110, 119: data directly extracted from raw logs
+- **Medium confidence** for task 120: parent AO#81 predates the task; chain depends on prior message
+- **Telemetry gap confirmed:** `projected_chain` not recorded in AO lifecycle events or trace_steps. Analysis uses keyword extraction + resolver rule inference.
+
+### §16.4 Decision Gate
+
+**Sub-step 3A.5 confirms Class A1-Latent.** The Sub-step 3B fix would be structurally correct but operationally silent — just like the Sub-step 2 gate.
+
+Three narrow patches (Phase 5.1, Phase 8.1.4b, Phase 8.1.4e Sub-step 2) have all had zero operational trigger. Sub-step 3B would be the fourth.
+
+**Recommendation: Skip Sub-step 3B. Enter Phase 9.**
+
+The evidence shows that:
+1. Multi-turn clarification tasks either have single-step expected chains (105, 110) or fail to produce multi-step parent chains due to keyword gaps (119) or take a non-REVISION path (120)
+2. The chain prediction bottleneck is at Layer 3 (Turn 1 keyword extraction), which is Phase 8.1.4b territory and already assessed as LLM-dependent
+3. Further narrow patches in Phase 8.1.4e cannot fix Layer 3 without expanding scope into LLM prompt redesign (Phase 9 territory)
+
+**Awaiting user decision:**
+- **Accept recommendation**: close Phase 8.1.4e, enter Phase 8.1.4c (trace backfill) or Phase 9 (AO lifecycle redesign)
+- **Override**: GO Sub-step 3B anyway (accepting ~0 activation risk)
