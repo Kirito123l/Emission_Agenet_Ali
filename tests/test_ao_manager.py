@@ -435,7 +435,13 @@ def test_execution_continuation_blocks_completion_under_split():
     reset_config()
 
 
-def test_execution_continuation_blocks_implicit_create_completion():
+def test_execution_continuation_yields_to_implicit_create_completion():
+    """Phase 8.1.4e: chain continuation yields when a new AO is created.
+
+    When create_ao is called with an ACTIVE AO that has pending chain
+    continuation, the old AO is force-completed (not blocked) because
+    the new AO overrides the pending chain.
+    """
     os.environ["ENABLE_CONTRACT_SPLIT"] = "true"
     reset_config()
     manager = _make_manager()
@@ -469,10 +475,13 @@ def test_execution_continuation_blocks_implicit_create_completion():
         current_turn=2,
     )
 
-    blocked = [event for event in manager.telemetry_slice() if event["event_type"] == "complete_blocked"]
-    assert active.status == AOStatus.ACTIVE
+    # Phase 8.1.4e: old AO is COMPLETED (chain continuation yielded to new AO)
+    completed = [e for e in manager.telemetry_slice() if e["event_type"] == "complete"]
+    assert active.status == AOStatus.COMPLETED
     assert created.ao_id == "AO#2"
-    assert blocked[-1]["block_reason"] == "execution_continuation_active"
+    # Verify the old AO was completed via create_ao_implicit path
+    implicit_completes = [e for e in completed if e.get("completion_path") == "create_ao_implicit"]
+    assert len(implicit_completes) >= 1
     os.environ.pop("ENABLE_CONTRACT_SPLIT", None)
     reset_config()
 

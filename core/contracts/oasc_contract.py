@@ -91,10 +91,9 @@ class OASCContract(BaseContract):
             if current_ao is not None:
                 self._refresh_split_execution_continuation(context, result, current_ao)
                 turn_outcome = self._build_turn_outcome(result)
-                self.ao_manager.complete_ao(
-                    current_ao.ao_id,
-                    end_turn=self._current_turn_index(),
-                    turn_outcome=turn_outcome,
+                # Phase 8.1.4e: keep AO ACTIVE when chain has pending downstream steps
+                self._maybe_complete_ao_with_chain_gate(
+                    current_ao, turn_outcome, context, result,
                 )
 
         # Phase 6.E.1: read-only canonical execution state sync
@@ -211,6 +210,69 @@ class OASCContract(BaseContract):
             if assistant_text:
                 turns.append({"role": "assistant", "content": assistant_text})
         return turns
+
+    # ── Phase 8.1.4e: chain-aware completion gating ─────────────────────
+
+    def _maybe_complete_ao_with_chain_gate(
+        self,
+        ao: Any,
+        turn_outcome: Any,
+        context: ContractContext,
+        result: RouterResponse,
+    ) -> None:
+        """Complete AO unless chain has pending downstream steps.
+
+        When AOExecutionState shows pending steps that haven't executed yet,
+        keep the AO ACTIVE so the next turn's classifier sees an active AO
+        and classifies the follow-up as CONTINUATION rather than REVISION.
+
+        Includes a max-stall guard: if the chain hasn't progressed for
+        MAX_CHAIN_STALL_TURNS consecutive turns, force-complete the AO
+        to prevent infinite ACTIVE state.
+        """
+        MAX_CHAIN_STALL_TURNS = 5
+
+        if not self.ao_manager.has_pending_chain_steps(ao):
+            self.ao_manager.complete_ao(
+                ao.ao_id,
+                end_turn=self._current_turn_index(),
+                turn_outcome=turn_outcome,
+            )
+            return
+
+        current_turn = self._current_turn_index()
+        stalls = self.ao_manager.active_turns_without_progress(ao, current_turn)
+
+        if stalls >= MAX_CHAIN_STALL_TURNS:
+            state = ensure_execution_state(ao)
+            pending_tool = state.pending_next_tool if state else None
+            context.metadata["chain_active_hold"] = {
+                "ao_id": ao.ao_id,
+                "turn": current_turn,
+                "force_completed": True,
+                "reason": "chain_stalled",
+                "stalled_turns": stalls,
+                "pending_next_tool_at_stall": pending_tool,
+            }
+            self.ao_manager.complete_ao(
+                ao.ao_id,
+                end_turn=current_turn,
+                turn_outcome=turn_outcome,
+            )
+        else:
+            state = ensure_execution_state(ao)
+            pending_tool = state.pending_next_tool if state else None
+            context.metadata["chain_active_hold"] = {
+                "ao_id": ao.ao_id,
+                "turn": current_turn,
+                "force_completed": False,
+                "pending_next_tool": pending_tool,
+                "active_turns_without_progress": stalls,
+                "planned_chain": state.planned_chain if state else [],
+                "chain_cursor": state.chain_cursor if state else 0,
+            }
+
+    # ── End Phase 8.1.4e ────────────────────────────────────────────────
 
     def _build_state_snapshot(
         self,

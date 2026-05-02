@@ -2154,6 +2154,201 @@ Scope for Sub-step 2:
 Estimated LOC: ~40-60 (reduced from Phase 8.1.4d §12.3 estimate of 80-120 since no classifier changes needed).
 
 ---
+
+## §14 Class D Narrow Repair Outcome (Phase 8.1.4e Sub-step 2)
+
+### §14.1 Implementation Summary
+
+**Files changed: 3** (2 code + 1 test)
+
+| File | Change | LOC |
+|------|--------|-----|
+| `core/ao_manager.py` | Added `has_pending_chain_steps()`, `active_turns_without_progress()` helpers; modified `create_ao()` to force-complete old AO when chain continuation blocks | +34/−5 |
+| `core/contracts/oasc_contract.py` | Added `_maybe_complete_ao_with_chain_gate()` method; replaced inline `complete_ao()` call at `after_turn` | +72/−5 |
+| `tests/test_ao_manager.py` | Updated `test_execution_continuation_blocks_implicit_create_completion` → `test_execution_continuation_yields_to_implicit_create_completion` | +15/−12 |
+
+**Total: ~108 LOC net change.**
+
+#### Key Code: `_maybe_complete_ao_with_chain_gate` (`oasc_contract.py`)
+
+```python
+def _maybe_complete_ao_with_chain_gate(self, ao, turn_outcome, context, result):
+    MAX_CHAIN_STALL_TURNS = 5
+    if not self.ao_manager.has_pending_chain_steps(ao):
+        self.ao_manager.complete_ao(ao.ao_id, ...)  # normal path
+        return
+    current_turn = self._current_turn_index()
+    stalls = self.ao_manager.active_turns_without_progress(ao, current_turn)
+    if stalls >= MAX_CHAIN_STALL_TURNS:
+        # force-complete with telemetry
+    else:
+        # keep AO ACTIVE, record chain_active_hold in context.metadata
+```
+
+#### MAX_CHAIN_STALL_TURNS = 5 reasoning
+
+5 turns is enough for:
+- Multi-turn parameter collection (2-3 clarification turns)
+- Complex multi-parameter scenarios (1-2 additional turns)
+- Plus 1 buffer turn for LLM hallucination recovery
+
+Shorter values (3) risk force-completing legitimate multi-turn chains during
+complex parameter negotiation. Longer values (10) risk keeping broken AOs
+alive through many useless turns. 5 is the midpoint: generous but bounded.
+
+#### `create_ao()` change (`ao_manager.py:189-208`)
+
+When `create_ao()` encounters an ACTIVE AO with `execution_continuation_active`
+(chain continuation in split-contract mode), the old AO is now force-completed
+instead of blocked. A new AO (revision or independent) overrides the pending chain.
+This prevents two ACTIVE AOs from coexisting when the user revises mid-chain.
+
+### §14.2 Unit Test Coverage
+
+7 tests, all passing (`tests/test_phase8_1_4e_chain_gate.py`):
+
+| Test | Scenario | Verifies |
+|------|----------|----------|
+| `test_full_chain_completion_over_turns` | macro→dispersion→hotspot over 3 turns | `has_pending_chain_steps` True until last step; `pending_next_tool` advances correctly |
+| `test_revision_mid_chain_yields_to_new_ao` | User revises mid-chain (contract_split=True) | Old AO COMPLETED (not blocked); new REVISION AO created with fresh state |
+| `test_single_step_chain_completes_normally` | Single tool chain (factor_query) | `has_pending_chain_steps` False after execution; chain complete |
+| `test_max_stall_turns_force_complete` | Chain stalled for 5+ turns | `active_turns_without_progress` returns ≥5 when no progress |
+| `test_has_pending_chain_steps_disabled` | Canonical state disabled | Returns False when feature flag off |
+| `test_has_pending_chain_steps_no_state` | Empty chain | Returns False for AO with no execution state |
+| `test_active_turns_without_progress_no_state` | Canonical state disabled | Returns 0 when feature flag off |
+
+Existing test adapted: `test_execution_continuation_yields_to_implicit_create_completion`
+(was `test_execution_continuation_blocks_implicit_create_completion`) — validates
+new Phase 8.1.4e behavior where chain continuation yields to new AO creation.
+
+Full regression: 48 AO-related tests pass, 0 new failures. 1 pre-existing failure
+(`test_build_capability_summary_blocks_spatial_actions_without_geometry`) unchanged.
+
+### §14.3 30-task Smoke n=3 Sanity
+
+| Metric | Phase 8.1.4e | Phase 8.1.4b (baseline) | Same-day baseline (no changes) | Delta (code-induced) |
+|--------|-------------|------------------------|-------------------------------|----------------------|
+| completion_rate | 0.7000 ± 0.0000 | 0.7889 ± 0.0192 | 0.7333 (n=1) | −0.0333 |
+| tool_accuracy | 0.7000 ± 0.0000 | 0.8222 ± 0.0192 | — | — |
+| parameter_legal_rate | 0.8333 ± 0.0000 | 0.8222 ± 0.0509 | — | — |
+| result_data_rate | 0.7222 ± 0.0192 | 0.8667 ± 0.0000 | — | — |
+
+**STOP conditions analysis:**
+
+| Condition | Triggered? | Data |
+|-----------|-----------|------|
+| completion_rate < 0.80 | **YES** | 0.7000 (vs 0.7889 baseline) |
+| Chain handoff guard 0 activation | **YES** | 0 triggers across all 3 runs |
+| multi_turn_clarification all FAIL | **YES** | 0/4 (105, 110, 119, 120 all fail) |
+| user_revision regression | NO | 2/3 PASS (e2e_revision_135 failed — same as same-day baseline) |
+| Unit test failure | NO | 7/7 new tests pass; 48/48 AO tests pass |
+| Existing test regression | NO | 0 new test failures |
+
+**Regression attribution:**
+
+- LLM/infrastructure variance: −3.3pp (Phase 8.1.4b rep_1 0.7667 → same-day baseline 0.7333)
+- Code-induced regression: −3.3pp (1 task: `e2e_clarification_110`)
+- Total: −6.7pp
+
+The 0.0000 variance across 3 runs is notable — 9 tasks always fail, 21 always pass,
+0 varying. This suggests the LLM backend was in a deterministic state during the
+Phase 8.1.4e runs, unlike Phase 8.1.4b which had 1-2 varying tasks per run.
+
+### §14.4 Chain Handoff Guard Activation
+
+**Result: 0 triggers across all 3 runs.**
+
+The gate is structurally correct but has zero operational effect because the
+upstream resolver produces single-tool chains on REVISION AOs. The mechanism:
+
+1. Turn 1: Classifier → REVISION (no active AO) → `revise_ao()` → new REVISION AO
+2. Resolver on REVISION AO: `_revision_parent_tool` hits → proposes parent's last tool (single tool) → `projected_chain` length 1
+3. Tool executes → `has_pending_chain_steps(ao)` returns False → `complete_ao()` called normally → AO COMPLETED
+4. Turn 2: Same pattern — new REVISION AO, single-tool chain
+
+The gate would fire IF the resolver produced a multi-step chain (projected_chain > 1),
+but for REVISION AOs the resolver always produces single-tool chains via
+`_revision_parent_tool` at `intent_resolver.py:200-209`.
+
+Phase 8.1.4b's resolver changes (`_downstream_chain`, `_advance_chain_cursor`)
+only activate when message hints trigger `wants_dispersion`/`wants_hotspot`/`wants_map`
+keywords. The multi-turn tasks (105, 110, 119, 120) don't trigger these keywords
+in their follow-up messages ("CO2", "夏天", "出地图", "windy_neutral").
+
+### §14.5 Multi-Turn Clarification Results
+
+| Task | Expected | Actual (Phase 8.1.4e) | Same as baseline? |
+|------|----------|----------------------|-------------------|
+| e2e_clarification_105 | macro ×1 | macro ×3 (FAIL) | Yes (same failure) |
+| e2e_clarification_110 | factor_query ×1 | factor_query ×3 (FAIL) | **No — new regression** |
+| e2e_clarification_119 | macro + map | macro ×2 (FAIL) | Yes (same failure) |
+| e2e_clarification_120 | macro + dispersion | dispersion + macro (FAIL) | Yes (same failure) |
+
+Task 110 regression: the AO lifecycle shows `complete_blocked` (basic_checks_failed)
+in both baseline and new code, but the baseline eventually abandons the AO and creates
+a fresh INDEPENDENT AO (which passes), while the new code follows the revision pattern
+(AO completed → new REVISION AO → repeat). The single-task regression may be LLM
+timing variance rather than a code defect — the AO event chains are identical
+in structure but diverge in outcome.
+
+0/4 tasks improved. No tasks moved from FAIL to PASS. The expectation from
+§12.4 (2-3/4 PASS) was not met.
+
+### §14.6 user_revision Regression Check
+
+| Task | Phase 8.1.4b | Phase 8.1.4e | Same-day baseline |
+|------|-------------|-------------|-------------------|
+| e2e_revision_121 | PASS | PASS | — |
+| e2e_revision_131 | PASS | PASS | — |
+| e2e_revision_135 | Varying (PASS/FAIL) | FAIL | FAIL |
+
+**0 code-induced user_revision regression.** `e2e_revision_135` fails in both
+same-day baseline and new code — it's an LLM variance failure, not code-induced.
+
+### §14.7 STOP Decision
+
+All 3 primary STOP conditions triggered:
+1. completion_rate 0.7000 < 0.80
+2. Chain handoff guard 0 activation
+3. Multi-turn clarification 0/4
+
+**Root cause analysis:**
+
+The `complete_ao()` gate implementation is correct (7/7 unit tests pass, 48/48 AO
+tests pass, 0 existing test regressions). The gate has zero activation because the
+fix addresses only ONE of TWO necessary mechanisms:
+
+| Mechanism | Status |
+|-----------|--------|
+| Gate: prevent AO completion when chain has pending steps | Implemented, correct |
+| Upstream: resolver produces multi-step chains for multi-turn AOs | **NOT addressed** — `_revision_parent_tool` always produces single-tool chains |
+
+The Phase 8.1.4e Sub-step 1 pre-verification showed that the classifier correctly
+outputs CONTINUATION when an ACTIVE AO is present (S1 self-sufficient). But the
+classifier CANNOT output CONTINUATION when there is no ACTIVE AO — and there is
+no ACTIVE AO because the resolver's `_revision_parent_tool` produces single-tool
+chains, which complete immediately.
+
+**The fix requires an additional mechanism:** either:
+- (A) Resolver produces multi-step chains on REVISION AOs (extends Phase 8.1.4b to cover REVISION path), OR
+- (B) A broader "keep AO ACTIVE for parameter collection" gate that doesn't depend on multi-step chains, OR
+- (C) Phase 9 AO lifecycle redesign that fundamentally changes how AOs handle multi-turn chains
+
+Path (A) is the narrowest: extend the resolver's `_revision_parent_tool` to call
+`_downstream_chain()` instead of returning a single tool. Estimated ~15 LOC in
+`intent_resolver.py`. But this still requires message hints to trigger multi-step
+keywords, which most multi-turn tasks don't have.
+
+Path (B) is broader: gate `complete_ao()` on "collection mode active" OR "pending chain
+steps" — but collection mode is PCM scope (Phase 8.1.2), and enabling it broadly
+may cause regressions.
+
+Path (C) is the Phase 9 design but defers all chain progress to a future phase.
+
+**Phase 8.1.4e Sub-step 2 is stopped per protocol.** The gate implementation is
+correct but has zero operational effect. The next step depends on user decision.
+
+---
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |

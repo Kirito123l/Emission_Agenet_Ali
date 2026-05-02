@@ -190,7 +190,6 @@ class AOManager:
                 "collection_mode_active",
                 "intent_not_resolved",
                 "metadata_clarification_pending",
-                "execution_continuation_active",
             }:
                 self._record_event(
                     turn=max(active.start_turn, int(current_turn or 0) - 1),
@@ -199,6 +198,19 @@ class AOManager:
                     complete_check_results=check_results,
                     completion_path="create_ao_implicit",
                     block_reason=block_reason,
+                )
+            elif block_reason == "execution_continuation_active":
+                # Phase 8.1.4e: chain continuation yields to new AO.
+                # Creating a new AO (revision or independent) overrides
+                # pending chain steps on the old AO.
+                active.status = AOStatus.COMPLETED
+                active.end_turn = max(active.start_turn, int(current_turn or 0) - 1)
+                self._record_event(
+                    turn=max(active.end_turn, active.start_turn),
+                    event_type="complete",
+                    ao=active,
+                    complete_check_results=check_results,
+                    completion_path="create_ao_implicit",
                 )
             else:
                 active.status = AOStatus.ABANDONED
@@ -758,6 +770,37 @@ class AOManager:
             if cursor_step.status in (ExecutionStepStatus.PENDING, ExecutionStepStatus.FAILED, ExecutionStepStatus.INVALIDATED):
                 return cursor_step.tool_name
         return None
+
+    # ── Phase 8.1.4e: chain-aware completion gating ─────────────────────
+
+    def has_pending_chain_steps(self, ao: AnalyticalObjective) -> bool:
+        """Return True when AOExecutionState has pending downstream steps.
+
+        Used by OASCContract.after_turn to decide whether to keep the AO
+        ACTIVE across turns.
+        """
+        if not _canonical_state_enabled():
+            return False
+        state = ensure_execution_state(ao)
+        if state is None or not state.steps:
+            return False
+        return state.pending_next_tool is not None
+
+    def active_turns_without_progress(
+        self, ao: AnalyticalObjective, current_turn: int
+    ) -> int:
+        """Return the number of consecutive turns without chain progress.
+
+        Uses AOExecutionState.last_updated_turn as the progress marker.
+        Returns 0 when state is unavailable.
+        """
+        state = ensure_execution_state(ao)
+        if state is None:
+            return 0
+        last_progress = state.last_updated_turn or int(getattr(ao, "start_turn", 0) or 0)
+        return max(0, int(current_turn or 0) - int(last_progress or 0))
+
+    # ── End Phase 8.1.4e ────────────────────────────────────────────────
 
     def should_prefer_canonical_pending_tool(
         self,
