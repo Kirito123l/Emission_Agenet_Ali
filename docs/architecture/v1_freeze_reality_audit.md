@@ -889,6 +889,116 @@ The parameter_legal_rate drop (−4.45pp) and result_data_rate drop (−6.66pp) 
 
 The incomplete-category regressions (013, 018) are instances where PCM hard-block was actually preventing execution of tasks the LLM couldn't correctly parameterize. Advisory mode exposes these to execution, and they fail at the tool level rather than being caught at the parameter-gate level. This is the design intent of Option B — the question is whether subsequent tool-level failures are more informative to the user than pre-execution probes.
 
+### §7.7 Reconciler Activation Telemetry Verification
+
+**Date:** 2026-05-02
+**Method:** Direct inspection of `end2end_logs.jsonl` (rep 1 each mode) + source-code trace of reconciler call path at `core/governed_router.py:854-1033`. No benchmark rerun.
+
+#### §7.7.1 Source-Code Trace: What Constitutes Reconciler Evidence
+
+The reconciler is called at `core/governed_router.py:912` inside `_consume_decision_field()` (line 854). Two gates must be satisfied before the reconciler runs:
+
+1. **Outer gate (line 267):** `enable_llm_decision_field` must be `True`. This blocks ALL reconciler invocation in OFF mode.
+2. **Decision validity gates (lines 868–886):** A valid Stage 2 decision dict must exist and pass F1 validation.
+
+When both gates pass, the reconciler runs unconditionally (line 912) and stores `reconciled_decision` in `context.metadata` (line 915). The reconciler's output determines the trace evidence:
+
+| Reconciler Decision | Trace Step Emitted | Line |
+|---------------------|-------------------|------|
+| `proceed` | **None** — returns `None`, falls through silently | 979 |
+| `clarify` | `decision_field_clarify` | 996 |
+| `deliberate` | `decision_field_deliberate` | 1022 |
+
+**Critical clarification on `final_decision`:** The `final_decision` field in `clarification_telemetry` is set by the **contracts** (`clarification_contract.py:489-562`, `execution_readiness_contract.py:1000`), NOT by the reconciler. It records the contract's internal decision ("proceed", "clarify", or "deferred_to_decision_field"). Its presence in OFF mode (62 events across 30 tasks) does NOT indicate reconciler activity. The reconciler takes the contract's decision as input (P2/P3) and arbitrates it against Stage 2 LLM output (P1).
+
+**Reconciler telemetry gap:** `reconciled_decision` (line 915) is stored in `context.metadata` but is NOT serialized to the evaluation log JSON. The `core/trace.py` module has zero `TraceStepType` values for reconciler, B validator, or decision-field consumption. The only reconciler trace evidence in evaluation logs is the `decision_field_clarify` and `decision_field_deliberate` step types.
+
+**B validator evidence:** Called at line 910 only when `tool_name and p1.missing_required`. No dedicated trace step is emitted. The `filter_stage2_missing_required()` call leaves no artifact in evaluation logs.
+
+#### §7.7.2 OFF Reconciler Activation: Confirmed 0
+
+| Metric | Value |
+|--------|-------|
+| `decision_field_clarify` traces (rep 1) | **0** (across all 30 tasks) |
+| `decision_field_deliberate` traces (rep 1) | **0** |
+| `decision_field` keyword in log entries | **0** |
+| Stage 2 calls (per metrics) | 40 |
+| `final_decision` entries (contract-level, not reconciler) | 62 |
+
+**Conclusion:** The outer gate at `governed_router.py:267` prevents `_consume_decision_field` from being entered. Stage 2 runs (40 calls across 30 tasks) and contracts record `final_decision`, but the reconciler is never invoked. **Confirmed 0 reconciler calls in OFF mode — consistent with audit §4.4 expectation.**
+
+#### §7.7.3 ON Reconciler Activation: Confirmed ≥ 6
+
+| Metric | Value |
+|--------|-------|
+| `decision_field_clarify` traces (rep 1) | **6** (across 6 tasks) |
+| `decision_field_deliberate` traces (rep 1) | **0** |
+| Tasks with ≥1 `decision_field_clarify` | 6 of 30 |
+| Stage 2 calls (per metrics) | 51 |
+
+**Tasks with reconciler-confirmed trace evidence (ON rep 1):**
+
+| Task | Category | decision_field_clarify count | Reconciler Decision |
+|------|----------|---------------------------|-------------------|
+| e2e_clarification_110 | multi_turn_clarification | 2 | clarify (×2) |
+| e2e_clarification_119 | multi_turn_clarification | 1 | clarify |
+| e2e_clarification_120 | multi_turn_clarification | 1 | clarify |
+| e2e_incomplete_001 | incomplete | 1 | clarify |
+| e2e_incomplete_013 | incomplete | 1 | clarify |
+| e2e_incomplete_018 | incomplete | 1 | clarify |
+
+**Tasks with likely reconciler `proceed` decisions (no trace, inferred):** Many other tasks show Stage 2 was called and `final_decision=proceed` in contract telemetry, consistent with the reconciler's `proceed` path (line 979) which returns `None` without emitting a trace step. These invocations cannot be counted from evaluation logs alone. The actual reconciler call count is ≥ 6 and likely higher.
+
+**Conclusion: Reconciler IS active in ON mode.** Minimum 6 confirmed invocations via `decision_field_clarify` traces. The 0 `decision_field_deliberate` traces indicate the `deliberate` decision path was never triggered on this benchmark. **Confirmed ON reconciler activation > 0 — consistent with expectation.**
+
+#### §7.7.4 Incomplete Category Rescue: Reconciler Attribution
+
+The incomplete category improved from 0.3333 (OFF) to 1.0 (ON), accounting for the +6.67pp completion_rate gain. This section traces whether the reconciler is causally responsible.
+
+**Per-task trace for the 3 incomplete tasks (ON rep 1):**
+
+| Task | OFF trace | ON trace | ON success |
+|------|-----------|----------|------------|
+| e2e_incomplete_001 | `reply_generation` | `decision_field_clarify` → `reply_generation` | **True** |
+| e2e_incomplete_013 | `reply_generation` | `decision_field_clarify` → `reply_generation` | **True** |
+| e2e_incomplete_018 | `reply_generation` | `decision_field_clarify` → `reply_generation` | **True** |
+
+All 3 ON incomplete tasks show `decision_field_clarify` as their first trace step, followed by `reply_generation`. The reconciler was called, arbitrated P1 (Stage 2 LLM: "vehicle_type is missing") against P2/P3, and decided to `clarify` — producing a structured clarification question.
+
+**Attribution analysis:**
+
+The completion_rate improvement chain is:
+
+1. **PCM mode switch** (`ENABLE_LLM_DECISION_FIELD=false→true`): PCM changes from hard-block (Option C) to advisory (Option B). Previously, PCM detected missing optional parameters and blocked execution; now PCM passes through as advisory context.
+2. **Stage 2 invocation**: With PCM no longer hard-blocking, Stage 2 LLM is called. It correctly identifies `vehicle_type` as a missing required slot and records this in `stage2_missing_required`.
+3. **Reconciler arbitration**: `_consume_decision_field` is entered (outer gate passes), F1 validation passes, and the reconciler is called with P1={missing_required: [vehicle_type]}, P2/P3 from contracts. The reconciler correctly decides `clarify`.
+4. **Structured clarification**: The reconciler produces a well-formed clarification question. The evaluation framework considers this structured response as success for the incomplete category.
+
+The reconciler is **directly causally involved** — without it, the decision field would not be consumed and the incomplete tasks would follow the raw contract path (as in OFF). However, the reconciler's role is **arbitration** (confirming Stage 2's finding), not **discovery** (finding the missing parameter). Stage 2 LLM is the component that identifies `vehicle_type` as missing.
+
+**The +6.67pp gain is attributable to the full `ENABLE_LLM_DECISION_FIELD=true` pipeline:** PCM advisory mode → Stage 2 invocation → decision field consumption → reconciler arbitration → structured response. These components form a pipeline; removing any one link changes the outcome.
+
+#### §7.7.5 Activation Verification Conclusion
+
+| Claim | Expected | Observed | Verdict |
+|-------|----------|----------|---------|
+| OFF reconciler = 0 | Yes | 0 `decision_field_clarify` traces | **Confirmed** |
+| ON reconciler > 0 | Yes | ≥ 6 `decision_field_clarify` traces across 6 tasks | **Confirmed** |
+| ON incomplete rescue via reconciler | Reconciler involved | All 3 incomplete tasks show `decision_field_clarify` trace | **Confirmed** |
+| B validator activation | Active when missing_required | No dedicated trace — cannot verify from eval logs | **Unverifiable** (telemetry gap) |
+| Full reconciler call count | Precise count | `proceed` path invisible; lower bound = 6 | **Known gap** |
+
+**Step 2 sanity data DOES reflect reconciler activation difference between OFF and ON.**
+
+The OFF→ON telemetry shifts are consistent with the code-level mechanism: the gate at `governed_router.py:267` prevents `_consume_decision_field` entry in OFF (0 reconciler calls), and allows it in ON (≥6 confirmed calls). The incomplete category improvement from 0.3333 to 1.0 is directly traceable to the reconciler pipeline producing structured clarification decisions for tasks that PCM hard-block would have intercepted in OFF mode.
+
+**Remaining telemetry gaps (do not block Step 3, but should be addressed before Phase 8.2 benchmark):**
+
+1. `reconciled_decision` metadata (line 915) is stored in `context.metadata` but not serialized to evaluation logs — prevents direct reconciler call counting.
+2. B validator (`filter_stage2_missing_required` at line 910) has no trace step — prevents verification of B validator activation.
+3. Reconciler `proceed` path (line 979) emits no trace step — prevents counting proceed-through-reconciler invocations.
+4. `core/trace.py` has zero `TraceStepType` values for reconciler, B validator, or decision-field consumption — consistent with §1.2.4 audit finding on PCM telemetry.
+
 ---
 ## Appendix A: Key File Reference
 
