@@ -1552,6 +1552,427 @@ All 4 multi_turn_clarification tasks remain at 0% success rate (unchanged from S
 **Phase 8.1.4b closed.** The resolver and prompt are chain-ready. The bottleneck is AO lifecycle isolation (Class D), which is Phase 9 scope alongside Class E (state-machine coordination).
 
 ---
+
+## §12 Class D AO Per-Turn Isolation Mechanism Audit (Phase 8.1.4d)
+
+### §12.1 Multi-Turn Trace Inspection
+
+Phase 8.1.4b §11 identified Class D (AO per-turn isolation) as the real bottleneck
+behind chain handoff guard 0-activation. This section traces two fail tasks through
+the full turn-by-turn AO lifecycle to identify the exact mechanism and turn at which
+chain progress is lost.
+
+Data source: Phase 8.1.4b final sanity rep_1
+(`evaluation/results/phase8_1_4b/final/rep_1/end2end_logs.jsonl`).
+
+#### §12.1.1 Task 119 — Multi-Turn Chain Task (macro → render_spatial_map)
+
+Benchmark definition:
+
+| Field | Value |
+|-------|-------|
+| `expected_tool_chain` | `["calculate_macro_emission", "render_spatial_map"]` |
+| `user_message` | "帮我分析这个带坐标路网" |
+| `follow_up_messages` | `["CO2", "出地图"]` |
+
+**Turn-by-turn trace:**
+
+| Eval Turn | Internal Turn | User Input | Classifier (layer/class) | AO Created | AO Relationship | Resolver Rule | Resolved Tool | Tool Executed | AO Outcome |
+|-----------|---------------|------------|--------------------------|------------|-----------------|---------------|---------------|---------------|------------|
+| 1 | 85 | 帮我分析这个带坐标路网 | llm_layer2/REVISION | AO#55 | revision (parent=AO#54) | rule:desired_chain | calculate_macro_emission | calculate_macro_emission | COMPLETED |
+| 2 | 86 | CO2 | llm_layer2/REVISION | AO#56 | revision (parent=AO#55) | rule:file_task_type | calculate_macro_emission | calculate_macro_emission | COMPLETED |
+| 3 | 87 | 出地图 | llm_layer2/NEW_AO | AO#57 | independent | — | — | (no tool call) | — |
+
+**Actual tool calls:** 2× `calculate_macro_emission` (CO2, 夏季). Zero `render_spatial_map`.
+
+**Chain loss point:** Eval Turn 1, immediately after AO#55 completes. The
+`tool_intent.projected_chain` was `["calculate_macro_emission"]` (single tool,
+resolved by `rule:desired_chain` on the REVISION AO). After execution, the AO was
+completed by `oasc_contract.py:94`. Turn 2 entered with no active AO → LLM
+classifier classified "CO2" as REVISION → new AO#56 created → resolver on
+REVISION AO proposed parent's tool (macro) → single-tool chain again.
+
+The user message "帮我分析这个带坐标路网" (analyze this road network with
+coordinates) SHOULD trigger a multi-step chain but the keyword detection at
+`router.py:1678-1682` does not match: "分析" is NOT in `wants_map` tokens
+`("地图", "渲染", "展示", "可视化", "map", "render")`, and no dispersion/hotspot
+keywords are present. So `desired_tool_chain` is empty → resolver falls through to
+`_revision_parent_tool` (line 200) → single-tool chain.
+
+"出地图" (Turn 3) is classified as NEW_AO (independent), not CONTINUATION — the
+map request starts a new independent AO instead of extending the existing chain.
+
+#### §12.1.2 Task 105 — Multi-Turn Parameter Clarification (Single Tool)
+
+Benchmark definition:
+
+| Field | Value |
+|-------|-------|
+| `expected_tool_chain` | `["calculate_macro_emission"]` |
+| `user_message` | "用这个文件做排放计算" |
+| `follow_up_messages` | `["CO2", "夏天"]` |
+
+**Turn-by-turn trace:**
+
+| Eval Turn | Internal Turn | User Input | Classifier (layer/class) | AO Created | AO Relationship | Resolver Rule | Resolved Tool | Tool Executed | AO Outcome |
+|-----------|---------------|------------|--------------------------|------------|-----------------|---------------|---------------|---------------|------------|
+| 1 | 98 | 用这个文件做排放计算 | llm_layer2/REVISION | AO#97 | revision (parent=AO#96) | rule:desired_chain | calculate_macro_emission | calculate_macro_emission | COMPLETED |
+| 2 | 99 | CO2 | llm_layer2/REVISION | AO#98 | revision (parent=AO#97) | rule:file_task_type | calculate_macro_emission | calculate_macro_emission | COMPLETED |
+| 3 | 100 | 夏天 | llm_layer2/REVISION | AO#99 | revision (parent=AO#98) | rule:file_task_type | calculate_macro_emission | calculate_macro_emission | COMPLETED |
+
+**Actual tool calls:** 3× `calculate_macro_emission` (same parameters: CO2, 夏季).
+
+**AO lifecycle pattern (identical across all 3 turns):**
+1. `abandon` previous AO (objective_not_satisfied)
+2. `create` new AO with REVISION relationship
+3. `activate` AO
+4. `revise` event
+5. `append_tool_call` (macro, resolved by rule:desired_chain or rule:file_task_type)
+6. `complete` (objective_satisfied=true, execution_continuation.pending_objective="none")
+
+**Chain loss point:** Task 105 is a single-tool task, so chain loss per se is not
+the failure mode. The failure is **duplicate execution** caused by the same Class D
+mechanism: each follow-up turn creates a new REVISION AO, which re-executes the
+parent's last successful tool (macro). The expected behavior is for parameter
+collection to accumulate within a single AO without re-execution.
+
+**ExecutionContinuation state at each completion:**
+```
+pending_objective: "none"
+pending_tool_queue: []
+pending_next_tool: null
+```
+Chain continuation is never activated because `projected_chain` is single-tool
+(`len(projected_chain) = 1`, failing the `len > 1` check at
+`oasc_contract.py:166`).
+
+#### §12.1.3 Task 049 — Successful Multi-Step (Control Case)
+
+Benchmark definition:
+
+| Field | Value |
+|-------|-------|
+| `expected_tool_chain` | `["calculate_macro_emission", "calculate_dispersion", "analyze_hotspots"]` |
+| `user_message` | "这个带geometry的6条路网，算NOx后继续扩散并筛热点" |
+| `follow_up_messages` | None (single turn) |
+
+**All 3 tools executed within AO#34 in a single turn (eval_router_turn=1):**
+- `append_tool_call` ×3 (macro, dispersion, hotspot) all on AO#34
+- Resolver: `rule:desired_chain` (message hints detected "扩散"→wants_dispersion, "热点"→wants_hotspot)
+- All 3 tools executed in sequence within the SAME AO, SAME turn
+
+**Key insight:** Multi-step chains work when ALL requirements are in a SINGLE
+user message. The chain is built from message keywords → `desired_tool_chain`
+hints → resolver maps to tool chain. All execution happens within one AO before
+`complete_ao()` is called.
+
+#### §12.1.4 Trace Inspection Summary
+
+| Mechanism | Single-Turn (049) | Multi-Turn (119, 120) | Multi-Turn Param (105) |
+|-----------|-------------------|-----------------------|------------------------|
+| Chain built? | Yes (message hints → desired_chain) | Turn 1: single tool only | Turn 1: single tool only |
+| Chain executed? | Yes (3 tools in same AO) | No (only step 1 per AO) | N/A (single tool task) |
+| AO per turn? | 1 AO for 3 tools | 1 new AO per turn | 1 new AO per turn |
+| Chain handoff? | Not needed (same turn) | Never triggered (0 activation) | Never needed |
+| Classifier class | N/A (single message) | REVISION (×2), NEW_AO (×1) | REVISION (×3) |
+| Failure mode | N/A (success) | Chain truncated to step 1 | Duplicate execution |
+
+**The chain is lost at the AO boundary between turns.** Each turn creates a
+new AO (REVISION or NEW_AO), which has a fresh `tool_intent` and fresh
+`AOExecutionState`. The resolver on a REVISION AO proposes the parent's last
+successful tool (single tool), not a multi-step downstream chain.
+
+---
+
+### §12.2 Five Candidate Blocking Mechanisms — Audit Results
+
+#### Candidate (a): AOExecutionState Does Not Persist Across Turns
+
+**Verdict: YES — blocked, but this is downstream of candidate (e).**
+
+Evidence (`core/ao_manager.py:1586-1605`):
+
+`AOExecutionState` is stored in `ao.metadata["execution_state"]` — per-AO
+storage. Each new REVISION AO has a fresh `metadata` dict, so `ensure_execution_state`
+calls `_derive_execution_state` which reads the NEW AO's `tool_intent` and
+`tool_call_log`, not the parent's.
+
+Trace evidence from Task 105:
+- AO#97 completion: `execution_continuation.pending_objective = "none"` — no chain state persisted
+- AO#98 (fresh): `_derive_execution_state` starts from scratch with AO#98's `tool_intent`
+- AO#98's `tool_intent.resolved_tool = "calculate_macro_emission"` — single tool from `_revision_parent_tool`
+
+AOExecutionState would need to be explicitly copied from parent to child AO for
+cross-AO chain progress. No such copy exists in the codebase.
+
+#### Candidate (b): AOExecutionState Persists But chain_cursor Resets
+
+**Verdict: NOT THE PRIMARY ISSUE — chain_cursor works correctly within a single AO.**
+
+Evidence (`core/ao_manager.py:1667-1674`):
+
+`_derive_execution_state` correctly advances `chain_cursor` past completed steps.
+For Task 049 (successful multi-step within a single AO), the cursor advances from
+0→1→2→3 as each tool completes.
+
+The issue is NOT that chain_cursor resets, but that on each new REVISION AO,
+the chain itself is only length 1 (single tool from `_revision_parent_tool`).
+Cursor 0 → execute step 0 → cursor advances to 1 → chain complete. There is no
+step 2 to advance to because the chain was never multi-step.
+
+#### Candidate (c): ExecutionContinuation Has Zero Connection to AOExecutionState
+
+**Verdict: YES — confirmed, same finding as Reality Audit §2 and Phase 8.1.3 §8.**
+
+Evidence from three independent code paths:
+
+**Path 1 — `_refresh_split_execution_continuation` (`oasc_contract.py:137-172`):**
+
+Reads `tool_intent.projected_chain` (NOT `AOExecutionState.planned_chain`).
+For a REVISION AO with single-tool chain, `len(projected_chain) = 1`, so the
+`len > 1` check at line 166 fails → chain continuation NEVER built.
+
+**Path 2 — `_build_state_snapshot` (`oasc_contract.py:215-248`):**
+
+The classifier's snapshot loads `active_input_completion`,
+`active_parameter_negotiation`, and `continuation_bundle` (plan-based), but does
+NOT check `AOExecutionState` or `ExecutionContinuation`. The classifier has no
+visibility into pending chain state.
+
+**Path 3 — `_derive_execution_state` (`ao_manager.py:1608-1689`):**
+
+The docstring claims: "Derive canonical execution state from projected_chain,
+tool_call_log, **and continuation**" (emphasis added). But the implementation at
+lines 1612-1628 reads only `tool_intent.projected_chain` and `tool_call_log` —
+NEVER reads `ExecutionContinuation`.
+
+Confirmed: zero bidirectional connection between ExecutionContinuation and
+AOExecutionState. They track chain position independently and never synchronize.
+
+#### Candidate (d): governed_router Re-runs Stage 2 on Turn 2 Instead of Consuming AOExecutionState
+
+**Verdict: YES — Stage 2 runs fresh on each turn, but this is downstream of (e).**
+
+The governed_router entry path processes each user message through the full
+contract pipeline. The OASC contract (`oasc_contract.py:44-71`) runs `before_turn`
+which classifies the message and creates/activates an AO. After execution,
+`after_turn` (`oasc_contract.py:74-110`) calls `complete_ao()` at line 94.
+
+The chain handoff guard at `execution_readiness_contract.py:87-114` is designed
+to override the proposed tool when `AOExecutionState` has a pending downstream
+step. But:
+1. The current AO (just created by the classifier) has a fresh `AOExecutionState`
+   derived from its own single-tool `tool_intent`
+2. The pending step chain is length 1 → no downstream step exists
+3. The guard's condition requires `should_prefer_canonical_pending_tool` to
+   return True, which requires the proposed tool to be a completed upstream
+   step — but in a fresh REVISION AO, there ARE no completed steps yet
+
+The guard is structurally correct but has zero activation because the upstream
+classifier+resolver never produce a multi-step chain on a REVISION AO.
+
+#### Candidate (e): AO Classifier Classifies Turn 2 as REVISION/NEW_AO Instead of CONTINUATION
+
+**Verdict: YES — this is the PRIMARY ROOT CAUSE. All other candidates are downstream effects.**
+
+Evidence from Task 105 classifier telemetry (all 3 turns):
+
+| Turn | Message | Layer | Classification | Confidence |
+|------|---------|-------|---------------|------------|
+| 1 | 用这个文件做排放计算 | llm_layer2 | REVISION | 0.95 |
+| 2 | CO2 | llm_layer2 | REVISION | 0.95 |
+| 3 | 夏天 | llm_layer2 | REVISION | 0.95 |
+
+Evidence from Task 119 classifier telemetry:
+
+| Turn | Message | Layer | Classification | Confidence |
+|------|---------|-------|---------------|------------|
+| 1 | 帮我分析这个带坐标路网 | llm_layer2 | REVISION | 0.95 |
+| 2 | CO2 | llm_layer2 | REVISION | 0.95 |
+| 3 | 出地图 | llm_layer2 | NEW_AO | 0.95 |
+
+**Why rule_layer1 doesn't catch these:**
+
+After Turn 1 completes the AO, `current_ao` is None. The `_rule_layer1` checks
+(active_input_completion, active_parameter_negotiation, continuation_pending,
+short_clarification_reply with active AO) all fail because they require an
+active AO or active collection state. The final fallthrough at line 258
+(`current_ao is None and not _has_revision_reference_signals`) SHOULD return
+NEW_AO, but the trace shows `layer_hit: "llm_layer2"` — indicating
+`enable_ao_classifier_rule_layer` is likely disabled in the benchmark config.
+
+Regardless of whether rule_layer1 or llm_layer2 makes the final call, the
+outcome is the same: NEW_AO or REVISION — both create a new AO instead of
+continuing the existing one. The chain is lost either way.
+
+**The fundamental fix needed:** After Turn 1 completes with a multi-step chain
+pending, Turn 2 must either:
+- (Path A) Keep the SAME AO active (don't complete it), so the classifier sees
+  an active AO and classifies as CONTINUATION, OR
+- (Path B) Classify as CONTINUATION even without an active AO, using
+  ExecutionContinuation state to re-activate the previous AO
+
+Both paths require changes to the AO lifecycle (`after_turn` → `complete_ao`
+at `oasc_contract.py:94`) and/or the classifier logic.
+
+---
+
+### §12.3 Narrow Patch Feasibility Assessment
+
+**Classification: N2 — Narrow patch exists but with medium risk (50-200 LOC).**
+
+The audit reveals that the root cause is **candidate (e)** (AO classifier
+classifying multi-turn follow-ups as REVISION/NEW_AO), which triggers a cascade
+through candidates (a) and (c). The fix is NOT a wholesale AO state machine
+redesign — it requires targeted changes to one mechanism (AO completion
+gating) plus one integration point (classifier visibility into chain state).
+
+#### Fix Approach: Prevent AO completion when chain is incomplete
+
+The single blocking mechanism is at `oasc_contract.py:94`:
+
+```python
+self.ao_manager.complete_ao(
+    current_ao.ao_id,
+    end_turn=self._current_turn_index(),
+    turn_outcome=turn_outcome,
+)
+```
+
+This unconditionally completes the AO after every turn. If instead the AO
+remained ACTIVE when a multi-step chain has pending downstream tools, the
+classifier's rule_layer1 would catch the next turn as CONTINUATION via the
+existing `short_clarification_reply` or `continuation_pending` checks.
+
+**Proposed changes:**
+
+1. **`oasc_contract.py` `after_turn` (line 91-98):** Add a guard before
+   `complete_ao()` — check whether the AO's `AOExecutionState` has pending
+   downstream steps. If yes, keep the AO ACTIVE (don't complete it) and write
+   chain continuation state.
+
+2. **`ao_manager.py`:** Add a method `has_pending_chain_steps(ao)` that checks
+   `AOExecutionState.pending_next_tool` — used by the guard in (1).
+
+3. **`oasc_contract.py` `_build_state_snapshot` (line 215-248):** Include
+   `ExecutionContinuation` state in the classifier's snapshot, so the rule_layer1
+   `continuation_pending` check can fire even when the continuation bundle is
+   empty but chain continuation exists.
+
+**Estimated LOC: ~80-120**
+
+Files touched:
+- `core/contracts/oasc_contract.py` (~40 LOC: guard + snapshot enhancement)
+- `core/ao_manager.py` (~20 LOC: `has_pending_chain_steps` helper)
+- `core/ao_classifier.py` (~20 LOC: rule_layer1 enhancement for chain continuation signal)
+- `core/contracts/execution_readiness_contract.py` (~0 LOC: chain handoff guard works as-is once activated)
+
+**Risk assessment:**
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| AO never completes (infinite ACTIVE loop) | Medium | Guard must have a maximum-turn-in-ACTIVE limit (~3 turns); fallback to force-complete |
+| user_revision interaction | Low | REVISION classification creates a NEW AO (via `revise_ao`); the original ACTIVE AO is completed implicitly when a REVISION child is created. No conflict. |
+| AO classifier rule_layer1 false CONTINUATION | Low | Existing `short_clarification_reply` check already filters; new check is AND-ed with chain continuation state |
+| Regressions for single-tool tasks | Low-Medium | Tasks without multi-step chains (like 105) must still complete normally. The guard only activates when `AOExecutionState.pending_steps` is non-empty. For task 105, the AO stays ACTIVE for parameter collection without re-executing the tool — this is actually the CORRECT behavior. |
+| Interaction with Class E (state-machine coordination) | Low | ExecutionContinuation is still an independent state machine; this fix only uses AOExecutionState for the completion guard. Class E can merge them later without conflict. |
+
+**Why this is N2 not N1:**
+- Touches 3 files (not 1)
+- Changes AO lifecycle behavior (AO stays ACTIVE across turns)
+- Requires careful testing against user_revision scenarios
+- Interaction with the existing `_can_complete_ao` checks in `create_ao`
+
+**Why this is N2 not N3:**
+- The AO concept already supports ACTIVE state across turns
+- The chain handoff guard is already implemented and tested (just at 0 activation)
+- The ExecutionContinuation mechanism already exists for chain state persistence
+- No AO state machine redesign needed — only a completion-gating condition
+
+---
+
+### §12.4 Post-Fix Expectations and Confidence
+
+#### Chain Handoff Guard Activation
+
+| Metric | Current | Post-Fix Expected | Confidence |
+|--------|---------|-------------------|------------|
+| Chain handoff guard triggers | 0 | 2-4 per multi-turn chain task | **Medium** |
+| Chain continuation written (`pending_objective=chain_continuation`) | 0 | 1-2 per multi-turn chain task | **Medium** |
+| Multi-step `projected_chain` populated (>1 tool) | ~0 per turn (single-tool REVISION AOs) | 3-5 per multi-step task | **High** |
+
+Confidence caveat: The guard activation depends on the classifier correctly
+identifying CONTINUATION when the AO is kept ACTIVE. If the LLM classifier
+still overrides to REVISION despite an ACTIVE AO, the fix is partially
+effective (chain survives within the ACTIVE AO but still gets replaced by
+REVISION child). Medium confidence because LLM classifier behavior is
+inherently variable.
+
+#### Per-Task Expected Improvement
+
+| Task | Current | Expected Post-Fix | Confidence | Rationale |
+|------|---------|-------------------|------------|-----------|
+| e2e_clarification_119 | FAIL (2× macro, 0 map) | PASS (macro + map) | **Medium** | Requires: (1) macro chain with downstream map, (2) Turn 2 "CO2" as CONTINUATION within ACTIVE AO, (3) Turn 3 "出地图" advances chain to map. All 3 steps must work. |
+| e2e_clarification_120 | FAIL (3× macro, 0 dispersion) | PASS (macro + dispersion) | **Medium** | Requires: (1) macro chain with downstream dispersion, (2) Turn 2 "先用这个路网算NOx" as CONTINUATION, (3) Turn 3 "windy_neutral" → dispersion with inherited params. |
+| e2e_clarification_105 | FAIL (3× macro duplicate) | PASS (1× macro) | **High** | Fix keeps AO ACTIVE across parameter-collection turns → no duplicate execution. This is the simplest case — only completion-gating needed, no chain handoff. |
+| e2e_clarification_110 | Likely FAIL (same pattern) | PASS (same fix as 105) | **High** | Same parameter-collection pattern — completion-gating directly fixes duplicate execution. |
+| e2e_revision_135 | Likely FAIL (same pattern) | PASS (1× macro not 2×) | **Medium** | Revision tasks may interact with the fix. Need to ensure revision AO creation still works correctly. |
+| e2e_colloquial_143 | Unchanged | Unchanged | N/A | This task's failure is LLM colloquial understanding, not Class D. |
+
+**Multi-turn clarification task class expectation:**
+
+- Current: 0/4 PASS (all 4 fail due to Class D or LLM)
+- Post-fix expected: **2/4 to 3/4 PASS** (confidence: Medium)
+- The remaining 1-2 failures are expected to be LLM understanding issues (not Class D)
+
+#### Tasks NOT Expected to Improve
+
+| Task | Failure Mode | Why Not Improved |
+|------|-------------|-----------------|
+| 105 | 3× duplicate macro | **WILL improve** — completion-gating prevents duplicate |
+| 110 | Same as 105 | **WILL improve** |
+| 135 | Revision duplicate | **MAY improve** — depends on revision AO interaction |
+| 143 | LLM colloquial failure | Will NOT improve — LLM behavior, not Class D |
+| 151 | LLM code-switch failure | Will NOT improve — LLM behavior |
+
+#### Overall Assessment
+
+The fix addresses the Class D mechanism but does not address:
+1. LLM (qwen3-max) behavior — the model may still produce single-tool chains or
+   hallucinate in multi-turn scenarios
+2. The LLM classifier may still misclassify edge cases as REVISION
+3. Tasks where the initial user message lacks keywords to trigger multi-step
+   chain hints (e.g., "分析" doesn't trigger `wants_map`)
+
+**Audit sufficiency:** The audit trace evidence from 3 tasks (105, 119, 049) is
+sufficient to identify the mechanism. The code evidence covers all 5 candidate
+mechanisms. Medium confidence on expected improvements is appropriate given the
+LLM behavior variable.
+
+**Recommendation:** If the user decides to proceed with the N2 fix (Phase 8.1.4e),
+run a 1-task verification (task 105 is the simplest) before the full n=3 sanity
+to confirm the completion-gating mechanism works. Then run n=3 sanity for
+regression check.
+
+---
+
+### §12.5 Decision Deferred
+
+This section (§12) provides audit data only. The scope decision (N2 fix in
+Phase 8.1.4e vs. defer to Phase 9) is deferred to the user after review.
+
+**Evidence summary for decision:**
+
+| Factor | N2 Fix Now | Defer to Phase 9 |
+|--------|-----------|-----------------|
+| LOC estimate | ~80-120 | 0 (now), larger redesign later |
+| Files touched | 3 | 0 (now), 5+ later |
+| Risk of regression | Medium (AO lifecycle change) | None (no code change) |
+| Benefit | 2-3 task improvements | 0 (until Phase 9) |
+| Blocked by Class E? | No (independent fix) | N/A |
+| Makes Phase 9 harder? | No (backward compatible) | N/A |
+
+---
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |
