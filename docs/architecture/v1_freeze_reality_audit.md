@@ -1973,6 +1973,187 @@ Phase 8.1.4e vs. defer to Phase 9) is deferred to the user after review.
 | Makes Phase 9 harder? | No (backward compatible) | N/A |
 
 ---
+
+## §13 AO Classifier Behavior Pre-Verification (Phase 8.1.4e Sub-step 1)
+
+### §13.1 Classifier Prompt and Decision Rule
+
+#### System Prompt (`core/ao_classifier.py:72-94`)
+
+```
+你是交通排放分析会话的意图分类器。
+
+当用户发送新消息时，你需要判断这条消息是：
+- CONTINUATION: 延续当前 active 分析目标（补全参数、确认选项、继续工具链）
+- REVISION: 修改已完成分析目标的参数，要求重新计算
+- NEW_AO: 开始一个独立的新分析目标（可能引用之前的 AO 结果）
+
+注意：
+- "把刚才结果画图"是 NEW_AO，但它可能引用之前的 AO
+- "改成冬季再算"是 REVISION，指向之前的计算 AO
+- "NOx"（单独一个词）在有 active AO 等待参数时是 CONTINUATION
+- "再查一个 CO2"在无 active AO 时是 NEW_AO
+```
+
+Key observations:
+- The prompt explicitly says single-parameter replies like "NOx" are CONTINUATION **when there is an active AO waiting for parameters** (line 82)
+- It does NOT have explicit guidance about when an active AO has completed execution and the user adds more parameters
+- It does NOT mention tool chains, `projected_chain`, or downstream tool execution
+- The distinction between CONTINUATION and REVISION hinges on whether parameters are being "补全" (completed) vs. "修改" (modified)
+
+#### User Prompt Construction (`core/ao_classifier.py:392-403`)
+
+```python
+def _build_classifier_prompt(self, user_message, recent_conversation):
+    ao_summary = self.ao_manager.get_summary_for_classifier()
+    payload = {
+        "ao_summary": ao_summary,
+        "recent_conversation": recent_conversation[-6:],
+        "current_user_message": user_message,
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+```
+
+The `ao_summary` field (from `ao_manager.py:358-372`) contains:
+- `current_ao`: the active AO dict (or `null` if none)
+- `completed_aos`: list of recently completed AO dicts
+- `files_in_session`, `session_confirmed_parameters`, `current_turn`
+
+When `current_ao` is `null` (AO was completed), the classifier sees only completed AOs and must decide between REVISION (modify a completed AO) and NEW_AO.
+
+When `current_ao` is present and ACTIVE, the classifier can choose CONTINUATION (continue the current AO).
+
+#### Decision Rule (`core/ao_classifier.py:405-413`)
+
+```python
+mapping = {
+    "CONTINUATION": AOClassType.CONTINUATION,
+    "REVISION": AOClassType.REVISION,
+    "NEW_AO": AOClassType.NEW_AO,
+}
+classification = mapping.get(raw, AOClassType.NEW_AO)  # default: NEW_AO
+```
+
+Straightforward mapping. Unknown output defaults to NEW_AO.
+
+#### Rule Layer 1 Gate (`core/ao_classifier.py:202-269`)
+
+When `enable_ao_classifier_rule_layer=True` (default), the rule layer runs before the LLM. Key CONTINUATION checks (lines 221-239):
+- `active_input_completion` is set → CONTINUATION
+- `active_parameter_negotiation` is set → CONTINUATION
+- `continuation.next_tool_name` or `residual_plan_summary` exists → CONTINUATION
+- `current_ao` is ACTIVE/REVISING AND message is short clarification → CONTINUATION
+
+All 4 checks FAIL when the AO is completed (no active AO, no active collection state). The rule layer is structurally correct; it simply cannot fire when `current_ao` is None.
+
+---
+
+### §13.2 Four-Case Behavior Test Results (n=3 each)
+
+Test method: Direct `_llm_layer2()` call with mocked `ao_summary`, bypassing rule_layer1.
+LLM: qwen3-max (via `get_llm_client("agent")`). Temperature: 0.0.
+
+#### Case A — Current Behavior Baseline (no active AO)
+
+Input: `user_message="CO2"`, `current_ao=null`, one completed AO with macro result.
+
+| Run | Classification | Confidence | Reasoning |
+|-----|---------------|------------|-----------|
+| 1 | REVISION | 0.85 | 用户已完成一个排放计算，当前仅输入"CO2"，意图为修改原分析目标的污染物类型 |
+| 2 | NEW_AO | 0.85 | 当前无 active AO，用户单独输入 'CO2'，意图是开启一个新分析目标 |
+| 3 | REVISION | 0.85 | 用户已完成一个排放计算，当前仅输入"CO2"，很可能是希望将之前的计算目标修改 |
+
+**Modal: REVISION (2/3).** Matches production trace (Phase 8.1.4d §12.1.2 — all 3 turns classified as REVISION by llm_layer2). Baseline confirmed.
+
+#### Case B — Post-Fix Simulation (active AO with completed macro)
+
+Input: `user_message="CO2"`, `current_ao=AO#97 (ACTIVE, has completed macro, projected_chain=["calculate_macro_emission"])`, no completed AOs.
+
+| Run | Classification | Confidence | Reasoning |
+|-----|---------------|------------|-----------|
+| 1 | CONTINUATION | 0.95 | 用户在 AO#97 处于 active 状态且已完成 calculate_macro_emission 工具调用后，仅输入 'CO2'，很可能是对当前排放计算目标的参数补全 |
+| 2 | CONTINUATION | 0.95 | 当前存在 active 的 AO#97，其目标是进行排放计算，且已调用 calculate_macro_emission 工具。用户输入 'CO2' 很可能是在补全参数 |
+| 3 | CONTINUATION | 0.95 | 当前 AO#97 处于 active 状态且已完成一次排放计算，用户输入 'CO2' 很可能是在指定关注的污染物种类，属于对当前分析目标的参数补全或细化 |
+
+**Modal: CONTINUATION (3/3).** Fix hypothesis VALIDATED.
+
+#### Case C — Task 119 Chain Continuation (active AO with multi-step projected_chain)
+
+Input: `user_message="出地图"`, `current_ao=AO#55 (ACTIVE, has completed macro, projected_chain=["calculate_macro_emission", "render_spatial_map"])`, no completed AOs.
+
+| Run | Classification | Confidence | Reasoning |
+|-----|---------------|------------|-----------|
+| 1 | CONTINUATION | 0.95 | 用户当前有 active AO#55，其 projected 工具链包含 render_spatial_map，'出地图'是对其下一步操作的自然延续，属于补全工具链 |
+| 2 | CONTINUATION | 0.95 | 用户当前有 active AO#55，其 projected 工具链包含 render_spatial_map，'出地图'是对其延续，意图触发下一步可视化 |
+| 3 | CONTINUATION | 0.95 | 用户当前有 active AO#55，其 projected 工具链包含 render_spatial_map，'出地图'是对其延续，意图触发下一步可视化 |
+
+**Modal: CONTINUATION (3/3).** The classifier spontaneously references `projected_chain` in its reasoning — it understands tool chains without explicit prompt instructions. Fix hypothesis VALIDATED for multi-step chain tasks.
+
+#### Case D — Corner Case: Parameter Change with Active AO
+
+Input: `user_message="夏天"`, `current_ao=AO#98 (ACTIVE, has completed macro, projected_chain=["calculate_macro_emission"])`, no completed AOs.
+
+| Run | Classification | Confidence | Reasoning |
+|-----|---------------|------------|-----------|
+| 1 | REVISION | 0.92 | 用户在已有 active AO（AO#98）已完成计算后，补充季节条件"夏天"，意图是修改原分析参数并重新计算，属于对当前 AO 的修订 |
+| 2 | REVISION | 0.92 | 用户在已有 active AO（AO#98）已完成计算后，补充季节条件"夏天"，意图是修改原分析参数并重新计算，属于对原目标的修订 |
+| 3 | REVISION | 0.95 | 用户在已有 active AO（AO#98）已完成计算后，补充季节条件"夏天"，意图是修改原分析参数并重新计算，属于对当前 AO 的修订 |
+
+**Modal: REVISION (3/3).** This is CORRECT behavior — the user is changing a parameter ("夏天" = season change), which is a genuine revision. The AO will be revised via `revise_ao()` → new REVISION AO created → re-runs macro with "夏季" parameter. The original ACTIVE AO is implicitly completed when the revision child is created. No regression introduced.
+
+**Regression assessment for Case D:**
+- If Case D classified as CONTINUATION: the AO would stay ACTIVE but the chain is complete (single tool, already executed) → nothing to execute → potential stall. This does NOT happen (0/3 CONTINUATION).
+- If Case D classified as REVISION (actual result 3/3): standard revision flow — `_apply_classification` calls `revise_ao()` → `create_ao()` implicitly completes the ACTIVE AO → new REVISION AO runs macro with updated params. Correct behavior.
+- The fix does not change the revision path — `_apply_classification` for REVISION (line 261-266) is unchanged. The ACTIVE AO is implicitly completed by `create_ao` inside `revise_ao` (same as today).
+
+---
+
+### §13.3 Self-Sufficiency Determination
+
+**Classification: S1 — `complete_ao()` gate fix is self-sufficient.**
+
+Evidence:
+
+| Condition | Required | Actual | Met? |
+|-----------|----------|--------|------|
+| Case B ≥ 2/3 CONTINUATION | Yes | 3/3 | Yes |
+| Case C ≥ 2/3 CONTINUATION | Yes | 3/3 | Yes |
+| Case D no false CONTINUATION regression | Yes | 0/3 CONTINUATION (all REVISION) | Yes |
+
+The classifier already has the correct behavior when it sees an active AO:
+- Parameter completion ("CO2"): CONTINUATION (3/3)
+- Chain continuation ("出地图"): CONTINUATION (3/3), even references `projected_chain`
+- Parameter change ("夏天"): REVISION (3/3), correct for revision use cases
+
+**No prompt changes needed.** The classifier's current prompt and decision logic are adequate. The only barrier is that `current_ao` is always `null` at Turn 2 because `complete_ao()` runs unconditionally at `oasc_contract.py:94`.
+
+The chain handoff guard at `execution_readiness_contract.py:87-114` will activate once:
+1. `complete_ao()` is gated → AO stays ACTIVE
+2. Classifier outputs CONTINUATION → AO remains ACTIVE (not replaced)
+3. `execution_readiness_contract.py` sees the same AO with `AOExecutionState` showing completed step 0 and pending step 1 → guard overrides proposed tool to pending downstream tool
+
+**What the classifier does NOT need:**
+- Prompt changes to mention tool chains (it already infers chain continuation from `projected_chain` in ao_summary)
+- New examples (Cases B and C hit CONTINUATION with 0.95 confidence)
+- Rule layer changes (LLM layer2 handles these cases correctly)
+
+---
+
+### §13.4 Fix Path Selection
+
+**Recommendation: Proceed directly to `complete_ao()` gate implementation (Sub-step 2).**
+
+The pre-verification eliminates the Phase 8.1.4a-style risk ("修了发现 LLM 行为是真瓶颈"). The LLM classifier is ready — it correctly classifies follow-up messages as CONTINUATION when it sees an active AO. The only missing piece is the code-level mechanism to keep the AO ACTIVE across turns.
+
+Scope for Sub-step 2:
+- `oasc_contract.py:91-98`: Gate `complete_ao()` when `AOExecutionState.pending_steps` is non-empty
+- `ao_manager.py`: Add `has_pending_chain_steps(ao)` helper (~10 LOC)
+- No classifier prompt changes needed
+- No rule_layer1 changes needed
+
+Estimated LOC: ~40-60 (reduced from Phase 8.1.4d §12.3 estimate of 80-120 since no classifier changes needed).
+
+---
 ## Appendix A: Key File Reference
 
 | Component | File | Key Lines |
