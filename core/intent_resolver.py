@@ -20,6 +20,61 @@ class IntentResolver:
         self.tool_registry = tool_registry
         self.runtime_config = get_config()
 
+    # ── Phase 8.1.4b Sub-step 1: downstream chain builder ─────────────────
+
+    @staticmethod
+    def _downstream_chain(resolved_tool: str, hints: Dict[str, Any]) -> List[str]:
+        """Build multi-step chain from *resolved_tool* using tool_graph.
+
+        Consults TOOL_GRAPH to find tools whose *requires* match what
+        *resolved_tool* provides, extending the chain when user-intent hints
+        (wants_dispersion, wants_hotspot, wants_map) indicate downstream needs.
+
+        Returns at minimum ``[resolved_tool]`` — never returns an empty chain
+        when *resolved_tool* is non-empty.
+        """
+        from core.tool_dependencies import TOOL_GRAPH, normalize_tokens
+
+        chain = [resolved_tool]
+        provides = normalize_tokens(TOOL_GRAPH.get(resolved_tool, {}).get("provides", []))
+        if not provides:
+            return chain
+
+        # First-level downstream: tools that consume what resolved_tool provides
+        downstream_candidates: List[str] = []
+        for tool_name, info in TOOL_GRAPH.items():
+            if tool_name == resolved_tool:
+                continue
+            tool_requires = normalize_tokens(info.get("requires", []))
+            if any(r in provides for r in tool_requires):
+                downstream_candidates.append(tool_name)
+
+        # Append based on user-intent hints (subset of router.py:1694-1699)
+        appended: set = set()
+        for candidate in downstream_candidates:
+            if candidate == "calculate_dispersion" and hints.get("wants_dispersion"):
+                chain.append(candidate)
+                appended.add(candidate)
+
+        # Second-level: after dispersion, check for hotspot
+        if "calculate_dispersion" in appended:
+            disp_provides = normalize_tokens(
+                TOOL_GRAPH.get("calculate_dispersion", {}).get("provides", [])
+            )
+            for tool_name, info in TOOL_GRAPH.items():
+                tool_requires = normalize_tokens(info.get("requires", []))
+                if any(r in disp_provides for r in tool_requires):
+                    if tool_name == "analyze_hotspots" and hints.get("wants_hotspot"):
+                        chain.append(tool_name)
+
+        # render_spatial_map is a leaf consumer — append when wanted
+        if hints.get("wants_map") and "render_spatial_map" not in chain:
+            chain.append("render_spatial_map")
+
+        return chain
+
+    # ── End Phase 8.1.4b Sub-step 1 ──────────────────────────────────────
+
     def resolve_fast(self, state: Any, ao: Any) -> ToolIntent:
         """Rules-only fast path. Returns HIGH when a legacy resolver rule hits."""
         hints = self._extract_hints(state)
@@ -48,32 +103,38 @@ class IntentResolver:
 
         task_type = str(getattr(getattr(state, "file_context", None), "task_type", "") or "").strip()
         if task_type == "macro_emission":
+            chain = self._downstream_chain("calculate_macro_emission", hints)
             return self._intent(
                 "calculate_macro_emission",
                 IntentConfidence.HIGH,
                 resolved_by="rule:file_task_type",
-                evidence=["file_task_type:macro_emission"],
+                evidence=["file_task_type:macro_emission"]
+                + (["chain:downstream"] if len(chain) > 1 else []),
                 state=state,
-                projected_chain=["calculate_macro_emission"],
+                projected_chain=chain,
             )
         if task_type == "micro_emission":
+            chain = self._downstream_chain("calculate_micro_emission", hints)
             return self._intent(
                 "calculate_micro_emission",
                 IntentConfidence.HIGH,
                 resolved_by="rule:file_task_type",
-                evidence=["file_task_type:micro_emission"],
+                evidence=["file_task_type:micro_emission"]
+                + (["chain:downstream"] if len(chain) > 1 else []),
                 state=state,
-                projected_chain=["calculate_micro_emission"],
+                projected_chain=chain,
             )
 
         if hints.get("wants_factor"):
+            chain = self._downstream_chain("query_emission_factors", hints)
             return self._intent(
                 "query_emission_factors",
                 IntentConfidence.HIGH,
                 resolved_by="rule:wants_factor_strict",
-                evidence=["wants_factor:true"],
+                evidence=["wants_factor:true"]
+                + (["chain:downstream"] if len(chain) > 1 else []),
                 state=state,
-                projected_chain=["query_emission_factors"],
+                projected_chain=chain,
             )
 
         parent_tool = self._revision_parent_tool(ao)
