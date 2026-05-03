@@ -151,11 +151,11 @@ class LLMClientService:
         if self.model not in getattr(config, "deepseek_thinking_models", ()):
             return {}
 
-        extra_body: Dict[str, Any] = {"thinking": {"type": "enabled"}}
+        kwargs: Dict[str, Any] = {"extra_body": {"thinking": {"type": "enabled"}}}
         reasoning_effort = getattr(config, "deepseek_reasoning_effort", "")
         if reasoning_effort:
-            extra_body["reasoning_effort"] = reasoning_effort
-        return {"extra_body": extra_body}
+            kwargs["reasoning_effort"] = reasoning_effort
+        return kwargs
 
     def _request_with_failover(self, request_fn, operation: str):
         """

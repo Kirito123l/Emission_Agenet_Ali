@@ -120,8 +120,8 @@ def test_deepseek_pro_adds_thinking_request_options(monkeypatch):
     client.model = "deepseek-v4-pro"
 
     assert client._provider_extra_kwargs() == {
+        "reasoning_effort": "high",
         "extra_body": {
             "thinking": {"type": "enabled"},
-            "reasoning_effort": "high",
-        }
+        },
     }

@@ -16,6 +16,8 @@ def _isolate_env(monkeypatch):
     """Provide safe default env vars so tests never hit real API keys."""
     monkeypatch.setenv("QWEN_API_KEY", "test-key-not-real")
     monkeypatch.setenv("QWEN_BASE_URL", "http://localhost:9999/v1")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("DEEPSEEK_BASE_URL", "http://localhost:9999/v1")
     monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret-for-ci")
     # Reset the cached config singleton so each test gets a fresh instance.
     from config import reset_config
