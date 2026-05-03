@@ -4058,3 +4058,89 @@ All changes are:
 **Expected impact on constraint_violation category:** From 94.7% bypass to ~20% bypass (all 18 constraint tasks would now enter governance for at least the first turn). This directly addresses the Anchors §三 Failure Mode 3 data gap.
 
 **Deferred to Phase 9:** LLM classifier prompt improvement to reduce CONTINUATION misclassification rate at the source. The F1 fix is a code-level safety net; Phase 9 should address the model behavior root cause.
+
+---
+
+## §24 Eval Session Isolation Fix (Phase 8.2.2.C-1.3 Step 2)
+
+**Date:** 2026-05-03
+**Status:** Implemented — 13 LOC, 0 regressions.
+
+### §24.1 Current Persistence Mechanism Audit
+
+**Session storage:** `data/sessions/history/{session_id}.json` (432 files on disk, ~245 MB).
+
+**Eval session naming (before fix):**
+- Governed mode: `eval_{task_id}.json` (e.g., `eval_e2e_simple_001.json`) — `eval_end2end.py:1362`
+- Naive mode: `eval_naive_{task_id}.json` — `eval_end2end.py:1483`
+
+**Load trigger:** `MemoryManager.__init__` (memory.py:390-401) calls `_load()` (memory.py:893-1030) which reads `data/sessions/history/{session_id}.json`. No guard against pre-existing files.
+
+**Save trigger:** `MemoryManager.update()` (memory.py:526-607) calls `_save()` (memory.py:825-891) after every conversation turn. File is overwritten each time.
+
+**Accumulation mechanism:** Since task IDs are stable across eval runs (e.g., `e2e_simple_001`), the same file is loaded every run. A September 2025 run's 63 AOs persist until the file is manually deleted. `eval_e2e_simple_001.json` was confirmed with 63 AOs and turn_counter=67 before cleanup.
+
+**Scale:** 170 eval_*.json files on disk at audit time, many with stale multi-turn AO state from prior eval runs spanning months.
+
+### §24.2 Production vs Eval Session Path
+
+**Production:** Uses `data/sessions/history/` as `storage_dir` (MemoryManager default, memory.py:392). Production session_ids are hex hashes (e.g., `005186ba.json`).
+
+**Eval:** Same `data/sessions/history/` directory. Eval session_ids use `eval_` or `eval_naive_` prefix.
+
+**Separation:** Cleanly separated by naming convention. Production and eval session files do not collide.
+
+**Risk evaluation:** Clearing `eval_*.json` files is safe — affects only eval sessions, not production. No production session_id starts with `eval_`.
+
+### §24.3 Selected Option: Option II (Eval Run Namespace Isolation)
+
+**Mechanism:**
+1. `run_end2end_evaluation()` generates `eval_run_id = f"{int(time.perf_counter() * 1000)}"` (millisecond timestamp)
+2. `eval_run_id` bubbled through `_run_single_task_sync` → `_run_single_task_async` → `_run_router_task`
+3. Governed mode session_id: `eval_{run_id}_{task_id}` (was `eval_{task_id}`)
+4. Naive mode session_id: `eval_naive_{run_id}_{task_id}` (was `eval_naive_{task_id}`)
+5. Each eval run gets a unique timestamp namespace — no stale state loaded from prior runs
+
+**Why Option II over alternatives:**
+- **Option I (clear eval files):** Rejected — fragile naming dependency. If eval session_id convention changes (e.g., someone adds a new prefix), stale files accumulate again.
+- **Option III (in-memory):** Rejected — would disable session persistence entirely for eval. Multi-turn eval tasks need in-memory state but that works fine (state is held in the router instance). However, Option II is safer because it preserves the ability to inspect session files for debugging and doesn't change the save/load contract.
+- **Option II:** Each run gets its own namespace. Zero cross-run contamination. Production session_id convention unchanged. Session files still created for debugging. Old eval files can be garbage collected separately.
+
+### §24.4 Implementation
+
+**Files changed:** `evaluation/eval_end2end.py` — 13 LOC (8 additions, 5 parameter declarations).
+
+**Changes:**
+| Location | Change | LOC |
+|---|---|---|
+| `_run_router_task` | Added `eval_run_id` param, `run_ns` prefix in session_id | +3 |
+| `_execute_task_payload` (router) | Pass `eval_run_id` to `_run_router_task` | +1 |
+| `_execute_task_payload` (naive) | `run_ns` prefix in naive session_id | +2 |
+| `_run_single_task_async` | Added `eval_run_id` param | +1 |
+| `_run_single_task_sync` | Added `eval_run_id` param, pass to async | +2 |
+| `run_end2end_evaluation` | Generate `eval_run_id` at run start | +1 |
+| 3 call sites | Pass `eval_run_id=eval_run_id` | +3 |
+
+**Backward compatibility:** All `eval_run_id` params default to `""`. If omitted, session_id reverts to `eval_{task_id}` (original behavior). Direct invocation of internal functions preserves v1 naming.
+
+**Production impact:** Zero. `run_end2end_evaluation()` is eval-only. Production session code (MemoryManager, router, governed_router) unchanged.
+
+### §24.5 1-Task Sanity
+
+**Pre-cleanup:** 170 eval session files on disk. `eval_e2e_simple_001.json` had 63 AOs from contamination.
+
+**Cleanup:** `rm data/sessions/history/eval_*.json` — all 170 files removed.
+
+**IO sanity test (Python, no LLM):**
+| Scenario | Session ID | AO Count | Verdict |
+|---|---|---|---|
+| Run 1 (`run_id=1700...`) | `eval_1700..._e2e_simple_001` | 0 (fresh) | PASS |
+| Run 2 (`run_id=1800...`) | `eval_1800..._e2e_simple_001` | 0 (fresh, no cross-run contamination) | PASS |
+| Run 3 (reload run_id_1) | `eval_1700..._e2e_simple_001` | 0 (sees Run 1 state) | PASS |
+| Backward compat (no run_id) | `eval_e2e_simple_001` | 0 (fresh) | PASS |
+
+**Smoke eval run:** Ran `--smoke --parallel 4` (interrupted after timeout). 7 session files created with run_id namespace `848526036` — confirms timestamp-based isolation active.
+
+**Regression test:** 115 passed, 1 pre-existing failure (`test_benchmark_acceleration.py`). 0 new regressions.
+
+**Verdict:** Session isolation works. Each eval run gets a fresh namespace. Cross-run contamination eliminated.

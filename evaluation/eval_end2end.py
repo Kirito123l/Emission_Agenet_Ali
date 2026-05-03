@@ -1357,9 +1357,11 @@ async def _run_router_task(
     task: Dict[str, Any],
     *,
     file_path: Optional[Path],
+    eval_run_id: str = "",
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
     """Run router mode, using bounded same-session follow-ups for expected multi-step chains."""
-    router = build_router(session_id=f"eval_{task['id']}", router_mode="router")
+    run_ns = f"{eval_run_id}_" if eval_run_id else ""
+    router = build_router(session_id=f"eval_{run_ns}{task['id']}", router_mode="router")
     expected_chain = [str(item) for item in task.get("expected_tool_chain", []) if item]
     scripted_follow_up_count = len(task.get("follow_up_messages", []) or [])
     max_turns = max(1, min(len(expected_chain) + scripted_follow_up_count + 2, 8))
@@ -1453,6 +1455,7 @@ async def _run_single_task_async(
     output_dir: Path,
     enable_file_analyzer: bool,
     resolved_task_timeout_sec: float,
+    eval_run_id: str = "",
 ) -> Dict[str, Any]:
     file_path = resolve_project_path(task.get("test_file"))
     file_analysis = None
@@ -1476,11 +1479,13 @@ async def _run_single_task_async(
             response, tool_calls, trace = await _run_router_task(
                 task,
                 file_path=file_path,
+                eval_run_id=eval_run_id,
             )
             return response, tool_calls, trace
         if mode == "naive":
+            run_ns = f"{eval_run_id}_" if eval_run_id else ""
             router = NaiveRouter(
-                session_id=f"eval_naive_{task['id']}",
+                session_id=f"eval_naive_{run_ns}{task['id']}",
                 tool_call_log_path=output_dir / "naive_tool_calls.jsonl",
             )
             trace = {}
@@ -1567,6 +1572,7 @@ def _run_single_task_sync(
     output_dir: Path,
     enable_file_analyzer: bool,
     resolved_task_timeout_sec: float,
+    eval_run_id: str = "",
 ) -> Dict[str, Any]:
     token = CURRENT_EVAL_TASK_ID.set(task["id"])
     try:
@@ -1577,6 +1583,7 @@ def _run_single_task_sync(
                 output_dir=output_dir,
                 enable_file_analyzer=enable_file_analyzer,
                 resolved_task_timeout_sec=resolved_task_timeout_sec,
+                eval_run_id=eval_run_id,
             )
         )
     finally:
@@ -1618,6 +1625,7 @@ def run_end2end_evaluation(
         else float(os.getenv("BENCHMARK_TASK_TIMEOUT_SEC", "180"))
     )
     started_at = time.perf_counter()
+    eval_run_id = f"{int(started_at * 1000)}"
     parallel = max(1, int(parallel or 1))
     task_telemetry = TaskTelemetryRegistry()
     rate_limiter = RequestRateLimiter(qps_limit, task_telemetry)
@@ -1665,6 +1673,7 @@ def run_end2end_evaluation(
                     output_dir=output_dir,
                     enable_file_analyzer=enable_file_analyzer,
                     resolved_task_timeout_sec=resolved_task_timeout_sec,
+                    eval_run_id=eval_run_id,
                 )
                 record = _build_record_from_payload(payload)
                 logs.append(record)
@@ -1709,6 +1718,7 @@ def run_end2end_evaluation(
                         output_dir=output_dir,
                         enable_file_analyzer=enable_file_analyzer,
                         resolved_task_timeout_sec=resolved_task_timeout_sec,
+                        eval_run_id=eval_run_id,
                     )
                     in_flight[future] = (next_task_index + 1, task)
                     next_task_index += 1
@@ -1778,6 +1788,7 @@ def run_end2end_evaluation(
                                 output_dir=output_dir,
                                 enable_file_analyzer=enable_file_analyzer,
                                 resolved_task_timeout_sec=resolved_task_timeout_sec,
+                                eval_run_id=eval_run_id,
                             )
                             in_flight[new_future] = (next_task_index + 1, next_task)
                             next_task_index += 1
