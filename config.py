@@ -80,7 +80,7 @@ class Config:
             os.getenv("ENABLE_AO_CLASSIFIER_LLM_LAYER", "true").lower() == "true"
         )
         self.enable_ao_classifier = os.getenv("ENABLE_AO_CLASSIFIER", "true").lower() == "true"
-        self.enable_continuation_override = os.getenv("ENABLE_CONTINUATION_OVERRIDE", "true").lower() == "true"
+        self.enable_continuation_override = os.getenv("ENABLE_CONTINUATION_OVERRIDE", "false").lower() == "true"
         self.ao_classifier_model = os.getenv("AO_CLASSIFIER_MODEL", self.llm_fast_model).strip() or self.llm_fast_model
         self.ao_classifier_confidence_threshold = float(
             os.getenv("AO_CLASSIFIER_CONFIDENCE_THRESHOLD", "0.7")
