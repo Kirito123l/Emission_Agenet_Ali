@@ -2253,6 +2253,17 @@ class UnifiedRouter:
         if not standardized_params:
             return False
 
+        if not getattr(self.runtime_config, "enable_cross_constraint_validation", True):
+            if trace_obj:
+                trace_obj.record(
+                    step_type=TraceStepType.CROSS_CONSTRAINT_CHECK_SKIPPED,
+                    stage_before=TaskStage.EXECUTING.value,
+                    action="cross_constraint_disabled",
+                    output_summary={"reason": "ENABLE_CROSS_CONSTRAINT_VALIDATION=false"},
+                    reasoning="Cross-constraint validation disabled by config flag — illegal parameter combinations may pass through",
+                )
+            return False
+
         constraint_result = get_cross_constraint_validator().validate(
             standardized_params,
             tool_name=tool_name,
@@ -2588,6 +2599,16 @@ class UnifiedRouter:
         )
         state.control.max_steps = config.max_orchestration_steps
         trace_obj = Trace.start(session_id=self.session_id) if config.enable_trace else None
+
+        # Phase 8.2.2: emit fast_path_skipped when conversation fast path is disabled
+        if trace_obj and not getattr(self.runtime_config, "enable_conversation_fast_path", True):
+            trace_obj.record(
+                step_type=TraceStepType.FAST_PATH_SKIPPED,
+                stage_before=TaskStage.INPUT_RECEIVED.value,
+                action="fast_path_disabled",
+                output_summary={"reason": "ENABLE_CONVERSATION_FAST_PATH=false"},
+                reasoning="Conversation fast path disabled by config flag — falling through to full state loop",
+            )
 
         loop_guard = 0
         max_state_iterations = max(6, state.control.max_steps * 3)
@@ -9797,6 +9818,14 @@ class UnifiedRouter:
             "enable_readiness_gating",
             True,
         ):
+            if trace_obj is not None:
+                trace_obj.record(
+                    step_type=TraceStepType.READINESS_GATING_SKIPPED,
+                    stage_before=stage_before or "",
+                    action="readiness_gating_disabled",
+                    output_summary={"reason": "ENABLE_READINESS_GATING=false"},
+                    reasoning="Readiness gating disabled by config flag — tool may execute without prerequisite check",
+                )
             return None
         if purpose == "intent_resolution" and not getattr(
             self.runtime_config,

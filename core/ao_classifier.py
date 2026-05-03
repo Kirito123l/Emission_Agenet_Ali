@@ -126,6 +126,32 @@ class OAScopeClassifier:
         task_state: Any,
     ) -> AOClassification:
         current_turn = self._current_turn_index()
+        if not getattr(self.config, "enable_ao_classifier", True):
+            result = AOClassification(
+                classification=AOClassType.NEW_AO,
+                target_ao_id=None,
+                reference_ao_id=None,
+                new_objective_text=(user_message or "")[:100],
+                confidence=1.0,
+                reasoning="AO classifier disabled (ENABLE_AO_CLASSIFIER=false) — ablation mode",
+                layer="disabled",
+            )
+            self._record_telemetry(
+                ClassifierTelemetry(
+                    turn=current_turn,
+                    user_message_preview=self._message_preview(user_message),
+                    layer_hit="disabled",
+                    rule_signal=None,
+                    classification=result.classification.name,
+                    confidence=result.confidence,
+                    layer2_latency_ms=None,
+                    target_ao_id=result.target_ao_id,
+                    reference_ao_id=result.reference_ao_id,
+                    reasoning=result.reasoning,
+                )
+            )
+            return result
+
         if getattr(self.config, "enable_ao_classifier_rule_layer", True):
             rule_result = self._rule_layer1(user_message, task_state)
             if rule_result is not None:

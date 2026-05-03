@@ -1044,7 +1044,17 @@ class GovernedRouter:
             # On violation → inject ConstraintViolation into prior_violations
             # and return a RouterResponse describing the violation (no fall through).
             snapshot = self._extract_snapshot_from_context(context)
-            if snapshot:
+            if snapshot and not getattr(
+                self.runtime_config, "enable_cross_constraint_validation", True
+            ):
+                if trace is not None:
+                    trace.setdefault("steps", []).append({
+                        "step_type": "cross_constraint_check_skipped",
+                        "action": "cross_constraint_disabled",
+                        "output_summary": {"reason": "ENABLE_CROSS_CONSTRAINT_VALIDATION=false"},
+                        "reasoning": "Cross-constraint validation disabled — skipping violation check in reconciler proceed path",
+                    })
+            elif snapshot:
                 tool_name = self._extract_tool_name_from_context(context) or ""
                 validator = get_cross_constraint_validator()
                 cc_result = validator.validate(
