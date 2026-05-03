@@ -71,6 +71,12 @@ GOVERNANCE_TRACE_STEPS = frozenset({
     "pcm_advisory_injected",
     "projected_chain_generated",
     "decision_field_clarify",
+    # Phase 8.2.2: ablation telemetry trace steps
+    "ao_classifier_forced_new_ao",
+    "readiness_gating_skipped",
+    "cross_constraint_check_skipped",
+    "fast_path_skipped",
+    "continuation_overridden_to_new_ao",
 })
 
 # Combined set for trace_steps serialization.

@@ -119,6 +119,11 @@ class TraceStepType(str, Enum):
     B_VALIDATOR_FILTER = "b_validator_filter"
     PCM_ADVISORY_INJECTED = "pcm_advisory_injected"
     PROJECTED_CHAIN_GENERATED = "projected_chain_generated"
+    AO_CLASSIFIER_FORCED_NEW_AO = "ao_classifier_forced_new_ao"
+    READINESS_GATING_SKIPPED = "readiness_gating_skipped"
+    CROSS_CONSTRAINT_CHECK_SKIPPED = "cross_constraint_check_skipped"
+    FAST_PATH_SKIPPED = "fast_path_skipped"
+    CONTINUATION_OVERRIDDEN_TO_NEW_AO = "continuation_overridden_to_new_ao"
 
 
 @dataclass

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from config import get_config
 from core.analytical_objective import AORelationship, ExecutionStepStatus, ToolCallRecord
-from core.ao_classifier import AOClassification, OAScopeClassifier
+from core.ao_classifier import AOClassification, AOClassType, OAScopeClassifier
 from core.ao_manager import AOManager, TurnOutcome, ensure_execution_state
 from core.contracts.base import BaseContract, ContractContext, ContractInterception
 from core.execution_continuation import ExecutionContinuation, PendingObjective
@@ -95,6 +95,39 @@ class OASCContract(BaseContract):
                 self._maybe_complete_ao_with_chain_gate(
                     current_ao, turn_outcome, context, result,
                 )
+
+        # Phase 8.2.2: emit trace step when AO classifier is disabled (ablation mode)
+        if (
+            classification is not None
+            and getattr(classification, "layer", None) == "disabled"
+            and result.trace is not None
+        ):
+            result.trace.setdefault("steps", []).append({
+                "step_type": "ao_classifier_forced_new_ao",
+                "action": "ao_classifier_disabled",
+                "output_summary": {
+                    "classification": classification.classification.name,
+                    "reason": "ENABLE_AO_CLASSIFIER=false",
+                },
+                "reasoning": "AO classifier disabled by config flag — all messages treated as NEW_AO",
+            })
+
+        # Phase 8.2.2.C-1.2: emit trace step when CONTINUATION is overridden to NEW_AO
+        if (
+            classification is not None
+            and getattr(classification, "layer", None) == "continuation_overridden"
+            and result.trace is not None
+        ):
+            result.trace.setdefault("steps", []).append({
+                "step_type": "continuation_overridden_to_new_ao",
+                "action": "continuation_override",
+                "output_summary": {
+                    "original_classification": "continuation",
+                    "overridden_to": "new_ao",
+                    "reason": "no prior AO, first-turn message — CONTINUATION→NEW_AO guard",
+                },
+                "reasoning": classification.reasoning,
+            })
 
         # Phase 6.E.1: read-only canonical execution state sync
         if context.router_executed:
@@ -315,12 +348,25 @@ class OASCContract(BaseContract):
         current = self.ao_manager.get_current_ao()
         if cls.classification.value == "continuation":
             if current is None:
-                self.ao_manager.create_ao(
-                    objective_text=(user_message or "")[:200],
-                    relationship=AORelationship.INDEPENDENT,
-                    current_turn=current_turn,
-                )
-            return
+                if getattr(self.runtime_config, "enable_continuation_override", True):
+                    cls.classification = AOClassType.NEW_AO
+                    if not cls.new_objective_text:
+                        cls.new_objective_text = (user_message or "")[:200]
+                    cls.reasoning = (
+                        (cls.reasoning or "")
+                        + " [CONTINUATION→NEW_AO: no prior AO, first-turn guard]"
+                    )
+                    cls.layer = "continuation_overridden"
+                    # Fall through to NEW_AO create_ao below
+                else:
+                    self.ao_manager.create_ao(
+                        objective_text=(user_message or "")[:200],
+                        relationship=AORelationship.INDEPENDENT,
+                        current_turn=current_turn,
+                    )
+                    return
+            else:
+                return
         if cls.classification.value == "revision" and cls.target_ao_id:
             self.ao_manager.revise_ao(
                 parent_ao_id=cls.target_ao_id,

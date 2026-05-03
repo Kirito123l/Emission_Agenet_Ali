@@ -29,12 +29,12 @@ class Config:
             "local": {"api_key": os.getenv("LOCAL_LLM_API_KEY"), "base_url": os.getenv("LOCAL_LLM_BASE_URL")},
         }
 
-        self.llm_provider = os.getenv("LLM_PROVIDER", "qwen")
-        self.llm_reasoning_model = os.getenv("LLM_REASONING_MODEL", "qwen3-max")
-        self.llm_fast_model = os.getenv("LLM_FAST_MODEL", "qwen-turbo-latest")
+        self.llm_provider = os.getenv("LLM_PROVIDER", "deepseek")
+        self.llm_reasoning_model = os.getenv("LLM_REASONING_MODEL", "deepseek-v4-pro")
+        self.llm_fast_model = os.getenv("LLM_FAST_MODEL", "deepseek-v4-flash")
         self.llm_use_global_defaults = os.getenv("LLM_USE_GLOBAL_DEFAULTS", "true").lower() == "true"
         self.deepseek_enable_thinking = os.getenv("DEEPSEEK_ENABLE_THINKING", "true").lower() == "true"
-        self.deepseek_reasoning_effort = os.getenv("DEEPSEEK_REASONING_EFFORT", "high").strip()
+        self.deepseek_reasoning_effort = os.getenv("DEEPSEEK_REASONING_EFFORT", "max").strip()
         self.deepseek_thinking_models = tuple(
             item.strip()
             for item in os.getenv("DEEPSEEK_THINKING_MODELS", "deepseek-v4-pro").split(",")
@@ -79,6 +79,8 @@ class Config:
         self.enable_ao_classifier_llm_layer = (
             os.getenv("ENABLE_AO_CLASSIFIER_LLM_LAYER", "true").lower() == "true"
         )
+        self.enable_ao_classifier = os.getenv("ENABLE_AO_CLASSIFIER", "true").lower() == "true"
+        self.enable_continuation_override = os.getenv("ENABLE_CONTINUATION_OVERRIDE", "true").lower() == "true"
         self.ao_classifier_model = os.getenv("AO_CLASSIFIER_MODEL", self.llm_fast_model).strip() or self.llm_fast_model
         self.ao_classifier_confidence_threshold = float(
             os.getenv("AO_CLASSIFIER_CONFIDENCE_THRESHOLD", "0.7")
