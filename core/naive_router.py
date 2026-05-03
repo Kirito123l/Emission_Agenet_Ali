@@ -192,7 +192,7 @@ class NaiveRouter:
         self.history.append({"role": "assistant", "content": assistant_response})
 
     def _assistant_tool_call_message(self, response: LLMResponse) -> Dict[str, Any]:
-        return {
+        msg: Dict[str, Any] = {
             "role": "assistant",
             "content": response.content or "",
             "tool_calls": [
@@ -207,6 +207,9 @@ class NaiveRouter:
                 for tool_call in (response.tool_calls or [])
             ],
         }
+        if response.reasoning_content:
+            msg["reasoning_content"] = response.reasoning_content
+        return msg
 
     def _tool_result_message(self, tool_call: ToolCall, call_record: Dict[str, Any]) -> Dict[str, Any]:
         result_payload = call_record.get("result") or {}
