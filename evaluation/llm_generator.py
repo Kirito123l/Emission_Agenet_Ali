@@ -11,22 +11,21 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from config import get_config
+
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_MODEL = "qwen3-max"
 MODEL_ENV_VARS = (
     "EVALUATION_LLM_MODEL",
-    "QWEN_MODEL",
-    "AGENT_LLM_MODEL",
 )
 
 
 class LLMGenerator:
-    """Wrapper for Qwen-compatible chat completions with JSON parsing."""
+    """Wrapper for OpenAI-compatible chat completions with JSON parsing."""
 
     def __init__(
         self,
@@ -36,10 +35,16 @@ class LLMGenerator:
         retry_delay: float = 2.0,
         call_interval: float = 1.0,
     ) -> None:
-        api_key = os.getenv("QWEN_API_KEY")
-        base_url = os.getenv("QWEN_BASE_URL")
+        config = get_config()
+        provider_name = str(config.llm_provider or "").strip()
+        provider = config.providers.get(provider_name, {})
+        api_key = provider.get("api_key")
+        base_url = provider.get("base_url")
         if not api_key or not base_url:
-            raise RuntimeError("QWEN_API_KEY and QWEN_BASE_URL must be configured in the project .env file.")
+            raise RuntimeError(
+                f"{provider_name.upper()}_API_KEY and {provider_name.upper()}_BASE_URL "
+                "must be configured in the project .env file."
+            )
 
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model = self.resolve_model(model)
@@ -61,7 +66,7 @@ class LLMGenerator:
             if env_value:
                 return env_value
 
-        return DEFAULT_MODEL
+        return get_config().agent_llm.model
 
     def _wait_for_rate_limit(self) -> None:
         elapsed = time.monotonic() - self._last_call_time

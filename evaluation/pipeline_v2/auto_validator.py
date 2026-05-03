@@ -86,7 +86,7 @@ class MultiLayerValidator:
         benchmark_records: Sequence[Dict[str, Any]],
         mappings_payload: Dict[str, Any],
         constraints_payload: Dict[str, Any],
-        model: str = "qwen3-max",
+        model: Optional[str] = None,
         skip_llm_review: bool = False,
         llm_temperature: float = 0.1,
     ) -> None:
@@ -324,7 +324,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mappings", type=Path, default=DEFAULT_MAPPINGS_PATH)
     parser.add_argument("--constraints", type=Path, default=DEFAULT_CONSTRAINTS_PATH)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--model", default="qwen3-max")
+    parser.add_argument("--model", default=None)
     parser.add_argument("--llm-temperature", type=float, default=0.1)
     parser.add_argument("--skip-llm-review", action="store_true")
     return parser.parse_args()

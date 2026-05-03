@@ -15,7 +15,6 @@ python evaluation/pipeline_v2/targeted_generator.py \
     --existing evaluation/benchmarks/end2end_tasks.jsonl \
     --output evaluation/pipeline_v2/candidates.jsonl \
     --count-per-gap 2 \
-    --model qwen3-max \
     --temperature 0.8
 
 echo "=== Stage 3: Auto Validation ==="
@@ -25,7 +24,6 @@ python evaluation/pipeline_v2/auto_validator.py \
     --mappings config/unified_mappings.yaml \
     --constraints config/cross_constraints.yaml \
     --output evaluation/pipeline_v2/validated_candidates.jsonl \
-    --model qwen3-max \
     --llm-temperature 0.1
 
 echo "=== Stage 4: Human Review ==="

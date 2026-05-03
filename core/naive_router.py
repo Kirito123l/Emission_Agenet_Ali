@@ -1,7 +1,7 @@
 """Naive function-calling router for baseline experiments.
 
-This router is intentionally a minimal qwen3-max tool-calling loop over the
-seven experiment tools, with no extra orchestration layers.
+This router is intentionally a minimal configured-model tool-calling loop over
+the seven experiment tools, with no extra orchestration layers.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class NaiveRouterResponse:
 
 
 class NaiveRouter:
-    """Minimal qwen3-max function-calling baseline."""
+    """Minimal configured-model function-calling baseline."""
 
     MAX_HISTORY_TURNS = 5
     MAX_TOOL_ITERATIONS = 4
@@ -58,7 +58,7 @@ class NaiveRouter:
         max_tool_iterations: int = MAX_TOOL_ITERATIONS,
     ):
         self.session_id = session_id
-        self.llm = llm or LLMClientService(model="qwen3-max", temperature=0.0, purpose="agent")
+        self.llm = llm or LLMClientService(temperature=0.0, purpose="agent")
         self.registry = registry or get_registry()
         if not self.registry.list_tools():
             init_tools()

@@ -50,6 +50,29 @@ def _tool_names(definitions):
     return [item["function"]["name"] for item in definitions]
 
 
+def test_naive_router_uses_configured_agent_model(monkeypatch, tmp_path):
+    captured = {}
+
+    class FakeConfiguredLLM:
+        model = "configured-agent-model"
+
+        def __init__(self, *args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+
+    monkeypatch.setattr("core.naive_router.LLMClientService", FakeConfiguredLLM)
+
+    router = NaiveRouter(
+        session_id="configured-model-test",
+        registry=FakeRegistry({"calculate_macro_emission": object()}),
+        tool_call_log_path=tmp_path / "calls.jsonl",
+    )
+
+    assert router.llm.model == "configured-agent-model"
+    assert captured["args"] == ()
+    assert captured["kwargs"] == {"temperature": 0.0, "purpose": "agent"}
+
+
 def test_naive_router_uses_only_the_seven_baseline_tool_schemas(tmp_path):
     router = NaiveRouter(
         session_id="schema-test",

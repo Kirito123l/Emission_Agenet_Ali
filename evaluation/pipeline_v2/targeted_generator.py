@@ -95,7 +95,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--count-per-gap", type=int, default=2)
     parser.add_argument("--limit-targets", type=int, default=None)
-    parser.add_argument("--model", default="qwen3-max")
+    parser.add_argument("--model", default=None)
     parser.add_argument("--temperature", type=float, default=0.8)
     return parser.parse_args()
 
