@@ -3095,3 +3095,215 @@ The user should decide:
 ---
 
 **Phase 8.1.5 closeout.** DeepSeek is functionally compatible with the EmissionAgent architecture but produces a silent governance bypass: the clarification contract, reconciler, B validator, and PCM advisory are never activated because DeepSeek fills parameter defaults proactively. The 30-task n=3 baseline (Task 6) is deferred pending user review of this finding. Next step: user decides whether to (A) run Task 6 anyway, (B) skip to Phase 8.2/Phase 9, or (C) adjust prompts before re-testing.
+
+
+---
+
+## §19.0 Stage 2 LLM Output JSON Comparison — qwen3-max vs DeepSeek (Phase 8.1.6 micro)
+
+**Date:** 2026-05-03
+**Task:** e2e_simple_004 (macro_emission, user does not mention season — classic "should clarify" scenario)
+**Method:** Standalone GovernedRouter.chat() call, both models. Stage 2 LLM output captured via temporary debug instrumentation of `_run_stage2_llm`. Temporary instrumentation reverted after capture.
+
+### §19.0.1 Task Selection and Experiment Method
+
+**Selected task:** e2e_simple_004
+- User message: `"计算这个路段流量文件的CO2和NOx排放"` (Calculate CO2 and NOx emissions for this road segment traffic file)
+- File: `evaluation/file_tasks/data/macro_direct.csv`
+- Expected tool: `calculate_macro_emission`
+- Expected params: `{pollutants: [CO2, NOx], season: 夏季}`
+- **Key gap:** User provides pollutants but does NOT mention season or model_year. Season has a runtime default ("夏季"). This is the classic governance-test scenario: should the agent clarify or proceed with defaults?
+
+**Experiment setup:**
+1. Both runs use identical `GovernedRouter.chat()` with identical user message and file
+2. Stage 2 LLM called with identical prompt (same `prompt_payload`, same system prompt, temperature=0.0)
+3. Only difference: LLM provider/model
+   - DeepSeek: `deepseek-v4-flash` (classifier/fast model for Stage 2)
+   - qwen3-max: `qwen3-max` (Stage 2 model)
+4. Full JSON response captured to `/tmp/stage2_debug.jsonl` via temporary instrumentation
+5. Temporary instrumentation reverted immediately after capture
+
+**Model verification:**
+- DeepSeek: provider=deepseek, model=deepseek-v4-flash, elapsed=62.5s (thinking mode overhead)
+- qwen3-max: provider=qwen, model=qwen3-max, elapsed=28.8s
+
+---
+
+### §19.0.2 qwen3-max Stage 2 Output JSON
+
+```json
+{
+  "slots": {
+    "pollutants": {
+      "value": ["CO2", "NOx"],
+      "source": "user",
+      "confidence": 1.0,
+      "raw_text": ["CO2", "NOx"]
+    },
+    "season": {
+      "value": "夏季",
+      "source": "default",
+      "confidence": 0.5,
+      "raw_text": null
+    },
+    "scenario_label": {
+      "value": null,
+      "source": "missing",
+      "confidence": 0.0,
+      "raw_text": null
+    }
+  },
+  "intent": {
+    "resolved_tool": "calculate_macro_emission",
+    "intent_confidence": "high",
+    "reasoning": "用户明确要求基于路段流量文件计算CO2和NOx排放，符合calculate_macro_emission的输入要求（路网/流量文件 + 污染物）。",
+    "chain": ["calculate_macro_emission"]
+  },
+  "stance": {
+    "value": "directive",
+    "confidence": 0.9,
+    "reasoning": "用户直接指令执行宏观排放计算，未使用探索性或协商性语言。"
+  },
+  "missing_required": [],
+  "needs_clarification": false,
+  "clarification_question": null,
+  "ambiguous_slots": [],
+  "decision": {
+    "value": "proceed",
+    "confidence": 0.95,
+    "reasoning": "所有必需槽位（pollutants）已由用户提供；可选槽位 season 有工具默认值（夏季），scenario_label 虽缺失但非必需；文件上下文确认为 macro_emission 任务且含有效流量文件，满足执行条件。",
+    "clarification_question": null
+  }
+}
+```
+
+---
+
+### §19.0.3 DeepSeek Stage 2 Output JSON
+
+```json
+{
+  "slots": {
+    "pollutants": {
+      "value": ["CO2", "NOx"],
+      "source": "user",
+      "confidence": 1.0,
+      "raw_text": ["CO2", "NOx"]
+    },
+    "season": {
+      "value": "夏季",
+      "source": "default",
+      "confidence": 0.5,
+      "raw_text": null
+    },
+    "scenario_label": {
+      "value": null,
+      "source": "missing",
+      "confidence": 0.0,
+      "raw_text": null
+    }
+  },
+  "intent": {
+    "resolved_tool": "calculate_macro_emission",
+    "intent_confidence": "high",
+    "reasoning": "用户明确要求计算路段排放，工具匹配calculate_macro_emission",
+    "chain": ["calculate_macro_emission"]
+  },
+  "stance": {
+    "value": "directive",
+    "confidence": 0.9,
+    "reasoning": "用户直接下达计算指令，没有探索或讨论信号"
+  },
+  "missing_required": [],
+  "needs_clarification": false,
+  "clarification_question": null,
+  "ambiguous_slots": [],
+  "decision": {
+    "value": "proceed",
+    "confidence": 0.9,
+    "reasoning": "必需槽位pollutants已填充，季节有默认值，可直接执行宏观排放计算",
+    "clarification_question": null
+  }
+}
+```
+
+---
+
+### §19.0.4 Field-by-Field Comparison
+
+| Field | qwen3-max | DeepSeek | Difference |
+|-------|-----------|----------|------------|
+| `slots.pollutants.value` | `["CO2", "NOx"]` | `["CO2", "NOx"]` | **Identical** |
+| `slots.pollutants.source` | `"user"` | `"user"` | **Identical** |
+| `slots.season.value` | `"夏季"` | `"夏季"` | **Identical** |
+| `slots.season.source` | `"default"` | `"default"` | **Identical** |
+| `slots.season.confidence` | `0.5` | `0.5` | **Identical** |
+| `slots.scenario_label` | `{value: null, source: missing}` | `{value: null, source: missing}` | **Identical** |
+| `intent.resolved_tool` | `"calculate_macro_emission"` | `"calculate_macro_emission"` | **Identical** |
+| `intent.intent_confidence` | `"high"` | `"high"` | **Identical** |
+| `intent.chain` | `["calculate_macro_emission"]` | `["calculate_macro_emission"]` | **Identical** |
+| `stance.value` | `"directive"` | `"directive"` | **Identical** |
+| `stance.confidence` | `0.9` | `0.9` | **Identical** |
+| `missing_required` | `[]` | `[]` | **Identical** |
+| `needs_clarification` | `false` | `false` | **Identical** |
+| `clarification_question` | `null` | `null` | **Identical** |
+| `ambiguous_slots` | `[]` | `[]` | **Identical** |
+| `decision.value` | `"proceed"` | `"proceed"` | **Identical** |
+| `decision.confidence` | `0.95` | `0.90` | **Minor** (Δ=0.05) |
+| `decision.reasoning` | Detailed (45 words, explains why season has default, why file context is sufficient) | Concise (12 words, mentions pollutants filled, season has default) | **Stylistic**: qwen more verbose |
+| `intent.reasoning` | Detailed (explains input matching logic) | Concise (direct match statement) | **Stylistic**: qwen more verbose |
+
+**Verdict: The Stage 2 LLM outputs are functionally identical.** Both models:
+1. Fill `season: "夏季"` with `source=default, confidence=0.5`
+2. Determine `missing_required=[]` (no required slots are missing — season is optional with a default)
+3. Set `decision=proceed` (sufficient information to execute)
+4. Set `needs_clarification=false` (no user clarification needed)
+5. Output single-tool chain `["calculate_macro_emission"]`
+
+The only differences are stylistic (reasoning verbosity) and a negligible confidence delta (0.95 vs 0.90).
+
+**Governance infrastructure engagement:** Both models triggered the same governance steps:
+- `pcm_advisory_injected` (collection_mode_active=true, unfilled_optionals=["scenario_label"])
+- `reconciler_invoked` (p1_missing_required=[], b_result_present=false)
+- Both produced `reconciled_decision` with proceed value
+
+---
+
+### §19.0.5 Inference
+
+#### Q1: Does DeepSeek fill default parameters that qwen3-max leaves for clarification?
+
+**No — for e2e_simple_004, both models fill the same defaults the same way.** The `season` slot is filled as "夏季" with `source=default` by both models, and `scenario_label` is left as `source=missing` by both. Neither model sets `missing_required` to contain season. The Stage 2 system prompt's rule 13 (K4) explicitly tells the LLM to use `runtime_defaults` when available — both models follow this instruction identically.
+
+#### Q2: Does the governance 0-trigger finding in §18.5 have field-level evidence in the Stage 2 output?
+
+**The Stage 2 output does NOT explain the §18.5 0-trigger finding.** For e2e_simple_004, both models trigger the governance infrastructure (PCM advisory + reconciler invoked). The `missing_required=[]` + `decision=proceed` combination means the task doesn't need clarification — which is correct behavior since all required slots are filled.
+
+The discrepancy between this micro-audit (governance IS triggered) and §18.5 (governance NOT triggered in 10-task eval) may be due to:
+1. **Eval infrastructure**: The 10-task eval uses `runtime_overrides` that may disable certain contract paths
+2. **Task differences**: e2e_simple_004 has a file + explicit pollutants; other tasks may follow different code paths
+3. **Log extraction**: The eval log's `clarification_telemetry` extraction might not capture all governance events
+
+**This micro-audit does NOT resolve the §18.5 discrepancy.** Further investigation would require tracing the exact eval code path.
+
+#### Q3: Is this an LLM behavior difference or a prompt wording issue?
+
+**Neither — for this specific task, there is no difference.** Both models interpret the Stage 2 prompt identically and produce functionally identical outputs. The prompt's rules (K4 for runtime_defaults, K7 for prior_violations, decision field format) are model-agnostic — they work correctly with both DeepSeek and qwen3-max.
+
+The §18.5 governance bypass finding therefore requires a DIFFERENT explanation than "DeepSeek fills defaults more aggressively in Stage 2":
+- **Possibility A**: The governance bypass occurs at a DIFFERENT stage (Stage 1 deterministic parameter gathering, intent resolver `resolve_fast`, or AO classifier), not Stage 2
+- **Possibility B**: The 10-task eval infrastructure does not capture governance telemetry for some tasks (serialization issue, not a behavioral issue)
+- **Possibility C**: Multi-turn tasks differ from single-turn tasks in how governance is triggered
+
+#### Implication for Phase 9
+
+The Stage 2 prompt is model-agnostic and works correctly with both qwen3-max and DeepSeek. The governance bypass observed in §18.5, if real (not an eval infrastructure issue), must originate elsewhere in the pipeline:
+- **Intent resolver** (`resolve_fast`): May determine tool + fill defaults before Stage 2 is reached
+- **AO classifier**: May produce classifications that skip the clarification contract
+- **Contract ordering**: The OASC contract may complete the AO before the clarification contract runs
+
+The Phase 9 entry protocol (§17.5) should include a **governance activation audit** that traces the full execution path for representative tasks across both models, identifying exactly which code path divergence causes governance bypass.
+
+---
+
+**Phase 8.1.6 micro closeout.** The Stage 2 LLM outputs for e2e_simple_004 are functionally identical between qwen3-max and DeepSeek. The governance bypass documented in §18.5 cannot be attributed to Stage 2 LLM behavior differences. Further root-cause analysis requires tracing the execution path at the contract/classifier/resolver level for the specific tasks that showed 0 governance triggers in the 10-task eval.
