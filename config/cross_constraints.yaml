@@ -11,6 +11,8 @@ constraints:
         blocked:
           - "高速公路"
         reason: "摩托车不允许上高速公路"
+        suggestions:
+          - "建议改用允许上高速公路的车型（如乘用车 Passenger Car、轻型货车 Light Commercial Truck、重型货车 Combination Long-haul Truck）"
 
   - name: "vehicle_pollutant_relevance"
     description: "Certain vehicle and pollutant combinations are physically atypical or have limited MOVES coverage."
@@ -42,13 +44,13 @@ constraints:
           - "calculate_dispersion"
         reason: "CO2 在大气中混合较快，通常不作为近地扩散热点分析的重点污染物"
         suggestions:
-          - "若目标是近地浓度热点，请优先考虑 NOx、CO 或 PM2.5"
+          - "若目标是近地浓度热点分析，建议改用 NOx、CO 或 PM2.5 作为目标污染物"
       "THC":
         warned:
           - "calculate_dispersion"
         reason: "THC 的代理扩散模型支持有限，扩散结果应谨慎解释"
         suggestions:
-          - "如需稳定的近地扩散结果，可优先考虑 NOx、CO 或 PM2.5"
+          - "THC 近地扩散模型支持有限，建议改用 NOx、CO 或 PM2.5 进行扩散分析"
 
   - name: "season_meteorology_consistency"
     description: "Season and meteorology presets should remain broadly consistent."
@@ -61,8 +63,30 @@ constraints:
           - "urban_summer_day"
           - "urban_summer_night"
         reason: "冬季使用夏季气象预设可能导致结果不准确"
+        suggestions:
+          - "冬季建议使用 urban_winter_day 或 urban_winter_night 气象预设以保持季节一致性"
       "夏季":
         inconsistent:
           - "urban_winter_day"
           - "urban_winter_night"
         reason: "夏季使用冬季气象预设可能导致结果不准确"
+        suggestions:
+          - "夏季建议使用 urban_summer_day 或 urban_summer_night 气象预设以保持季节一致性"
+
+  - name: "motorcycle_dispersion_applicability"
+    description: "Motorcycle emissions are typically small relative to other vehicle classes (small engine displacement, low single-vehicle emission rates). Dispersion analysis of motorcycle-only emissions may show negligible concentration contributions in typical urban inventories."
+    param_a: "vehicle_type"
+    param_b: "tool_name"
+    type: "conditional_warning"
+    violation_type: "warning"
+    source: "MOVES vehicle class emission inventory: motorcycles account for < 1% of total on-road CO2/NOx mass emissions in typical urban fleets. Near-road dispersion analysis should prioritize higher-emitting vehicle classes (passenger cars, HDVs)."
+    rules:
+      "Motorcycle":
+        warned:
+          - "calculate_dispersion"
+          - "analyze_hotspots"
+          - "render_spatial_map"
+        reason: "摩托车排放量通常远低于其他车型（发动机排量小、单车排放率低），近地扩散分析中摩托车排放的浓度贡献较小，建议优先考虑高排放车型（如乘用车或重型柴油车）作为扩散源"
+        suggestions:
+          - "建议改用乘用车（Passenger Car）或重型货车（Combination Long-haul Truck）作为扩散分析的排放源"
+          - "如需分析摩托车排放的空间分布，可先用 calculate_macro_emission 确认排放量级再决定是否需扩散"
