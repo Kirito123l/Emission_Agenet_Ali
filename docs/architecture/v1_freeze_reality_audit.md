@@ -3397,3 +3397,214 @@ All tested tasks are single-turn. Multi-turn path divergence is ruled out for th
 ---
 
 **Phase 8.1.6 Step 3 closeout.** The §18.5–§19.0 contradiction is resolved: governance infrastructure works correctly with DeepSeek. The 0/10 trigger_count in §18.5 was an artifact of task selection combined with the conversation_fast_path bypass (a pre-existing mechanism, not a DeepSeek regression). The two real DeepSeek-specific findings are: (1) AO classifier boundary case divergences, and (2) multi-step iterative tool calling capability.
+
+
+---
+
+## §20 Cross-Parameter Constraint Inventory (Phase 8.1.7)
+
+**Date:** 2026-05-03
+**Scope:** Audit only. No code changes.
+
+### §20.1 Current Constraint Inventory
+
+**Source:** `config/cross_constraints.yaml` (version 1.1, 69 lines). Validation engine: `services/cross_constraints.py` (245 lines). Violation writer: `core/constraint_violation_writer.py` (191 lines).
+
+**Total implemented constraints: 4**
+
+| # | ID | Param A | Param B | Rule | Type | Status |
+|---|-----|---------|---------|------|------|--------|
+| C1 | `vehicle_road_compatibility` | `vehicle_type` | `road_type` | Motorcycle cannot use 高速公路 (highway). Reason: "摩托车不允许上高速公路" | `blocked_combinations` | Active (`cross_constraints.yaml:9-13`) |
+| C2 | `vehicle_pollutant_relevance` | `vehicle_type` | `pollutants` | Motorcycle + PM2.5/PM10 flagged. Reason: "摩托车颗粒物排放通常很低，MOVES 对摩托车 PM 排放率数据覆盖有限" | `conditional_warning` | Active (`cross_constraints.yaml:15-31`) |
+| C3 | `pollutant_task_applicability` | `pollutant` | `tool_name` | CO2 + calculate_dispersion warned (fast atmospheric mixing). THC + calculate_dispersion warned (limited proxy model support). | `conditional_warning` | Active (`cross_constraints.yaml:33-51`) |
+| C4 | `season_meteorology_consistency` | `season` | `meteorology` | 冬季 cannot use urban_summer_day/night. 夏季 cannot use urban_winter_day/night. | `consistency_warning` | Active (`cross_constraints.yaml:53-69`) |
+
+**Constraint categories:**
+- **Hard block** (`blocked_combinations`): 1 (C1). User message rejected, must change parameters.
+- **Warning** (`conditional_warning` + `consistency_warning`): 3 (C2, C3, C4). User informed but execution proceeds.
+
+**Coverage matrix:**
+
+| | vehicle_type | road_type | pollutants | season | meteorology | tool_name |
+|---|---|---|---|---|---|---|
+| vehicle_type | — | C1 | C2 | — | — | — |
+| road_type | C1 | — | — | — | — | — |
+| pollutants | C2 | — | — | — | — | C3 |
+| season | — | — | — | — | C4 | — |
+| meteorology | — | — | — | C4 | — | — |
+
+**Key gaps (Anchors-relevant domains with ZERO constraints):**
+- **vehicle_type × model_year**: No constraint. Anchors mentions "车型-EF" compatibility (e.g., heavy-duty diesel trucks only have MOVES data from specific model years). Not implemented.
+- **vehicle_type × emission_factor_source**: No constraint. Different vehicle types use different MOVES source categories.
+- **model_year × meteorology_resolution**: No constraint. Anchors mentions "模型-气象分辨率" — not implemented.
+- **pollutants × meteorology**: No constraint. Some pollutants (e.g., SO2) require specific meteorological conditions for meaningful dispersion.
+- **road_type × season**: No constraint. Road surface conditions vary by season (e.g., winter road treatments affect PM emissions).
+
+---
+
+### §20.2 Anchors Alignment
+
+**Core Anchors §三 Failure Mode 3 requirement:** "at least 5–10 specific cross-parameter legality constraints."
+
+| Metric | Required | Actual | Meets? |
+|--------|----------|--------|--------|
+| ≥ 5 constraints | Yes | 4 | **No** (1 short) |
+| ≥ 10 constraints | Stretch | 4 | **No** (6 short) |
+
+**Verdict: Does NOT meet the Anchors minimum of 5 constraints.** Current: 4.
+
+**Missing constraint candidates** (Anchors-implied but not implemented):
+
+| Candidate ID | Params | Rule (example) | Anchors reference |
+|---|---|---|---|
+| C5 | `vehicle_type` × `model_year` | Heavy-duty diesel trucks only valid for model_year ≥ 2010 in MOVES2014 | "车型-EF" compatibility |
+| C6 | `vehicle_type` × `emission_factor_source` | Electric vehicles have zero tailpipe emissions; use grid emission factors instead | Implicit in vehicle type diversity |
+| C7 | `model_year` × `meteorology` | Older model_year + certain meteorological profiles → reduced data quality | "模型-气象分辨率" |
+| C8 | `pollutants` × `meteorology` | SO2 dispersion requires specific stability classes not available in default meteorology presets | Domain knowledge |
+| C9 | `road_type` × `season` | Winter + 高速公路 → road treatment affects PM resuspension factors | Domain knowledge |
+| C10 | `vehicle_type` × `pollutants` × `tool_name` | Electric vehicles + CO2 + macro_emission → tailpipe CO2 is zero; use well-to-wheel or electricity grid factor | Multi-param constraint |
+| C11 | `season` × `road_type` × `vehicle_type` | Summer + urban arterial + heavy-duty trucks → higher brake/tire wear PM | Multi-param constraint |
+
+**Note:** C5-C11 are candidates inferred from domain knowledge and Anchors text. They are NOT currently implemented. Adding them requires both YAML definitions AND validation logic support for 3-parameter constraints (current implementation only supports pairwise param_a × param_b).
+
+---
+
+### §20.3 Violation Injection Format
+
+**Injection location:** Stage 2 system prompt, rule K7 (`clarification_contract.py:867`):
+```
+15. (K7) prior_violations 字段列出了本轮对话中之前的参数约束冲突记录。
+如果当前用户消息与之前的违规相关（相同的参数组合被再次尝试），
+你应该在 stance 或 clarification_question 中反映这些约束。
+```
+
+**Injection payload:** `prompt_payload["prior_violations"]` populated by `_get_prior_violations()` (`clarification_contract.py:1659-1665`), sourced from `SessionContextStore.get_session_violations()`.
+
+**Violation record format** (`CrossConstraintViolation.to_dict()`, `services/cross_constraints.py:40-53`):
+```json
+{
+  "constraint_name": "vehicle_road_compatibility",
+  "description": "Certain vehicle types cannot legally use specific road types.",
+  "param_a_name": "vehicle_type",
+  "param_a_value": "Motorcycle",
+  "param_b_name": "road_type",
+  "param_b_value": "高速公路",
+  "param_a": "vehicle_type=Motorcycle",
+  "param_b": "road_type=高速公路",
+  "violation_type": "blocked",
+  "reason": "摩托车不允许上高速公路",
+  "suggestions": []
+}
+```
+
+**4-element coverage per Anchors §三 Failure Mode 3:**
+
+| Required Element | Implemented? | Field | Evidence |
+|---|---|---|---|
+| 违规规则 ID | **Yes** | `constraint_name` | `"vehicle_road_compatibility"` (`cross_constraints.yaml:8`) |
+| 当前参数值 | **Yes** | `param_a` + `param_b` | `"vehicle_type=Motorcycle"`, `"road_type=高速公路"` (`services/cross_constraints.py:48-49`) |
+| 期望/合法范围 | **Partial** | `reason` | `"摩托车不允许上高速公路"` — states what's blocked but does NOT enumerate legal alternatives explicitly |
+| 推荐修正方向 | **Partial** | `suggestions` | Only populated for C2 (vehicle_pollutant_relevance). C1, C3, C4 leave `suggestions: []` |
+
+**Coverage gap:** 2 of 4 constraints (C1, C3, C4) do not provide `suggestions`. The Anchors-required "推荐修正方向" element is only present for C2. The `reason` field describes WHY the combination is invalid but does not always suggest WHAT to change.
+
+**Injection format assessment:** The violation is injected as structured JSON (via YAML-serialized prompt_payload), not as natural language text. This satisfies the Anchors requirement for "结构化注入格式". The injection happens at the right point (Stage 2 prompt, alongside slots/intent/decision fields). The 4-element coverage is partial — 2 elements fully covered, 2 partially covered.
+
+---
+
+### §20.4 Closed-Loop Demo Cases
+
+**Benchmark tasks tagged `constraint_violation`:** 17 tasks in `end2end_tasks.jsonl`, 10 generated tasks in `e2e_tasks_constraint_violation.jsonl`.
+
+**Tasks that trigger actual `cross_constraint_violation` trace step in baseline (cross-constraint ON):**
+
+From the ablation baseline data (14 constraint tasks, baseline config):
+
+| Task ID | cross_constraint step? | Success | Notes |
+|---------|----------------------|---------|-------|
+| e2e_constraint_009 | **Yes** | False | "这是我骑摩托车在高速上录的轨迹，算一下NOx排放" — motorcycle + highway, blocked combination |
+
+**All other 13 constraint tasks: NO `cross_constraint_violation` step detected.** Only 1/14 constraint-tagged tasks actually triggers the constraint validation path at `governed_router.py:1041-1088`.
+
+**Root cause of low activation rate:**
+
+The cross-constraint validation only runs when the reconciler outputs `value == "proceed"` (`governed_router.py:1041`). This requires:
+1. The clarification contract to trigger (`before_turn` enters `is_fresh` or `is_resume`)
+2. Stage 2 or Stage 1 to produce a decision field
+3. The reconciler to resolve to "proceed"
+
+Many constraint tasks take the `conversation_fast_path` or other shortcuts that bypass this gate. The constraints are defined but the validation gate is on a narrow code path.
+
+**Closed-loop evidence ("违规检出 → 回注 → LLM 协商 → 用户修正"):**
+
+The full closed loop requires:
+1. **违规检出**: CrossConstraintValidator.validate() finds violation → `cross_constraint_violation` step emitted ✓ (at least for e2e_constraint_009)
+2. **回注**: ViolationRecord persisted to context_store → Stage 2 K7 `prior_violations` field → LLM sees it on next turn ✓ (code path exists at `clarification_contract.py:821`)
+3. **LLM 协商**: Stage 2 LLM responds to `prior_violations` in its decision/stance/clarification_question — **NOT CONFIRMED**. No benchmark task exercises a multi-turn "violation → user correction → re-execution" loop.
+4. **用户修正**: User provides revised parameters in follow-up turn — **NOT CONFIRMED**. The benchmark has no multi-turn constraint correction tasks.
+
+**Current state: The infrastructure for the full closed loop EXISTS (constraint YAML → validator → violation writer → K7 injection → Stage 2 LLM), but NO benchmark task demonstrates the complete loop end-to-end.**
+
+This is an **evaluation gap** for the Anchors §三 Failure Mode 3 claim. The paper claims "完整的'违规检出 → 回注 → LLM 协商 → 用户修正'案例" but the benchmark suite has no demo task that exercises the full cycle.
+
+---
+
+### §20.5 Phase 8.2 Ablation Inputs
+
+Based on the constraint inventory and activation data:
+
+**Ablation target:** `enable_cross_constraint_validation` flag (config.py:212, default=True).
+
+**Constraints to disable:** All 4 (C1-C4). The ablation would set `enable_cross_constraint_validation=false`, which controls whether the validation gate at `governed_router.py:1049` runs.
+
+**Observable metrics:**
+
+| Metric | Baseline (ON) expected | Ablation (OFF) expected | Observable? |
+|--------|----------------------|------------------------|-------------|
+| `cross_constraint_violation` trace steps | Present for blocked combinations | Absent | **Yes** (but only 1/14 triggers today) |
+| `constraint_blocked` criteria | True for blocked tasks | False | **Yes** (e2e_constraint_009) |
+| `input_completion_required` steps | Triggered when violation → clarification needed | May not trigger | **Partially** |
+| Completion rate | Low for constraint tasks (4/14) | May increase (blocked tasks now "succeed" with bad params) | **Yes** — but perverse: higher completion rate means worse safety |
+| `prior_violations` in Stage 2 prompt | Contains violation records on turn N+1 | Empty | **Yes** (need trace-level inspection) |
+
+**Critical limitation:** With only 1/14 tasks actually activating the constraint path, the ablation signal is VERY WEAK. The difference between ON and OFF will be detectable only for e2e_constraint_009. For the other 13 tasks, ON and OFF produce identical results.
+
+**Recommendation for Phase 8.2:** If ablation is planned, first fix the constraint activation path so that ≥ 50% of constraint-tagged tasks actually trigger validation. Currently the ablation would measure noise, not signal.
+
+**Existing ablation data** (from `evaluation/results/ablation/`):
+
+| Ablation | Constraint tasks | Success rate | cross_constraint steps detected |
+|----------|-----------------|--------------|-------------------------------|
+| baseline (ON) | 14 | 4/14 (28.6%) | 1 task (e2e_constraint_009) |
+| no_cross_constraint (OFF) | 14 | 4/14 (28.6%) | 0 tasks |
+
+The existing ON vs OFF comparison shows **zero difference** in success rate (4/14 both conditions). The only difference is the trace-level `cross_constraint_violation` step count. This confirms the constraint path is too narrow — it fires on only 1 task and doesn't change the outcome anyway (the task fails for other reasons).
+
+---
+
+### §20.6 Anchors Compliance Verdict
+
+**Overall: Does NOT satisfy Core Anchors §三 Failure Mode 3.**
+
+| Requirement | Status | Detail |
+|-------------|--------|--------|
+| ≥ 5 cross-parameter constraints | **FAIL** | 4 implemented (1 short of minimum) |
+| ≥ 10 constraints (stretch) | **FAIL** | 6 short |
+| Structured violation injection format | **PASS** | Structured JSON via YAML in Stage 2 prompt |
+| 4-element violation record | **PARTIAL** | Rule ID + current values: yes. Legal range + suggested fix: partial (only C2 has suggestions) |
+| Complete closed-loop demo case | **FAIL** | Infrastructure exists but 0 benchmark tasks exercise the full loop |
+| ≥ 50% constraint activation rate | **FAIL** | 1/14 (7.1%) constraint-tagged tasks trigger validation |
+
+**What's needed to satisfy Anchors:**
+
+1. **Add ≥ 1 constraint** to reach the minimum of 5. Candidate: `vehicle_type × model_year` (C5) — easy to define, strong domain justification from MOVES data coverage.
+2. **Add ≥ 6 constraints** to reach 10 (stretch). Candidates: C5-C11 listed in §20.2.
+3. **Populate `suggestions` for C1, C3, C4** — each blocked/warned combination should include actionable alternatives. ~6 lines of YAML.
+4. **Add ≥ 2 multi-turn constraint correction benchmark tasks** — tasks where Turn 1 triggers a constraint, Turn 2 the user provides corrected parameters, and Turn 3 verification confirms the correction. These are needed for the "完整闭环" demo.
+5. **Fix constraint activation path** — the `governed_router.py:1041` gate only activates during the "proceed" reconciler path. Constraint-tagged tasks that take the fast_path or other shortcuts never validate. Either broaden the gate or add pre-execution validation to the fast_path.
+
+**Estimated effort:** 1-2 commits. Most of the infrastructure is correct; the gaps are in YAML completeness (~20 lines) and benchmark task design (~2 new tasks).
+
+---
+
+**Phase 8.1.7 closeout.** Current implementation: 4 constraints, 1 active in benchmarks, 0 complete closed-loop demonstrations. Infrastructure is correct at the code level but under-provisioned for the Anchors claim. Minimum fix: +1 constraint YAML definition + +2 benchmark demo tasks + suggestions population for existing constraints.
