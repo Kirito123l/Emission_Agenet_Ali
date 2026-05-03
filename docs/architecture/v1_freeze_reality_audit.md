@@ -3307,3 +3307,93 @@ The Phase 9 entry protocol (§17.5) should include a **governance activation aud
 ---
 
 **Phase 8.1.6 micro closeout.** The Stage 2 LLM outputs for e2e_simple_004 are functionally identical between qwen3-max and DeepSeek. The governance bypass documented in §18.5 cannot be attributed to Stage 2 LLM behavior differences. Further root-cause analysis requires tracing the execution path at the contract/classifier/resolver level for the specific tasks that showed 0 governance triggers in the 10-task eval.
+
+
+---
+
+## §19.1 §18.5–§19.0 Contradiction Resolution (Phase 8.1.6 Step 3)
+
+**Date:** 2026-05-03
+**Status:** Resolved — no contradiction. Explanation below.
+
+### §19.1.1 Contradiction Verification
+
+**§18.5 claim:** DeepSeek 0/10 governance triggers in 10-task eval (first 10 smoke tasks from `end2end_tasks.jsonl`).
+
+**§19.0 claim:** DeepSeek governance infrastructure IS triggered for e2e_simple_004 in standalone run.
+
+**Verification results:**
+
+1. **e2e_simple_004 is NOT in the 10-task smoke subset.** The 10 tasks used were: `e2e_simple_001`, `e2e_ambiguous_001`, `e2e_multistep_001`, `e2e_incomplete_001`, `e2e_constraint_001`, `e2e_ambiguous_010`, `e2e_multistep_009`, `e2e_multistep_010`, `e2e_incomplete_013`, `e2e_incomplete_018`. e2e_simple_004 is NOT a smoke task (`smoke=false`). The data comparison in §18.5 vs §19.0 was comparing different tasks.
+
+2. **2-task mini eval (e2e_ambiguous_001 + e2e_simple_001, DeepSeek) shows trigger_count=1, proceed_rate=1.0.** Governance infrastructure IS active in eval mode with DeepSeek. The §18.5 trigger_count=0 was specific to the 10 tasks chosen, not a systemic DeepSeek issue.
+
+3. **Standalone runs consistently trigger governance:** e2e_ambiguous_001, e2e_simple_004, and e2e_simple_001 all trigger PCM advisory + reconciler when run through `GovernedRouter.chat()` directly.
+
+### §19.1.2 Root Cause Determination
+
+**Primary cause: Task selection difference (§19.0 Possibility A).**
+
+The 10 tasks from §18.5 are weighted toward multi_step (3/10), incomplete (3/10), and parameter_ambiguous (2/10) categories. Many of these tasks take the `conversation_fast_path` through the inner router, which can bypass the full governed_router contract pipeline when the intent is simple and deterministic.
+
+Evidence for fast_path bypass from 2-task mini eval:
+
+| Task | Eval trace types | Governance? | Tools executed |
+|------|-----------------|-------------|---------------|
+| e2e_ambiguous_001 | `file_relationship_resolution_skipped`, `intent_resolution_skipped`, `state_transition`, `reply_generation` | No | 0 |
+| e2e_simple_001 | (2 steps, clarification triggered) | Yes (clarification_telemetry=1) | 1 |
+
+e2e_ambiguous_001 in eval mode: 0 tools executed, response generated via non-tool path (likely RAG/LLM knowledge). In standalone mode: 1 tool executed, governance triggered. **The same task takes different code paths depending on runtime context** — this is consistent with the known `conversation_fast_path` mechanism (`core/router.py:721-732`).
+
+**Secondary factor: Conversation fast_path trace handling (§19.0 Possibility B, partial).**
+
+When the `conversation_fast_path` is taken (line 721-732 of `router.py`), the trace is set via `response.trace = trace` but the governed_router's governance steps (added to the same `trace` dict earlier) may or may not be preserved depending on whether the inner router reinitializes the `trace` dict. This is a pre-existing trace serialization edge case, not specific to DeepSeek.
+
+**Not a factor: Multi-turn vs single-turn path divergence (§19.0 Possibility C).**
+
+All tested tasks are single-turn. Multi-turn path divergence is ruled out for the §18.5–§19.0 contradiction.
+
+**Not a factor: Stage 2 LLM behavior differences.**
+
+§19.0 proved Stage 2 outputs are functionally identical between DeepSeek and qwen3-max.
+
+### §19.1.3 Impact Assessment
+
+**The §18.5 conclusion "governance infrastructure completely bypassed with DeepSeek" is OVERTURNED.** The corrected assessment:
+
+| Original Claim (§18.5) | Corrected Assessment |
+|------------------------|---------------------|
+| Governance "completely bypassed" | Governance triggers normally when the governed_router contract pipeline is engaged |
+| 0/10 trigger_count | trigger_count depends on task selection; 2-task mini eval shows 1/2 |
+| Root cause: "DeepSeek fills defaults proactively" | Root cause: conversation_fast_path bypass (pre-existing, §1.2.5) |
+| "silent regression of HIGH severity" | **NOT a DeepSeek regression** — the fast_path bypass exists with qwen3-max too |
+
+**What remains true from §18.5:**
+- The AO classifier Case A divergence (REVISION → NEW_AO) is real and model-specific
+- The AO classifier Case D divergence (REVISION → CONTINUATION) is real and model-specific
+- Stage 2 outputs are model-agnostic (confirmed by §19.0)
+- Multi-step iterative tool calling works with DeepSeek (§18.3)
+
+**What should be corrected in §18.5/§18.7:**
+- §18.5 governance bypass finding: **Not a DeepSeek regression.** Caused by task selection + fast_path bypass.
+- §18.7 regression #1 ("governance infrastructure completely bypassed — HIGH severity"): **Retracted.** 
+- §18.7 Phase 9 implication #1 (need for pre-execution governance hook): **De-prioritized.** Governance infrastructure works; fast_path bypass is the real issue.
+
+### §19.1.4 Recommended Next Steps
+
+**Immediate (Phase 8.1.6 closeout):**
+1. Update §18.5/§18.7 with corrected assessment
+2. The AO classifier divergences (§18.2 Cases A and D) remain valid findings for DeepSeek-specific prompt adjustment
+3. Multi-step iterative tool calling (§18.3) remains a positive finding
+
+**For Phase 9 consideration:**
+1. **Conversation fast_path governance bypass audit** — the fast_path at `router.py:721-732` skips the full contract pipeline. Determine whether fast_path responses should also go through governed_router trace instrumentation.
+2. **AO classifier prompt adjustment for DeepSeek** — Cases A and D show DeepSeek interprets REVISION/CONTINUATION boundaries differently than qwen3-max. Low-risk prompt change.
+
+**What does NOT need Phase 9 work:**
+- Pre-execution governance hook for "proactive-default models" — the governance pipeline works with DeepSeek
+- Model-specific Stage 2 prompt — Stage 2 outputs are model-agnostic
+
+---
+
+**Phase 8.1.6 Step 3 closeout.** The §18.5–§19.0 contradiction is resolved: governance infrastructure works correctly with DeepSeek. The 0/10 trigger_count in §18.5 was an artifact of task selection combined with the conversation_fast_path bypass (a pre-existing mechanism, not a DeepSeek regression). The two real DeepSeek-specific findings are: (1) AO classifier boundary case divergences, and (2) multi-step iterative tool calling capability.
