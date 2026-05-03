@@ -256,6 +256,66 @@ class GovernedRouter:
                 result = interception.response or RouterResponse(text="")
                 break
 
+        # ── Phase 8.1.4c: record PCM advisory and projected chain traces ──
+        if trace is not None:
+            # PCM advisory injected (from clarification contract)
+            clarification_state = dict(context.metadata.get("clarification") or {})
+            pcm_telemetry = clarification_state.get("telemetry")
+            if isinstance(pcm_telemetry, dict):
+                pcm_advisory = pcm_telemetry.get("pcm_advisory")
+                if isinstance(pcm_advisory, dict):
+                    trace.setdefault("steps", []).append({
+                        "step_type": "pcm_advisory_injected",
+                        "action": "pcm_advisory_stage2_injection",
+                        "input_summary": {
+                            "source": "clarification_contract",
+                            "collection_mode_active": pcm_advisory.get("collection_mode_active"),
+                        },
+                        "output_summary": {
+                            "unfilled_optionals": pcm_advisory.get("unfilled_optionals_without_default", []),
+                            "runtime_defaults_available": list(
+                                (pcm_advisory.get("runtime_defaults_available") or {}).keys()
+                            ),
+                            "suggested_probe_slot": pcm_advisory.get("suggested_probe_slot"),
+                        },
+                    })
+
+            # Projected chain generated (from intent resolution contract)
+            tool_intent = context.metadata.get("tool_intent")
+            if isinstance(tool_intent, dict) or hasattr(tool_intent, "projected_chain"):
+                chain = (
+                    list(tool_intent.get("projected_chain") or [])
+                    if isinstance(tool_intent, dict)
+                    else list(getattr(tool_intent, "projected_chain", []) or [])
+                )
+                resolved_tool = (
+                    tool_intent.get("resolved_tool")
+                    if isinstance(tool_intent, dict)
+                    else getattr(tool_intent, "resolved_tool", None)
+                )
+                resolved_by = (
+                    tool_intent.get("resolved_by")
+                    if isinstance(tool_intent, dict)
+                    else getattr(tool_intent, "resolved_by", None)
+                )
+                if chain:
+                    trace.setdefault("steps", []).append({
+                        "step_type": "projected_chain_generated",
+                        "action": "chain_resolution",
+                        "output_summary": {
+                            "chain": chain,
+                            "chain_length": len(chain),
+                            "resolved_tool": resolved_tool,
+                            "source": resolved_by or "unknown",
+                        },
+                    })
+                    context.metadata["projected_chain"] = {
+                        "chain": chain,
+                        "chain_length": len(chain),
+                        "source": resolved_by or "unknown",
+                    }
+        # ── End Phase 8.1.4c contract traces ────────────────────────────
+
         # Phase 6.1: idempotency pre-check before any tool dispatch
         if result is None and bool(getattr(self.runtime_config, "enable_execution_idempotency", False)):
             idem_block = self._check_pre_dispatch_idempotency(context)
@@ -909,6 +969,43 @@ class GovernedRouter:
         if tool_name and p1.missing_required:
             b_result = filter_stage2_missing_required(tool_name, p1.missing_required)
 
+        # ── Phase 8.1.4c: B validator filter trace ──────────────────────
+        if b_result is not None and trace is not None:
+            filter_payload = {
+                "tool_name": tool_name,
+                "original_missing_required": b_result.original_slots,
+                "grounded_slots": b_result.grounded_slots,
+                "dropped_slots": b_result.dropped_slots,
+                "dropped_reasons": b_result.dropped_reasons,
+                "is_contract_found": b_result.is_contract_found,
+                "source": "stage2_missing_required",
+            }
+            trace.setdefault("steps", []).append({
+                "step_type": "b_validator_filter",
+                "action": "contract_grounding",
+                "input_summary": {"source": "filter_stage2_missing_required", "tool_name": tool_name},
+                "output_summary": filter_payload,
+            })
+            context.metadata["b_validator_filter"] = filter_payload
+        # ── End B validator filter trace ────────────────────────────────
+
+        # ── Phase 8.1.4c: reconciler invoked trace ──────────────────────
+        if trace is not None:
+            trace.setdefault("steps", []).append({
+                "step_type": "reconciler_invoked",
+                "action": "reconciler_enter",
+                "input_summary": {
+                    "p1_decision": p1.decision_value,
+                    "p1_confidence": p1.decision_confidence,
+                    "p1_f1_valid": p1.f1_valid,
+                    "p1_missing_required": list(p1.missing_required),
+                    "p2_missing_required": list(p2.get("missing_required") or []),
+                    "p3_disposition": p3.disposition,
+                    "b_result_present": b_result is not None,
+                },
+            })
+        # ── End reconciler invoked trace ─────────────────────────────────
+
         reconciled = reconcile(p1, p2, p3, b_result=b_result, tool_name=tool_name)
 
         # Store reconciled decision in metadata for trace/debug
@@ -926,6 +1023,20 @@ class GovernedRouter:
         if not value:
             value = str(decision.get("value") or "").strip().lower()
         # ── End A reconciler block ─────────────────────────────────────
+
+        # ── Phase 8.1.4c: reconciler proceed trace ──────────────────────
+        if value == "proceed" and trace is not None:
+            trace.setdefault("steps", []).append({
+                "step_type": "reconciler_proceed",
+                "action": "reconciler_decision",
+                "output_summary": {
+                    "decision_value": value,
+                    "applied_rule_id": reconciled.applied_rule_id,
+                    "reasoning": reconciled.reasoning,
+                },
+                "confidence": 1.0,
+            })
+        # ── End reconciler proceed trace ─────────────────────────────────
 
         if value == "proceed":
             # Cross-constraint preflight (design §5.2):

@@ -114,6 +114,11 @@ class TraceStepType(str, Enum):
     REPLY_GENERATION = "reply_generation"
     ERROR = "error"
     IDEMPOTENT_SKIP = "idempotent_skip"
+    RECONCILER_INVOKED = "reconciler_invoked"
+    RECONCILER_PROCEED = "reconciler_proceed"
+    B_VALIDATOR_FILTER = "b_validator_filter"
+    PCM_ADVISORY_INJECTED = "pcm_advisory_injected"
+    PROJECTED_CHAIN_GENERATED = "projected_chain_generated"
 
 
 @dataclass

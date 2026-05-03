@@ -63,6 +63,18 @@ NEGOTIATION_COMPLETION_STEPS = frozenset({
     "input_completion_rejected", "input_completion_failed",
     "input_completion_applied", "input_completion_paused",
 })
+
+# Phase 8.1.4c: governance trace step types included in eval logs.
+GOVERNANCE_TRACE_STEPS = frozenset({
+    "reconciler_invoked", "reconciler_proceed",
+    "b_validator_filter",
+    "pcm_advisory_injected",
+    "projected_chain_generated",
+    "decision_field_clarify",
+})
+
+# Combined set for trace_steps serialization.
+ALL_SERIALIZED_STEP_TYPES = NEGOTIATION_COMPLETION_STEPS | GOVERNANCE_TRACE_STEPS
 LEGACY_NEEDS_USER_STAGE = {
     "NEEDS_INPUT_COMPLETION",
     "NEEDS_PARAMETER_CONFIRMATION",
@@ -843,6 +855,28 @@ def _merge_trace_payloads(trace_payloads: List[Dict[str, Any]]) -> Dict[str, Any
             merged_item = dict(item)
             merged_item.setdefault("eval_router_turn", turn_index)
             clarification_telemetry.append(merged_item)
+    # Phase 8.1.4c: propagate per-turn governance metadata from last turn.
+    last_payload = trace_payloads[-1]
+    reconciled_decisions: List[Dict[str, Any]] = []
+    b_validator_filters: List[Dict[str, Any]] = []
+    projected_chains: List[Dict[str, Any]] = []
+    for turn_index, payload in enumerate(trace_payloads, start=1):
+        rd = payload.get("reconciled_decision")
+        if isinstance(rd, dict):
+            rd_with_turn = dict(rd)
+            rd_with_turn.setdefault("eval_router_turn", turn_index)
+            reconciled_decisions.append(rd_with_turn)
+        bf = payload.get("b_validator_filter")
+        if isinstance(bf, dict):
+            bf_with_turn = dict(bf)
+            bf_with_turn.setdefault("eval_router_turn", turn_index)
+            b_validator_filters.append(bf_with_turn)
+        pc = payload.get("projected_chain")
+        if isinstance(pc, dict):
+            pc_with_turn = dict(pc)
+            pc_with_turn.setdefault("eval_router_turn", turn_index)
+            projected_chains.append(pc_with_turn)
+
     return {
         "steps": merged_steps,
         "final_stage": trace_payloads[-1].get("final_stage"),
@@ -851,6 +885,9 @@ def _merge_trace_payloads(trace_payloads: List[Dict[str, Any]]) -> Dict[str, Any
         "ao_lifecycle_events": ao_lifecycle_events,
         "block_telemetry": block_telemetry,
         "clarification_telemetry": clarification_telemetry,
+        "reconciled_decision": reconciled_decisions[-1] if reconciled_decisions else last_payload.get("reconciled_decision"),
+        "b_validator_filter": b_validator_filters[-1] if b_validator_filters else last_payload.get("b_validator_filter"),
+        "projected_chain": projected_chains[-1] if projected_chains else last_payload.get("projected_chain"),
     }
 
 
@@ -1148,10 +1185,13 @@ def _build_task_result(
         "clarification_telemetry": list((trace_payload or {}).get("clarification_telemetry") or []),
         "trace_steps": [
             {k: v for k, v in step.items()
-             if k in ("step_type", "input_summary", "eval_router_turn")}
+             if k in ("step_type", "input_summary", "output_summary", "action", "confidence", "eval_router_turn")}
             for step in (trace_payload or {}).get("steps", [])
-            if step.get("step_type") in NEGOTIATION_COMPLETION_STEPS
+            if step.get("step_type") in ALL_SERIALIZED_STEP_TYPES
         ],
+        "reconciled_decision": (trace_payload or {}).get("reconciled_decision"),
+        "b_validator_filter": (trace_payload or {}).get("b_validator_filter"),
+        "projected_chain": (trace_payload or {}).get("projected_chain"),
         "llm_reply_parser_stats_snapshot": get_call_stats(),
         "rate_limit_wait_ms": round(float((task_runtime_telemetry or {}).get("rate_limit_wait_ms") or 0.0), 2),
         "cache_hits": int((task_runtime_telemetry or {}).get("cache_hits") or 0),

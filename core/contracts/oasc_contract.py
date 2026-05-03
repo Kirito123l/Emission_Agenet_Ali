@@ -106,6 +106,7 @@ class OASCContract(BaseContract):
             classifier_ms,
             classifier_telemetry=self.classifier.telemetry_slice(classifier_telemetry_start),
             ao_lifecycle_events=self.ao_manager.telemetry_slice(ao_telemetry_start),
+            context=context,
         )
 
     def _refresh_split_execution_continuation(
@@ -662,6 +663,7 @@ class OASCContract(BaseContract):
         *,
         classifier_telemetry: List[Dict[str, Any]],
         ao_lifecycle_events: List[Dict[str, Any]],
+        context: Any = None,
     ) -> None:
         trace_obj = result.trace if isinstance(result.trace, dict) else None
         if trace_obj is None:
@@ -690,3 +692,23 @@ class OASCContract(BaseContract):
         trace_obj["classifier_telemetry"] = list(classifier_telemetry or [])
         trace_obj["ao_lifecycle_events"] = list(ao_lifecycle_events or [])
         trace_obj["block_telemetry"] = [dict(block_entry)] if isinstance(block_entry, dict) else []
+
+        # ── Phase 8.1.4c: serialize governance metadata to trace payload ──
+        if context is not None:
+            ctx_meta = getattr(context, "metadata", None)
+            if isinstance(ctx_meta, dict):
+                # Reconciler decision metadata
+                reconciled = ctx_meta.get("reconciled_decision")
+                if isinstance(reconciled, dict):
+                    trace_obj["reconciled_decision"] = reconciled
+
+                # B validator filter metadata
+                b_filter = ctx_meta.get("b_validator_filter")
+                if isinstance(b_filter, dict):
+                    trace_obj["b_validator_filter"] = b_filter
+
+                # Projected chain metadata
+                projected_chain = ctx_meta.get("projected_chain")
+                if isinstance(projected_chain, dict):
+                    trace_obj["projected_chain"] = projected_chain
+        # ── End Phase 8.1.4c metadata serialization ──────────────────────
