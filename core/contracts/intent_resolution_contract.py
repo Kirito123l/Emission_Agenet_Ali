@@ -228,7 +228,7 @@ class IntentResolutionContract(SplitContractSupport):
                 proceed=False,
                 response=RouterResponse(
                     text="",
-                    trace_friendly=[{"step_type": "clarification", "summary": "clarify tool intent"}],
+                    trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": "clarify tool intent"}],
                 ),
                 metadata={
                     "clarification": {"telemetry": telemetry},

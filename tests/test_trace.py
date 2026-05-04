@@ -834,3 +834,56 @@ class TestTrace:
         assert friendly[1]["step_type"] == "tool_selection"
         assert friendly[2]["step_type"] == "tool_execution"
         assert friendly[3]["step_type"] == "synthesis"
+
+
+class TestTraceFriendlyFieldNaming:
+    """Phase 8.2.5 G6: trace_friendly items must have 'type' and 'latency_ms' fields."""
+
+    def test_friendly_items_have_type_field(self):
+        """Every trace_friendly item carries 'type' for frontend consumption."""
+        t = Trace()
+        t.record(
+            step_type=TraceStepType.FILE_GROUNDING,
+            stage_before="INPUT_RECEIVED",
+            output_summary={"task_type": "csv", "row_count": 10},
+            confidence=0.95,
+        )
+        t.record(
+            step_type=TraceStepType.TOOL_EXECUTION,
+            stage_before="EXECUTING",
+            stage_after="DONE",
+            duration_ms=1234.5,
+        )
+        friendly = t.to_user_friendly()
+        assert len(friendly) == 2
+        for item in friendly:
+            assert "type" in item, f"missing 'type' field in {item}"
+            assert item["type"] == item.get("step_type", ""), (
+                f"'type' ({item['type']}) != 'step_type' ({item.get('step_type')})"
+            )
+
+    def test_friendly_items_have_latency_ms_when_duration_present(self):
+        """trace_friendly carries latency_ms (integer ms) when duration_ms is set."""
+        t = Trace()
+        t.record(
+            step_type=TraceStepType.TOOL_EXECUTION,
+            stage_before="EXECUTING",
+            stage_after="DONE",
+            duration_ms=987.6,
+        )
+        t.record(
+            step_type=TraceStepType.SYNTHESIS,
+            stage_before="EXECUTING",
+            stage_after="DONE",
+            # duration_ms not set
+        )
+        friendly = t.to_user_friendly()
+        assert len(friendly) == 2
+        # Item with duration_ms
+        assert "latency_ms" in friendly[0], "missing latency_ms when duration_ms is set"
+        assert friendly[0]["latency_ms"] == 987
+        assert isinstance(friendly[0]["latency_ms"], int)
+        # Item without duration_ms
+        assert "latency_ms" not in friendly[1], (
+            "latency_ms should be absent when duration_ms is None"
+        )

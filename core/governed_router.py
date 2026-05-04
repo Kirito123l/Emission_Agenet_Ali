@@ -434,18 +434,21 @@ class GovernedRouter:
         if result.trace is None:
             result.trace = trace_target
         if isinstance(result.trace_friendly, list):
-            result.trace_friendly.append(
-                {
-                    "title": "回复生成 / Reply Generation",
-                    "description": (
-                        "LLM reply parser generated final reply"
-                        if (metadata or {}).get("mode") == "llm"
-                        else "Router-rendered reply kept as legacy/fallback output"
-                    ),
-                    "status": "warning" if (metadata or {}).get("fallback") else "success",
-                    "step_type": "reply_generation",
-                }
-            )
+            entry = {
+                "title": "回复生成 / Reply Generation",
+                "description": (
+                    "LLM reply parser generated final reply"
+                    if (metadata or {}).get("mode") == "llm"
+                    else "Router-rendered reply kept as legacy/fallback output"
+                ),
+                "status": "warning" if (metadata or {}).get("fallback") else "success",
+                "type": "reply_generation",
+                "step_type": "reply_generation",
+            }
+            reply_latency = (metadata or {}).get("latency_ms")
+            if reply_latency is not None:
+                entry["latency_ms"] = int(reply_latency)
+            result.trace_friendly.append(entry)
 
     def _build_constraint_violation_writer(self) -> ConstraintViolationWriter:
         return ConstraintViolationWriter(
@@ -1083,7 +1086,7 @@ class GovernedRouter:
                         "参数组合存在冲突：\n" + "\n".join(violation_msgs)
                         + "\n\n请调整参数后重试。"
                     )
-                    trace_friendly = [{"step_type": "cross_constraint_violation", "summary": violation_text[:200]}]
+                    trace_friendly = [{"type": "cross_constraint_violation", "step_type": "cross_constraint_violation", "summary": violation_text[:200]}]
                     if trace is not None:
                         trace.setdefault("steps", []).append({
                             "step_type": "cross_constraint_violation",
@@ -1111,7 +1114,7 @@ class GovernedRouter:
                 question = f"请提供以下必需参数：{missing_names}"
             if not question:
                 return None
-            trace_friendly = [{"step_type": "clarification", "summary": question}]
+            trace_friendly = [{"type": "clarification", "step_type": "clarification", "summary": question}]
             if trace is not None:
                 trace.setdefault("steps", []).append({
                     "step_type": "decision_field_clarify",
@@ -1137,7 +1140,7 @@ class GovernedRouter:
             ).strip()
             if not reasoning:
                 return None
-            trace_friendly = [{"step_type": "clarification", "summary": reasoning}]
+            trace_friendly = [{"type": "clarification", "step_type": "clarification", "summary": reasoning}]
             if trace is not None:
                 trace.setdefault("steps", []).append({
                     "step_type": "decision_field_deliberate",

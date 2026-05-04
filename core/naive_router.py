@@ -166,6 +166,7 @@ class NaiveRouter:
             trace=trace_payload,
             trace_friendly=[
                 {
+                    "type": "tool_execution",
                     "step_type": "tool_execution",
                     "description": f"{call.get('name')}: {'success' if call.get('result', {}).get('success') else 'failed'}",
                 }

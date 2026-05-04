@@ -455,7 +455,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                     proceed=False,
                     response=RouterResponse(
                         text=question,
-                        trace_friendly=[{"step_type": "clarification", "summary": question}],
+                        trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": question}],
                     ),
                     metadata={"clarification": {"telemetry": telemetry}},
                 )
@@ -515,7 +515,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                 proceed=False,
                 response=RouterResponse(
                     text="",
-                    trace_friendly=[{"step_type": "clarification", "summary": "scope framing"}],
+                    trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": "scope framing"}],
                 ),
                 metadata={
                     "clarification": {"telemetry": telemetry},
@@ -650,7 +650,7 @@ class ExecutionReadinessContract(SplitContractSupport):
                         proceed=False,
                         response=RouterResponse(
                             text=question,
-                            trace_friendly=[{"step_type": "clarification", "summary": question}],
+                            trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": question}],
                         ),
                         metadata={"clarification": {"telemetry": telemetry}},
                     )

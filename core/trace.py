@@ -272,13 +272,16 @@ class Trace:
     def to_user_friendly(self) -> List[Dict[str, str]]:
         """Convert to user-friendly display format for frontend trace panel.
 
-        Returns a list of {title, description, status, step_type} dicts.
+        Returns a list of {title, description, status, type, step_type, latency_ms} dicts.
         Title and description are bilingual (Chinese / English).
         """
         friendly = []
         for step in self.steps:
             entry = self._format_step_friendly(step)
             if entry:
+                entry.setdefault("type", entry.get("step_type", ""))
+                if step.duration_ms is not None:
+                    entry["latency_ms"] = int(step.duration_ms)
                 friendly.append(entry)
         return friendly
 

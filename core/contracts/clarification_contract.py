@@ -541,7 +541,7 @@ class ClarificationContract(BaseContract):
                     tool_name=tool_name,
                     snapshot=snapshot,
                 ),
-                trace_friendly=[{"step_type": "clarification", "summary": question or ""}],
+                trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": question or ""}],
             )
             legal_map: Dict[str, list] = {}
             for slot_name in pending_slots:
