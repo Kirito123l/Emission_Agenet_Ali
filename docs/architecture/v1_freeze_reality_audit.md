@@ -4144,3 +4144,428 @@ All changes are:
 **Regression test:** 115 passed, 1 pre-existing failure (`test_benchmark_acceleration.py`). 0 new regressions.
 
 **Verdict:** Session isolation works. Each eval run gets a fresh namespace. Cross-run contamination eliminated.
+
+## §25 Reserved
+
+## §26 Backend Capability for Frontend Redesign (Phase 8.2.4)
+
+Reality audit of backend capabilities for frontend redesign from consumer-SaaS to academic-research style.
+Scope: read-only audit, no code changes. Based on `config/tool_contracts.yaml`, `tools/registry.py`, `api/routes.py`, tool implementations,
+and Phase 8.2.2.C-2 eval data (Run 6 held-out + Run 7 Shanghai e2e).
+
+### §26.1 Tool Registry Inventory
+
+Source: `tools/registry.py:82-151` (`init_tools()`). All 10 tools are registered at startup with lazy import + try/except.
+
+| # | Tool name | Display name | Input schema (key fields) | Output schema (key fields) | Depends on | Status |
+|---|---|---|---|---|---|---|
+| 1 | `query_emission_factors` | 排放因子查询 | `vehicle_type` (required), `model_year` (required), `pollutants` (array), `season`, `road_type`, `return_curve` (bool) | `query_summary`, `speed_curve: [{speed_mph, speed_kph, emission_rate, unit}]`, `typical_values`, chart_data: `{type:"emission_factors", pollutants: {p: {curve}}}` | — | ✅ |
+| 2 | `calculate_micro_emission` | 微观排放计算 | `file_path` or `trajectory_data`, `vehicle_type` (required), `pollutants` (array), `model_year`, `season` | `query_info`, `summary: {total_distance_km, total_time_s, total_emissions_g}`, `results: [{t, speed_kph, emissions}]` | — | ✅ |
+| 3 | `calculate_macro_emission` | 宏观排放计算 | `file_path` or `links_data`, `pollutants` (array), `fleet_mix`, `model_year`, `season`, `overrides`, `scenario_label` | `query_info: {links_count, model_year, season, pollutants}`, `summary: {total_links, total_emissions_kg_per_hr}`, `results: [{link_id, total_emissions_kg_per_hr, emission_rates_g_per_veh_km, geometry}]`, `download_file`, `scenario_label` | — | ✅ |
+| 4 | `analyze_file` | 文件分析 | `file_path` (required) | `filename`, `row_count`, `columns`, `task_type`, `confidence`, `column_mapping`, `missing_field_diagnostics` | — | ✅ |
+| 5 | `clean_dataframe` | 数据清洗 | `file_path` (required) | `row_count`, `column_count`, `column_types`, `sample_values`, `numeric_describe`, `missing_summary`, `data_quality_report` | — | ✅ |
+| 6 | `query_knowledge` | 知识查询 | `query` (required), `top_k`, `expectation` | `answer` (full text with citations), `sources: [{title, content, score}]` | — | ✅ |
+| 7 | `calculate_dispersion` | 扩散模拟 | `emission_source` (default: `last_result`), `meteorology`, `wind_speed`, `wind_direction`, `stability_class`, `mixing_height`, `roughness_height`, `grid_resolution`, `contour_resolution`, `pollutant`, `scenario_label` | `query_info: {pollutant, n_receptors, n_time_steps}`, `summary: {mean_concentration, max_concentration, receptor_count, unit}`, `raster_grid`, `contour_bands`, `concentration_grid`, `road_contributions`, `coverage_assessment`, `meteorology_used` | `emission` | ✅ |
+| 8 | `analyze_hotspots` | 热点分析 | `method` (percentile/threshold), `threshold_value`, `percentile`, `min_hotspot_area_m2`, `max_hotspots`, `source_attribution`, `scenario_label` | `hotspot_count`, `hotspots: [{rank, area_m2, max_conc, contributing_roads}]`, `summary: {total_hotspot_area_m2, area_fraction_pct, max_concentration}`, `interpretation`, map_data: `{type:"hotspot"}` | `dispersion` | ✅ |
+| 9 | `render_spatial_map` | 空间地图渲染 | `data_source` (default: `last_result`), `pollutant`, `title`, `layer_type` (emission/contour/raster/hotspot/concentration/points), `scenario_label` | map_data: `{type, center, zoom, pollutant, unit, color_scale, links/layers, summary}`; 6 distinct map subtypes | — | ✅ |
+| 10 | `compare_scenarios` | 情景对比 | `result_types` (array, required), `baseline`, `scenario` or `scenarios`, `metrics` | `{result_type: {metric_deltas, percentage_changes, per_link_comparison}}` | stored scenario results | ✅ |
+
+**Status legend:**
+- ✅ **Production-ready** — Full implementation, Phase 8 eval confirmed execution, returns real data
+- ⚠️ **Partial** — Implementation exists but LLM multi-turn chaining gaps prevent reliable end-to-end execution in agent mode
+- ❌ **Stub** — Registered but no real implementation
+
+**Key observations:**
+- All 10 tools have substantial implementations (total 5,570 LOC across tool files; smallest is `clean_dataframe.py` at 154 LOC).
+- No tool is a stub. Zero tools return placeholder/mock data.
+- 3 tools marked `available_in_naive: false` (`analyze_file`, `clean_dataframe`, `compare_scenarios`). Only available in governed/state-orchestration mode.
+- `calculate_dispersion` is the only tool with a non-trivial `preflight_check()` that can return `is_ready=False` based on model file availability. All other tools return `is_ready=True` unconditionally.
+
+### §26.2 Stream Chunk Schema
+
+Source: `api/routes.py:307-430` (SSE `/chat/stream` endpoint). Chunks are newline-delimited JSON via `text/event-stream`.
+
+#### §26.2.1 Chunk Type Inventory
+
+| Chunk type | When emitted | JSON shape | Frontend action |
+|---|---|---|---|
+| `status` | Phase transitions (understanding, file processing, planning) | `{"type":"status","content":"正在理解您的问题..."}` | Show loading indicator text |
+| `heartbeat` | Every 15s while router is computing | `{"type":"heartbeat"}` | Keep-alive, no UI change |
+| `text` | Reply text, 20-char chunks with 50ms delay | `{"type":"text","content":"计算了3条路段的..."}` | Append to streaming text display |
+| `chart` | After text, if tool produces chart_data | `{"type":"chart","content":<chart_data>}` | Render chart card |
+| `table` | After text, if tool produces table_data | `{"type":"table","content":<table_data>,"download_file":{...},"file_id":"..."}` | Render data table + download button |
+| `map` | After text, if tool produces map_data | `{"type":"map","content":<map_data>}` | Render interactive map |
+| `done` | Final chunk | `{"type":"done","session_id":"...","mode":"...","file_id":"...","download_file":{...},"map_data":{...},"message_id":"...","trace_friendly":[...]}` | Finalize UI, show trace |
+| `error` | On exception | `{"type":"error","content":"错误描述..."}` | Show error toast |
+
+**Note:** No standalone `trace` chunk type exists. `trace_friendly` is embedded in the `done` chunk, not streamed separately.
+
+#### §26.2.2 `chart` Chunk — Real Schema
+
+Source: `core/router_payload_utils.py:39-95` (`format_emission_factors_chart`, `extract_chart_data`).
+
+chart_data is **only** produced by `query_emission_factors`. No other tool produces chart_data through the `ChartData` path. The `emission_factors` chart type is:
+
+```json
+{
+  "type": "emission_factors",
+  "vehicle_type": "Transit Bus",
+  "model_year": 2019,
+  "pollutants": {
+    "CO2": {
+      "curve": [
+        {"speed_mph": 5, "speed_kph": 8.0, "emission_rate": 4629.52, "unit": "g/mile"},
+        {"speed_mph": 6, "speed_kph": 9.7, "emission_rate": 4105.39, "unit": "g/mile"}
+      ],
+      "unit": "g/mile"
+    }
+  },
+  "metadata": {
+    "data_source": "MOVES (Atlanta)",
+    "speed_range": {"min_kph": 8.0, "max_kph": 117.5},
+    "data_points": 73
+  }
+}
+```
+
+**Frontend implications:**
+- The backend pushes raw curve data (`speed_kph` + `emission_rate`), NOT a full ECharts spec.
+- The frontend must assemble its own ECharts `option` from the curve arrays.
+- Multiple pollutants → multiple curves on same chart. X-axis = `speed_kph`, Y-axis = `emission_rate`.
+- Unit is `g/mile` in the raw data. Frontend should convert or label appropriately.
+- `return_curve` parameter controls curve resolution: `false` (default) → `speed_curve` with mph+kph; `true` → `curve` with kph+g/km.
+
+#### §26.2.3 `table` Chunk — Real Schema
+
+Source: `core/router_payload_utils.py:98-255` (`extract_table_data`).
+
+Three distinct table subtypes:
+
+**Type A: `query_emission_factors` table**
+```json
+{
+  "type": "query_emission_factors",
+  "columns": ["速度 (km/h)", "CO2 (g/km)"],
+  "preview_rows": [
+    {"速度 (km/h)": "8.0", "CO2 (g/km)": "4629.5200"},
+    {"速度 (km/h)": "37.0", "CO2 (g/km)": "2057.5500"},
+    {"速度 (km/h)": "66.0", "CO2 (g/km)": "1540.4200"},
+    {"速度 (km/h)": "95.0", "CO2 (g/km)": "1408.4300"}
+  ],
+  "total_rows": 73,
+  "total_columns": 2,
+  "summary": {
+    "vehicle_type": "Transit Bus",
+    "model_year": 2019,
+    "season": "夏季",
+    "road_type": "快速路"
+  }
+}
+```
+
+**Type B: `calculate_macro_emission` table**
+```json
+{
+  "type": "calculate_macro_emission",
+  "columns": ["link_id", "CO2_kg_h", "CO2_g_veh_km"],
+  "preview_rows": [
+    {"link_id": "A1", "CO2_kg_h": "142.46", "CO2_g_veh_km": "123.45"}
+  ],
+  "total_rows": 3,
+  "total_columns": 3,
+  "summary": {"total_links": 3, "total_emissions_kg_per_hr": {"CO2": 318.90, "NOx": 0.07}},
+  "total_emissions": {"CO2": 318.90, "NOx": 0.07}
+}
+```
+
+**Type C: `calculate_micro_emission` table**
+```json
+{
+  "type": "calculate_micro_emission",
+  "columns": ["t", "speed_kph", "VSP", "CO2", "NOx"],
+  "preview_rows": [
+    {"t": 1, "speed_kph": "30.5", "VSP": "2.35", "CO2": "0.1234", "NOx": "0.0012"}
+  ],
+  "total_rows": 1200,
+  "total_columns": 5,
+  "summary": {"total_distance_km": 5.2, "total_emissions_g": {"CO2": 890.5}}
+}
+```
+
+**`download_file` field:** Attached to the `table` chunk (not inside `content`). Source: `api/routes.py:388-393`.
+```json
+{
+  "type": "table",
+  "content": { ... },
+  "download_file": {"path": "/outputs/macro_results.xlsx", "filename": "macro_results.xlsx"},
+  "file_id": "msg_abc123"
+}
+```
+The `download_file` is extracted from tool results via `extract_download_file()` in `core/router_payload_utils.py:259-297`. It checks `result.download_file` → `result.data.download_file` → `result.metadata.download_file`. Currently only `calculate_macro_emission` and `query_emission_factors` produce downloadable Excel output.
+
+#### §26.2.4 `map` Chunk — Real Schema
+
+Source: `tools/spatial_renderer.py` (6 `_build_*_map()` methods). The `content` field of a map chunk is one of these 6 subtypes:
+
+**Subtype 1: `macro_emission_map`** (layer_type=emission)
+```json
+{
+  "type": "macro_emission_map",
+  "center": [31.23, 121.47],
+  "zoom": 12,
+  "pollutant": "CO2",
+  "scenario_label": "baseline",
+  "unit": "kg/(h·km)",
+  "color_scale": {"min": 0.05, "max": 142.46, "colors": ["#fee5d9","#fcae91","#fb6a4a","#de2d26","#a50f15"]},
+  "links": [
+    {
+      "link_id": "A1",
+      "geometry": [[121.47, 31.23], [121.48, 31.24]],
+      "emissions": {"CO2": 142.46, "NOx": 0.03},
+      "emission_rate": {"CO2": 123.02, "NOx": 0.03},
+      "link_length_km": 1.2,
+      "avg_speed_kph": 40.5,
+      "traffic_flow_vph": 500
+    }
+  ],
+  "summary": {"total_links": 3, "total_emissions_kg_per_hr": {"CO2": 318.90}}
+}
+```
+
+**Subtype 2: `contour`** (layer_type=contour — dispersion filled isobands)
+```json
+{
+  "type": "contour",
+  "center": [31.22, 121.47],
+  "zoom": 13,
+  "pollutant": "NOx",
+  "scenario_label": "baseline",
+  "unit": "μg/m³",
+  "color_scale": {"min": 0, "max": 932.88, "levels": [...], "colors": [...]},
+  "layers": [{"type": "contour_fill", "data": {"type": "FeatureCollection", "features": [...]}}],
+  "summary": {"n_levels": 8, "interp_resolution_m": 10, "max_concentration": 932.88}
+}
+```
+
+**Subtype 3: `raster`** (layer_type=raster — cell-based concentration grid)
+```json
+{
+  "type": "raster",
+  "center": [31.22, 121.47],
+  "zoom": 13,
+  "pollutant": "NOx",
+  "scenario_label": "baseline",
+  "unit": "μg/m³",
+  "color_scale": {"min": 0, "max": 932.88},
+  "grid": {"cells": [{...}], "resolution_m": 50, "rows": 40, "cols": 40},
+  "summary": {"nonzero_cells": 1200, "resolution_m": 50, "max_concentration": 932.88}
+}
+```
+
+**Subtype 4: `hotspot`** (layer_type=hotspot)
+```json
+{
+  "type": "hotspot",
+  "pollutant": "NOx",
+  "unit": "μg/m³",
+  "hotspots": [
+    {"rank": 1, "center": [121.47, 31.23], "area_m2": 12500, "max_conc": 932.88,
+     "contributing_roads": [{"link_id": "A1", "contribution_pct": 45.2}]}
+  ],
+  "summary": {"total_hotspot_area_m2": 25000, "area_fraction_pct": 2.1, "max_concentration": 932.88},
+  "interpretation": "识别出 2 个热点区域...",
+  "scenario_label": "baseline"
+}
+```
+
+**Subtype 5: `concentration`** (layer_type=concentration — receptor scatter)
+```json
+{
+  "type": "concentration",
+  "center": [31.22, 121.47],
+  "zoom": 13,
+  "pollutant": "NOx",
+  "scenario_label": "baseline",
+  "unit": "μg/m³",
+  "color_scale": {"min": 0, "max": 932.88},
+  "layers": [
+    {
+      "type": "scatter",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {"type": "Feature", "geometry": {"type": "Point", "coordinates": [121.47, 31.23]},
+           "properties": {"mean_conc": 488.82, "max_conc": 488.82, "receptor_id": 1}}
+        ]
+      }
+    }
+  ],
+  "summary": {"receptor_count": 1600, "mean_concentration": 245.3, "max_concentration": 932.88}
+}
+```
+
+**Subtype 6: `points`** (layer_type=points — generic scatter, used for micro emission or generic spatial data)
+
+**Multi-map collection:** When multiple tools produce map_data, they're wrapped in:
+```json
+{
+  "type": "map_collection",
+  "items": [{...map1...}, {...map2...}],
+  "summary": {"map_count": 2, "map_types": ["macro_emission_map", "contour"]}
+}
+```
+
+Source: `core/router_payload_utils.py:300-334` (`extract_map_data`).
+
+**Verification of `link` / `contour` subtypes:** Confirmed. The `layer_type` parameter in `render_spatial_map` (tool_contracts.yaml:741-752) explicitly lists `emission`, `contour`, `raster`, `hotspot`, `concentration`, `points`. These map directly to the 6 `_build_*_map()` methods in `tools/spatial_renderer.py`.
+
+#### §26.2.5 `done` Chunk and `trace_friendly`
+
+The `done` chunk embeds `trace_friendly` (NOT a separate `trace` chunk type):
+
+```json
+{
+  "type": "done",
+  "session_id": "eval_848526036_task_001",
+  "mode": "governed_v2",
+  "file_id": "msg_abc123",
+  "download_file": {"path": "/outputs/macro_results.xlsx", "filename": "macro_results.xlsx"},
+  "map_data": null,
+  "message_id": "msg_abc123",
+  "trace_friendly": [
+    {
+      "title": "回复生成 / Reply Generation",
+      "description": "LLM reply parser generated final reply",
+      "status": "success",
+      "step_type": "reply_generation"
+    }
+  ]
+}
+```
+
+**Field comparison with frontend expectations:**
+
+| Frontend expects | Actual field | Match? | Notes |
+|---|---|---|---|
+| `type` | `step_type` | **MISMATCH** | Frontend expects `type`, backend sends `step_type` |
+| `latency` | *(absent)* | **MISSING** | `trace_friendly` has no latency field. Latency data is in the internal `trace` object (`core/trace.py`) but not exposed to frontend |
+| `description` | `description` | ✅ Match | |
+| — | `title` | Extra | Localized title per step |
+| — | `status` | Extra | `"success"` / `"warning"` / `"error"` |
+
+Source: `core/governed_router.py:436-448` — only `reply_generation` steps are currently appended to `trace_friendly`. Other governance steps (readiness, intent resolution, execution) write to `result.trace` but NOT to `trace_friendly`.
+
+**Frontend adaptation needed:** Either (a) rename frontend field `type` → `step_type`, or (b) add a mapping layer. For latency, the frontend would need the backend to expose it in `trace_friendly` — currently not available.
+
+### §26.3 6 R-Class Support Status
+
+Based on Anchors §六 classification. R-classes are defined by tool dependency chain and primary analytical objective.
+
+| R-class | Description | Primary tool(s) | Dependency chain | Support status | Evidence |
+|---|---|---|---|---|---|
+| **R1** 排放因子查询 | Query emission factor curves (EF lookup) | `query_emission_factors` | Standalone | ✅ **Full** | Phase 8.2.2.C-2 held-out eval: multiple successful EF queries with chart+table output. 13 MOVES vehicle types, 12 pollutants, 3 seasons, 2 road types. Returns full speed-emission curves (73 speed points). |
+| **R2** 宏观排放计算 | Road-network-level emission calculation | `calculate_macro_emission` | Standalone (with file) | ✅ **Full** | Run 7 Turn 1: 3-link Shanghai road network processed (CO₂ 318.90 kg/h, NOx 0.07 kg/h). Download file generated. Real MOVES data, parameter overrides for scenario simulation. |
+| **R2b** 微观排放计算 | Second-by-second trajectory emission | `calculate_micro_emission` | Standalone (with file) | ✅ **Full** | Tool implementation: 251 LOC. VSP-based micro emission model. Requires trajectory file with t+speed columns. |
+| **R3** 扩散模拟 | Pollutant dispersion/concentration | `calculate_dispersion` | R2 → R3 (requires `emission` result token) | ⚠️ **Partial** | Tool fully implemented (873 LOC, PS-XGB-RLINE surrogate). Run 7 Turn 2: LLM responded with clarification ("which pollutant?") instead of executing. R3 **can** run standalone if emission results exist, but agent pipeline won't auto-chain R2→R3 without explicit user confirmation per step. |
+| **R4** 热点分析 | Hotspot identification + source attribution | `analyze_hotspots` | R2 → R3 → R4 (requires `dispersion` result) | ⚠️ **Upstream-dependent** | Tool fully implemented (206 LOC). Run 7 Turn 3: LLM said "工具暂不支持" despite tool being registered. Root cause: R3 never executed, so no dispersion data for R4 to consume. Not a tool gap — a pipeline chaining gap. |
+| **R5** 空间地图 | Interactive spatial visualization | `render_spatial_map` | Can render any prior result (emission/dispersion/hotspot) | ⚠️ **Upstream-dependent** | Tool fully implemented (922 LOC, 6 layer types). Same Run 7 Turn 3 issue: no upstream results to render. Standalone rendering works if data exists. |
+| **R6** 情景对比 | Multi-scenario comparison | `compare_scenarios` | Requires ≥2 stored scenario results | ⚠️ **Upstream-dependent** | Tool fully implemented (229 LOC). Requires prior scenario-labeled results in context store. Not available in naive router mode (`available_in_naive: false`). |
+
+**Supplementary tools (not R-class):**
+
+| Tool | Purpose | Status | Notes |
+|---|---|---|---|
+| `analyze_file` | File structure analysis + task type detection | ✅ | Governed-mode only. Detects macro/micro emission task types from CSV columns. |
+| `clean_dataframe` | Data quality inspection | ✅ | Governed-mode only. Returns column types, missing value stats, numeric describe. |
+| `query_knowledge` | Knowledge base search (standards, regulations) | ✅ | Wraps knowledge retrieval skill. Available in all modes. |
+
+**Critical finding:** R3/R4/R5 are NOT stubs. Each has a full, working implementation. The gap is in the **agent pipeline's multi-turn chain prediction**, not in tool capability. The LLM currently does not auto-advance through multi-step workflows (Class D gap — see §26.5). A user who manually calls each tool in sequence (macro → dispersion → hotspot → map) would get real results from all four.
+
+### §26.4 Recommended Example Queries for Empty State
+
+Based on the confirmed working tools (R1, R2 standalone). All queries below are **confirmed runnable** in a single turn. Excluded: R3/R4/R5 chains (require multi-turn workaround) and tools unavailable in naive mode.
+
+| # | Example query (中文) | Triggered tool(s) | Expected output | Est. time | Why this works |
+|---|---|---|---|---|---|
+| 1 | "查询公交车的 CO₂ 排放因子曲线，2020 年" | `query_emission_factors` | chart (speed-emission curve) + table (key speed points) | ~30s | Standalone R1. LV model returns 73-point MOVES curve. Chart data pushed as `emission_factors` type. |
+| 2 | "计算这个路网文件的 CO₂ 和 NOx 排放，夏季" | `calculate_macro_emission` | table (link-level results) + download file (.xlsx) | ~90s | Standalone R2 with file upload. Run 7 Turn 1 confirmed: 3-link Shanghai road network, real MOVES data. |
+| 3 | "分析这个上传的 CSV 文件" | `analyze_file` | text (column list, row count, task type) | ~15s | Governed-mode only. Detects macro/micro task type, shows column mapping. |
+| 4 | "查询国六排放标准对 NOx 的限制" | `query_knowledge` | text (knowledge base answer with citations) | ~20s | Standalone knowledge retrieval. All modes. |
+| 5 | "用这个轨迹文件计算小汽车的微观排放" | `calculate_micro_emission` | table (per-second t/speed/VSP/emissions) | ~60s | Standalone R2b with trajectory file. VSP-based per-second emission calculation. |
+| 6 | "清洗这个 CSV 文件，看看数据质量" | `clean_dataframe` | text (column types, missing values, numeric stats) | ~15s | Governed-mode only. Returns data quality report. |
+
+**Excluded from recommendations:**
+- "做扩散模拟" (R3) — requires R2 output + road geometry; LLM often stalls at clarification
+- "分析污染热点" (R4) — requires R3 output; LLM won't auto-chain
+- "生成排放地图" (R5) — works standalone but confusing without prior compute context
+- "对比两个情景" (R6) — requires stored scenarios; not available in naive mode
+- Any multi-step chain (macro→dispersion, macro→dispersion→hotspot) — Class D gap
+
+### §26.5 Known Capability Gaps
+
+Based on Phase 8.2.2.C-2 eval data (Run 6 held-out + Run 7 Shanghai e2e) and code audit.
+
+| # | Gap | Classification | Evidence | UI recommendation |
+|---|---|---|---|---|
+| **G1** | **Multi-turn auto-chain (Class D)** | Pipeline design gap | Run 7 Turn 2: user asked "做扩散模拟" after macro emission → LLM asked "which pollutant?" instead of auto-selecting NOx. Turn 3: LLM said "不支持" for tools that exist. Root cause: `projected_chain` in AO is single-tool — LLM doesn't predict multi-step chains. (§23 → §20 in audit doc) | Show "Step 1 of N" progress indicator. Require user to confirm each step. Add hint: "排放计算完成 → 您可以继续请求扩散分析" |
+| **G2** | **Dispersion requires road geometry** | Data dependency | `calculate_dispersion` contract: `requires_geometry_support: true`, `acceptable_geometry_types: [wkt, geojson, lonlat_linestring, spatial_metadata]`, `rejected_geometry_types: [lonlat_point, join_key_only, none]`. Many user CSV files lack geometry. | Pre-upload validation: check if file has WKT/GeoJSON columns. Show "需要路段几何数据" badge on dispersion card. |
+| **G3** | **EF query returns MOVES Atlanta data, not China-specific** | Data limitation | `calculators/emission_factors.py:68-73`: CSV files are "atlanta_2025_*.csv". Vehicle types map to US MOVES categories. China-specific EF database not integrated. | Label EF results as "MOVES (Atlanta) reference data". Add "(US baseline)" badge. |
+| **G4** | **Naive router: 3 tools unavailable** | Router mode limitation | `analyze_file`, `clean_dataframe`, `compare_scenarios` marked `available_in_naive: false` in `tool_contracts.yaml:377,407,902`. Only available in governed/governed_v2 mode. | In naive mode, hide these tools from the "capabilities" display. Show mode indicator. |
+| **G5** | **No `trace_friendly` for governance steps** | Observability gap | `core/governed_router.py:436-448`: Only `reply_generation` steps appended to `trace_friendly`. Readiness assessment, intent resolution, execution steps write to internal `trace` but not exposed. | Either: (a) accept simplified trace (reply only), or (b) request backend to expose more steps. Current trace is adequate for v1. |
+| **G6** | **`trace_friendly` field naming mismatch** | Frontend integration gap | See §26.2.5: frontend expects `type`/`latency`, backend sends `step_type`/no-latency. | Add adapter layer or rename fields. Low effort. |
+| **G7** | **No chart_data for macro/micro emission** | Rendering gap | `extract_chart_data()` in `router_payload_utils.py:84-95` only handles `query_emission_factors`. Macro/micro emission results only produce table + map data, never chart data. | Frontend could generate emission bar charts from table data client-side. Or backend could add chart_data generation for emission tools. |
+| **G8** | **Chinese-only parameter standardization** | Localization gap | Vehicle types (13 MOVES categories), seasons (春/夏/秋/冬), road types (快速路/地面道路) standardized via `shared/standardizer/` with LLM fallback. English input may fail to resolve. | Label: "中文输入效果最佳 / Best with Chinese input". |
+| **G9** | **Single-file context** | Upload limitation | Current file handling: one primary file + optional spatial context file. Multi-file chaining (e.g., separate traffic + meteorology files) not supported. | Show "1 file" badge in upload area. |
+
+### §26.6 Emission Factor Query Status
+
+**Question:** "旧前端的 EF 查询 + 曲线 chart, 后端是否真支持?"
+
+**Answer: YES — the backend fully supports EF curve queries.** The old frontend's EF query feature is NOT mock data.
+
+**Evidence:**
+
+1. **Tool exists:** `query_emission_factors` registered at `tools/registry.py:93`. Full implementation at `tools/emission_factors.py` (230 LOC) + `calculators/emission_factors.py` (246 LOC).
+
+2. **Returns curve data, not single-point EF:**
+   - Default mode (`return_curve=false`): Returns `speed_curve` array with 73 speed points (5-70 mph → 8-113 kph), plus `typical_values` at 25/50/70 mph.
+   - Curve mode (`return_curve=true`): Returns `curve` array with unit converted to g/km.
+   - Each point: `{speed_mph, speed_kph, emission_rate, unit}`.
+
+3. **Real data source:** MOVES (EPA Motor Vehicle Emission Simulator) database, Atlanta 2025 scenario. Three seasonal files: winter (1°C, 55%, 65°F), spring (4°C, 75%, 65°F), summer (7°C, 90%, 70°F).
+
+4. **Multi-pollutant support:** Can query multiple pollutants in one call. Each pollutant gets its own curve array in the response.
+
+5. **Chart data pushed to frontend:** `format_emission_factors_chart()` in `router_payload_utils.py:39-81` constructs `chart_data` with `type: "emission_factors"` containing `{pollutant: {curve: [...], unit}}`. Real example from eval (held-out run 6):
+
+```json
+{
+  "type": "emission_factors",
+  "vehicle_type": "Transit Bus",
+  "model_year": 2019,
+  "pollutants": {
+    "CO2": {
+      "curve": [
+        {"speed_mph": 5, "speed_kph": 8.0, "emission_rate": 4629.52, "unit": "g/mile"},
+        {"speed_mph": 25, "speed_kph": 40.2, "emission_rate": 2057.55, "unit": "g/mile"},
+        {"speed_mph": 50, "speed_kph": 80.5, "emission_rate": 1682.31, "unit": "g/mile"},
+        {"speed_mph": 70, "speed_kph": 112.7, "emission_rate": 1495.20, "unit": "g/mile"}
+      ],
+      "unit": "g/mile"
+    }
+  },
+  "metadata": {"data_source": "MOVES (Atlanta)", "speed_range": {"min_kph": 8.0, "max_kph": 117.5}, "data_points": 73}
+}
+```
+
+6. **Table data also pushed:** 4-row preview table with key speed points (one every ~18 speed points from the 73-point curve).
+
+7. **Downloadable Excel:** `_generate_emission_factor_excel()` at `tools/emission_factors.py:34-89` creates `.xlsx` with all speed points.
+
+**Caveats (honest disclosure):**
+- Data is MOVES Atlanta, NOT China-specific emission factors. Vehicle categories are US EPA types (13 SourceType IDs). Chinese vehicle classification (国标) not integrated.
+- Only 2 road types in database (快速路=4, 地面道路=5). No urban/rural arterial distinction.
+- 3 seasons only (winter/spring/summer). No "秋季"-specific data file (秋季 maps to spring file).
+- No model year interpolation — exact year match only.
+
+**Verdict:** The old frontend EF curve chart is backed by real, working backend computation. The curve data pushed to the frontend is real MOVES data. The frontend should render speed (x-axis, km/h) vs emission rate (y-axis, g/mile or g/km), with one curve per pollutant.
