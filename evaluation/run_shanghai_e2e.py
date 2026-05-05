@@ -1,6 +1,7 @@
 """Run 7: Shanghai e2e workflow — macro emission → dispersion → hotspot map.
 
 Phase 9.1.0: Full trace export (not just steps). Output dir configurable via --output-dir.
+Phase 9.1.0 Step 1: Multi-trial support (--trial-id) for LLM variance characterization.
 """
 from __future__ import annotations
 
@@ -8,6 +9,8 @@ import argparse
 import asyncio
 import json
 import logging
+import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -29,26 +32,11 @@ SHANGHAI_WORKFLOW_PROMPTS = [
 ]
 
 # ── Phase 9.1.0: known trace dict top-level keys (from code audit) ──────────
-# These are the keys that _may_ appear on RouterResponse.trace after a full
-# governed turn.  Presence depends on which code paths were exercised.
 EXPECTED_TRACE_KEYS = [
-    # From Trace.to_dict() (core/trace.py:235-245)
-    "session_id",
-    "start_time",
-    "end_time",
-    "total_duration_ms",
-    "final_stage",
-    "step_count",
-    "steps",
-    # From _attach_oasc_trace() (core/contracts/oasc_contract.py:720-759)
-    "oasc",
-    "classifier_telemetry",
-    "ao_lifecycle_events",
-    "block_telemetry",
-    # Conditional from context.metadata (oasc_contract.py:748-759)
-    "reconciled_decision",
-    "b_validator_filter",
-    "projected_chain",
+    "session_id", "start_time", "end_time", "total_duration_ms",
+    "final_stage", "step_count", "steps",
+    "oasc", "classifier_telemetry", "ao_lifecycle_events", "block_telemetry",
+    "reconciled_decision", "b_validator_filter", "projected_chain",
 ]
 
 
@@ -65,7 +53,6 @@ def _safe_serialize(obj: Any, max_depth: int = 4, _depth: int = 0) -> Any:
     if isinstance(obj, dict):
         return {str(k): _safe_serialize(v, max_depth, _depth + 1) for k, v in obj.items()}
     if hasattr(obj, "value"):
-        # enum
         return obj.value
     try:
         return str(obj)[:1000]
@@ -83,12 +70,81 @@ def _extract_full_trace(response) -> Dict[str, Any]:
     return {"_raw": str(raw)[:2000]}
 
 
+def _dump_llm_config() -> Dict[str, Any]:
+    """Capture current LLM configuration for reproducibility audit. No secrets."""
+    from config import get_config
+    c = get_config()
+    return {
+        "captured_at_utc": datetime.now(timezone.utc).isoformat(),
+        "agent_llm": {
+            "provider": c.agent_llm.provider,
+            "model": c.agent_llm.model,
+            "temperature": c.agent_llm.temperature,
+            "max_tokens": c.agent_llm.max_tokens,
+        },
+        "deepseek": {
+            "enable_thinking": c.deepseek_enable_thinking,
+            "reasoning_effort": c.deepseek_reasoning_effort,
+            "thinking_models": list(c.deepseek_thinking_models),
+            "base_url_set": bool(os.environ.get("DEEPSEEK_BASE_URL")),
+        },
+        "flags_relevant_to_variance": {
+            "enable_state_orchestration": c.enable_state_orchestration,
+            "enable_llm_decision_field": c.enable_llm_decision_field,
+            "enable_conversation_fast_path": c.enable_conversation_fast_path,
+            "enable_clarification_contract": getattr(c, "enable_clarification_contract", True),
+            "enable_ao_classifier_rule_layer": c.enable_ao_classifier_rule_layer,
+            "enable_ao_classifier_llm_layer": c.enable_ao_classifier_llm_layer,
+            "enable_execution_idempotency": getattr(c, "enable_execution_idempotency", False),
+            "enable_reply_pipeline": getattr(c, "enable_reply_pipeline", True),
+            "enable_llm_reply_parser": getattr(c, "enable_llm_reply_parser", True),
+        },
+        "llm_provider": c.llm_provider,
+        "llm_reasoning_model": c.llm_reasoning_model,
+    }
+
+
+def _git_head() -> Optional[str]:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 async def run_shanghai_workflow(
     output_dir: Path,
+    trial_id: Optional[int] = None,
     demo_file: str = "evaluation/file_tasks/data/macro_direct.csv",
 ) -> Dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    router = GovernedRouter(session_id="shanghai_e2e_demo")
+
+    # ── Phase 9.1.0 Step 1: unique session per trial ────────────────────
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    trial_slug = f"trial_{trial_id}" if trial_id else "single"
+    session_id = f"shanghai_e2e_{trial_slug}_{ts}"
+
+    # ── Write LLM config metadata BEFORE trial starts ───────────────────
+    run_meta = {
+        "purpose": "Phase 9.1.0 Step 1 — Run 7 LLM variance characterization",
+        "trial_id": trial_id,
+        "session_id": session_id,
+        "run_started_utc": datetime.now(timezone.utc).isoformat(),
+        "git_head": _git_head(),
+        "llm_config": _dump_llm_config(),
+        "prompts": SHANGHAI_WORKFLOW_PROMPTS,
+        "demo_file": demo_file,
+    }
+    meta_path = output_dir / "run_metadata.json"
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(run_meta, f, ensure_ascii=False, indent=2, default=str)
+
+    router = GovernedRouter(session_id=session_id)
     turn_results: List[Dict[str, Any]] = []
     all_tool_calls: List[Dict[str, Any]] = []
     all_trace_steps: List[Dict[str, Any]] = []
@@ -123,7 +179,6 @@ async def run_shanghai_workflow(
 
     total_elapsed = time.time() - started_at
 
-    # Governance step distribution from all captured steps
     governance_steps: Dict[str, int] = {}
     for step in all_trace_steps:
         if isinstance(step, dict):
@@ -132,7 +187,6 @@ async def run_shanghai_workflow(
             step_type = str(step)
         governance_steps[step_type] = governance_steps.get(step_type, 0) + 1
 
-    # Per-key presence audit across all turns
     trace_key_presence: Dict[str, List[bool]] = {k: [] for k in EXPECTED_TRACE_KEYS}
     for tr in turn_results:
         t = tr.get("trace")
@@ -141,6 +195,8 @@ async def run_shanghai_workflow(
 
     summary = {
         "workflow": "shanghai_e2e",
+        "trial_id": trial_id,
+        "session_id": session_id,
         "turns": len(SHANGHAI_WORKFLOW_PROMPTS),
         "total_wall_clock_sec": round(total_elapsed, 2),
         "total_tool_calls": len(all_tool_calls),
@@ -157,7 +213,6 @@ async def run_shanghai_workflow(
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2, default=str)
 
-    # ── Phase 9.1.0: Export one JSONL line per turn with full trace ──────
     traces_path = output_dir / "shanghai_e2e_traces.jsonl"
     with open(traces_path, "w", encoding="utf-8") as f:
         for tr in turn_results:
@@ -170,36 +225,9 @@ async def run_shanghai_workflow(
             }
             f.write(json.dumps(line, ensure_ascii=False, default=str) + "\n")
 
-    # ── Phase 9.1.0: Recheck metadata ─────────────────────────────────────
-    git_head = None
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=5,
-        )
-        if result.returncode == 0:
-            git_head = result.stdout.strip()
-    except Exception:
-        pass
-
-    recheck_meta = {
-        "purpose": "Phase 9.1.0 diagnostic re-run of Run 7 Shanghai e2e with full trace export",
-        "run_timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "git_head": git_head,
-        "comparison_original": {
-            "original_run": "phase8_2_2_c2/run7_shanghai_e2e/",
-            "original_commit": "edca378 (v1.0-data-frozen)",
-            "original_exported_only": "trace_steps (response.trace.get('steps', []))",
-            "this_exported": "full trace dict including oasc/classifier_telemetry/ao_lifecycle_events/block_telemetry/reconciled_decision/b_validator_filter/projected_chain",
-            "note": "Temporary diagnostic data — not for Phase 9.3 ablation. Do not archive as benchmark.",
-        },
-    }
-    meta_path = output_dir / "recheck_metadata.json"
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(recheck_meta, f, ensure_ascii=False, indent=2, default=str)
-
     print(json.dumps({
+        "trial_id": trial_id,
+        "session_id": session_id,
         "workflow": "shanghai_e2e",
         "turns": len(SHANGHAI_WORKFLOW_PROMPTS),
         "total_wall_clock_sec": round(total_elapsed, 2),
@@ -219,7 +247,13 @@ def main():
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory (default: evaluation/results/_temp_phase9_1_0_run7_recheck/)",
+        help="Base output directory (default: evaluation/results/_temp_phase9_1_0_run7_recheck/)",
+    )
+    parser.add_argument(
+        "--trial-id",
+        type=int,
+        default=None,
+        help="Trial number (1-5) for variance characterization. Creates trial_{N}/ subdirectory.",
     )
     parser.add_argument(
         "--demo-file",
@@ -229,14 +263,25 @@ def main():
     )
     args = parser.parse_args()
 
+    trial_id = args.trial_id
+
     if args.output_dir:
-        output_dir = Path(args.output_dir)
+        base_dir = Path(args.output_dir)
+    elif trial_id is not None:
+        base_dir = PROJECT_ROOT / "evaluation" / "results" / "_temp_phase9_1_0_variance"
     else:
-        output_dir = (
-            PROJECT_ROOT / "evaluation" / "results"
-            / "_temp_phase9_1_0_run7_recheck"
-        )
-    asyncio.run(run_shanghai_workflow(output_dir, demo_file=args.demo_file))
+        base_dir = PROJECT_ROOT / "evaluation" / "results" / "_temp_phase9_1_0_run7_recheck"
+
+    if trial_id is not None:
+        output_dir = base_dir / f"trial_{trial_id}"
+    else:
+        output_dir = base_dir
+
+    asyncio.run(run_shanghai_workflow(
+        output_dir,
+        trial_id=trial_id,
+        demo_file=args.demo_file,
+    ))
 
 
 if __name__ == "__main__":
