@@ -704,6 +704,12 @@ class GovernedRouter:
         state_snapshot: Optional[Any],
         trace: Optional[Dict[str, Any]],
     ) -> Optional[RouterResponse]:
+        # Phase 9.1.0 阶段 1b Option A: ensure trace is a dict so downstream
+        # step recording (tool_selection, tool_execution, cross_constraint)
+        # never silently skips when the caller passes trace=None.
+        if trace is None:
+            trace = {}
+
         arguments = self._snapshot_to_tool_args(
             tool_name,
             snapshot,
@@ -711,6 +717,19 @@ class GovernedRouter:
         )
         if not isinstance(arguments, dict):
             return None
+
+        # Phase 9.1.0 阶段 1b Option A: record tool_selection step before
+        # executing via snapshot_direct so shortcut-path traces include the
+        # same tool_selection evidence as rich-path (inner_router state loop).
+        trace.setdefault("steps", []).append({
+            "step_type": "tool_selection",
+            "action": tool_name,
+            "input_summary": {
+                "source": "snapshot_direct",
+                "snapshot_keys": sorted(snapshot.keys()) if isinstance(snapshot, dict) else [],
+            },
+            "reasoning": f"Tool selected via clarification_contract snapshot_direct: {tool_name}",
+        })
 
         # Phase 6.1: execution idempotency gate
         if bool(getattr(self.runtime_config, "enable_execution_idempotency", False)):
@@ -760,6 +779,18 @@ class GovernedRouter:
         )
         if not bool(result.get("success")):
             return None
+
+        # Phase 9.1.0 阶段 1b Option A: extract cross-constraint validation
+        # result from the executor's standardization engine trace and record
+        # it in block_telemetry so Phase 9.3 Run 5 (no_constraint) has evidence.
+        if isinstance(result, dict):
+            cc_trace = result.get("_trace", {}).get("cross_constraint_validation")
+            if cc_trace:
+                trace.setdefault("block_telemetry", []).append({
+                    "source": "standardization_engine",
+                    "check_type": "cross_constraint",
+                    "result": cc_trace,
+                })
 
         self.inner_router._save_result_to_session_context(tool_name, result)
 
