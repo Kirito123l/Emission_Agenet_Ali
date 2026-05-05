@@ -49,7 +49,7 @@ tools:
           type: string
           description: Vehicle type. Pass user's original expression (e.g., '小汽车', '公交车', 'SUV'). System will automatically recognize it.
       pollutants:
-        required: false
+        required: true
         standardization: pollutant_list
         type_coercion: as_list
         schema:
@@ -114,12 +114,12 @@ tools:
     confirm_first_slots:
       - season
     parameters:
-      file_path:
+      input_file:
         required: false
         standardization: null
         schema:
           type: string
-          description: Path to trajectory data file. REQUIRED when user uploaded a file. You will see this path in the file context.
+          description: Path to trajectory data Excel/CSV file. REQUIRED when user has uploaded a file. The tool also accepts the legacy name file_path for backward compatibility.
       trajectory_data:
         required: false
         standardization: null
@@ -201,7 +201,7 @@ tools:
         category: compute
   calculate_macro_emission:
     display_name: 宏观排放计算
-    description: Calculate road link emissions from traffic data (length + flow + speed). Use file_path for uploaded files. The resulting pollutants can be passed to calculate_dispersion individually, or run sequentially when the user asks to disperse all computed pollutants.
+    description: Calculate road link emissions from traffic data (length + flow + speed). Use input_file for uploaded files. The resulting pollutants can be passed to calculate_dispersion individually, or run sequentially when the user asks to disperse all computed pollutants.
     required_slots:
       - pollutants
     optional_slots:
@@ -213,12 +213,12 @@ tools:
     confirm_first_slots:
       - season
     parameters:
-      file_path:
+      input_file:
         required: false
         standardization: null
         schema:
           type: string
-          description: Path to road link data file.
+          description: Path to road link data Excel/CSV file. The tool also accepts the legacy name file_path for backward compatibility.
       links_data:
         required: false
         standardization: null
@@ -756,6 +756,14 @@ tools:
         schema:
           type: string
           description: Optional scenario label to render a stored scenario-specific result instead of baseline.
+      source_links:
+        required: false
+        standardization: null
+        schema:
+          type: array
+          items:
+            type: object
+          description: Optional pre-resolved link data with geometry and emissions for direct rendering. When not provided, the renderer resolves data from the last result or context store.
     dependencies:
       requires: []
       provides:
