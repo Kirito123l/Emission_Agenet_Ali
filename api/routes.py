@@ -403,14 +403,13 @@ async def chat_stream(
                     "content": map_data
                 }, ensure_ascii=False) + "\n"
 
-            # 10. 发送完成信号
+            # 10. Send completion signal (map_data delivered in prior map chunk, not duplicated here)
             yield json.dumps({
                 "type": "done",
                 "session_id": turn.session_id,
                 "mode": router_mode,
                 "file_id": turn.file_id,
                 "download_file": turn.download_file,
-                "map_data": map_data,
                 "message_id": turn.message_id,
                 "trace_friendly": turn.trace_friendly,
             }, ensure_ascii=False) + "\n"
@@ -419,13 +418,15 @@ async def chat_stream(
             logger.error("流式处理出错: incompatible session", exc_info=True)
             yield json.dumps({
                 "type": "error",
-                "content": INCOMPATIBLE_SESSION_MESSAGE
+                "content": INCOMPATIBLE_SESSION_MESSAGE,
+                "error_code": "incompatible_session",
             }, ensure_ascii=False) + "\n"
         except Exception as e:
             logger.error(f"流式处理出错: {str(e)}", exc_info=True)
             yield json.dumps({
                 "type": "error",
-                "content": friendly_error_message(e)
+                "content": friendly_error_message(e),
+                "error_code": "internal_error",
             }, ensure_ascii=False) + "\n"
 
     return StreamingResponse(

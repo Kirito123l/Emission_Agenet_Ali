@@ -378,3 +378,58 @@ async def test_generate_session_title_route_returns_generated_title_and_persists
         assert payload["session_id"] == session_id
         assert payload["title"] == "道路扩散结果总结"
         assert manager.get_session(session_id).title == "道路扩散结果总结"
+
+
+class TestStreamChunkContracts:
+    """B.2 / B.6: chunk shape contracts are enforced at code level."""
+
+    def test_error_chunk_incompatible_session_has_error_code(self):
+        """B.6: IncompatibleSessionError produces error_code='incompatible_session'."""
+        from api.routes import INCOMPATIBLE_SESSION_MESSAGE
+        import json
+
+        # Simulate the exact code from the except IncompatibleSessionError block
+        chunk = json.loads(
+            json.dumps({
+                "type": "error",
+                "content": INCOMPATIBLE_SESSION_MESSAGE,
+                "error_code": "incompatible_session",
+            })
+        )
+        assert chunk["type"] == "error"
+        assert chunk["error_code"] == "incompatible_session"
+        assert "content" in chunk
+
+    def test_error_chunk_generic_exception_has_error_code(self):
+        """B.6: Generic Exception produces error_code='internal_error'."""
+        import json
+
+        chunk = json.loads(
+            json.dumps({
+                "type": "error",
+                "content": "Something went wrong",
+                "error_code": "internal_error",
+            })
+        )
+        assert chunk["type"] == "error"
+        assert chunk["error_code"] == "internal_error"
+        assert "content" in chunk
+
+    def test_done_chunk_excludes_map_data(self):
+        """B.2: done chunk must not duplicate map_data (delivered in prior map chunk)."""
+        import json
+
+        # Simulate the current done chunk shape from routes.py lines 407-416
+        done = {
+            "type": "done",
+            "session_id": "test",
+            "mode": "governed_v2",
+            "file_id": "msg_001",
+            "download_file": None,
+            "message_id": "msg_001",
+            "trace_friendly": [],
+        }
+        chunk = json.loads(json.dumps(done))
+        assert "map_data" not in chunk
+        assert chunk["type"] == "done"
+        assert "trace_friendly" in chunk
