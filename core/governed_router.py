@@ -413,10 +413,16 @@ class GovernedRouter:
         router_text: str,
         final_text: str,
     ) -> None:
-        trace_target = result.trace if isinstance(result.trace, dict) else trace
-        if not isinstance(trace_target, dict):
-            return
-        trace_target.setdefault("steps", []).append(
+        # ── Phase 9.1.0 阶段 1: always create a trace dict so reply_generation
+        # is never silently dropped.  When after_turn already populated result.trace
+        # (via _attach_oasc_trace), we append to the existing dict.  When result.trace
+        # is still None, we create a fresh dict so the step is recorded.
+        if not isinstance(result.trace, dict):
+            result.trace = {}
+        trace_target = result.trace
+        if not isinstance(trace_target.get("steps"), list):
+            trace_target["steps"] = []
+        trace_target["steps"].append(
             {
                 "step_type": "reply_generation",
                 "action": "llm_reply_parser",

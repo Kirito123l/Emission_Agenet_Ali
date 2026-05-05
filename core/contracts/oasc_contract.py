@@ -715,6 +715,24 @@ class OASCContract(BaseContract):
         if trace_obj is None:
             trace_obj = {}
             result.trace = trace_obj
+
+        # ── Phase 9.1.0 阶段 1: ensure basic identity fields are present ──
+        # When inner_router returns result.trace=None (decision_field path at
+        # governed_router.py:328-340 or snapshot path at governed_router.py:343-345),
+        # the Trace.to_dict() fields are never written.  setdefault ensures the keys
+        # exist (even if None) so downstream consumers see a consistent dict shape.
+        # RouterResponse (core/router.py:319-329) does not carry session_id /
+        # start_time / end_time / final_stage as attributes, so these are set to
+        # None on the missing path.  The inner_router's Trace.to_dict() path
+        # populates them correctly on the normal path — setdefault leaves those
+        # values untouched.
+        trace_obj.setdefault("session_id", getattr(result, "session_id", None))
+        trace_obj.setdefault("start_time", getattr(result, "start_time", None))
+        trace_obj.setdefault("end_time", getattr(result, "end_time", None))
+        trace_obj.setdefault("final_stage", getattr(result, "final_stage", None))
+        trace_obj.setdefault("steps", [])
+        # ── End Phase 9.1.0 阶段 1 identity guard ──────────────────────────
+
         block_telemetry = getattr(self.inner_router.assembler, "last_telemetry", {}) or {}
         block_entry = block_telemetry.get("session_state_block", {}).get("block_telemetry")
         trace_obj["oasc"] = {
