@@ -1144,3 +1144,37 @@ class Trace:
             }
 
         return None
+
+
+def make_friendly_entry(
+    step_type: str,
+    description: str,
+    *,
+    status: str = "success",
+    latency_ms: Optional[int] = None,
+    title: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build a frontend-compatible trace entry for inline assembly points.
+
+    Mirrors the schema of :meth:`Trace.to_user_friendly` so every inline
+    ``trace_friendly`` dict produces the same keys.  Callers that go through
+    this helper are guaranteed to emit ``type`` (G6 frontend-facing field),
+    ``step_type`` (compat alias), ``description`` (not ``summary``), and
+    ``status``.  Optional ``latency_ms`` and ``title`` are included only when
+    the caller provides them.
+
+    ``step_type`` is compared against :class:`TraceStepType` for documentation
+    purposes but *not* enforced — contract-level or governance-level step
+    values that have no enum entry yet are passed through unchanged.
+    """
+    entry: Dict[str, Any] = {
+        "type": step_type,
+        "step_type": step_type,
+        "description": description,
+        "status": status,
+    }
+    if title is not None:
+        entry["title"] = title
+    if latency_ms is not None:
+        entry["latency_ms"] = int(latency_ms)
+    return entry

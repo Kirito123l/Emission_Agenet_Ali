@@ -24,6 +24,7 @@ from core.execution_continuation_utils import (
 )
 from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
+from core.trace import TraceStepType, make_friendly_entry
 
 
 class ExecutionReadinessContract(SplitContractSupport):
@@ -455,7 +456,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                     proceed=False,
                     response=RouterResponse(
                         text=question,
-                        trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": question}],
+                        trace_friendly=[
+                            make_friendly_entry(
+                                step_type=TraceStepType.CLARIFICATION.value,
+                                description=question,
+                                status="warning",
+                                title="需要确认 / Clarification Needed",
+                                latency_ms=int(telemetry["stage2_latency_ms"]) if telemetry.get("stage2_latency_ms") is not None else None,
+                            )
+                        ],
                     ),
                     metadata={"clarification": {"telemetry": telemetry}},
                 )
@@ -515,7 +524,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                 proceed=False,
                 response=RouterResponse(
                     text="",
-                    trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": "scope framing"}],
+                    trace_friendly=[
+                            make_friendly_entry(
+                                step_type=TraceStepType.CLARIFICATION.value,
+                                description="scope framing",
+                                status="warning",
+                                title="需要确认 / Clarification Needed",
+                                latency_ms=int(telemetry["stage2_latency_ms"]) if telemetry.get("stage2_latency_ms") is not None else None,
+                            )
+                        ],
                 ),
                 metadata={
                     "clarification": {"telemetry": telemetry},
@@ -650,7 +667,15 @@ class ExecutionReadinessContract(SplitContractSupport):
                         proceed=False,
                         response=RouterResponse(
                             text=question,
-                            trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": question}],
+                            trace_friendly=[
+                                make_friendly_entry(
+                                    step_type=TraceStepType.CLARIFICATION.value,
+                                    description=question,
+                                    status="warning",
+                                    title="需要确认 / Clarification Needed",
+                                    latency_ms=int(telemetry["stage2_latency_ms"]) if telemetry.get("stage2_latency_ms") is not None else None,
+                                )
+                            ],
                         ),
                         metadata={"clarification": {"telemetry": telemetry}},
                     )

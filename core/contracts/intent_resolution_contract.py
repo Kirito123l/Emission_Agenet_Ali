@@ -12,6 +12,7 @@ from core.execution_continuation import PendingObjective
 from core.execution_continuation_utils import load_execution_continuation
 from core.intent_resolver import IntentResolver
 from core.router import RouterResponse
+from core.trace import TraceStepType, make_friendly_entry
 
 
 class IntentResolutionContract(SplitContractSupport):
@@ -228,7 +229,15 @@ class IntentResolutionContract(SplitContractSupport):
                 proceed=False,
                 response=RouterResponse(
                     text="",
-                    trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": "clarify tool intent"}],
+                    trace_friendly=[
+                            make_friendly_entry(
+                                step_type=TraceStepType.CLARIFICATION.value,
+                                description="clarify tool intent",
+                                status="warning",
+                                title="需要确认 / Clarification Needed",
+                                latency_ms=int(telemetry["stage2_latency_ms"]) if telemetry.get("stage2_latency_ms") is not None else None,
+                            )
+                        ],
                 ),
                 metadata={
                     "clarification": {"telemetry": telemetry},

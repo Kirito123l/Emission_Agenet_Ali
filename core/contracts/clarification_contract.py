@@ -24,6 +24,7 @@ from services.llm_client import get_llm_client
 from services.standardization_engine import StandardizationEngine
 from tools.file_analyzer import FileAnalyzerTool
 from tools.contract_loader import get_tool_contract_registry
+from core.trace import TraceStepType, make_friendly_entry
 
 logger = logging.getLogger(__name__)
 
@@ -541,7 +542,15 @@ class ClarificationContract(BaseContract):
                     tool_name=tool_name,
                     snapshot=snapshot,
                 ),
-                trace_friendly=[{"type": "clarification", "step_type": "clarification", "summary": question or ""}],
+                trace_friendly=[
+                        make_friendly_entry(
+                            step_type=TraceStepType.CLARIFICATION.value,
+                            description=question or "",
+                            status="warning",
+                            title="需要确认 / Clarification Needed",
+                            latency_ms=int(telemetry.stage2_latency_ms) if telemetry.stage2_latency_ms is not None else None,
+                        )
+                    ],
             )
             legal_map: Dict[str, list] = {}
             for slot_name in pending_slots:

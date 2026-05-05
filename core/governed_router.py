@@ -33,6 +33,7 @@ from core.router import RouterResponse, UnifiedRouter
 from core.stance_resolver import StanceResolution, StanceResolver
 from core.task_state import TaskStage, TaskState
 from core.tool_dependencies import get_tool_provides
+from core.trace import TraceStepType, make_friendly_entry
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
@@ -1086,7 +1087,14 @@ class GovernedRouter:
                         "参数组合存在冲突：\n" + "\n".join(violation_msgs)
                         + "\n\n请调整参数后重试。"
                     )
-                    trace_friendly = [{"type": "cross_constraint_violation", "step_type": "cross_constraint_violation", "summary": violation_text[:200]}]
+                    trace_friendly = [
+                        make_friendly_entry(
+                            step_type=TraceStepType.CROSS_CONSTRAINT_VIOLATION.value,
+                            description=violation_text[:200],
+                            status="error",
+                            title="交叉约束冲突 / Cross-Constraint Violation",
+                        )
+                    ]
                     if trace is not None:
                         trace.setdefault("steps", []).append({
                             "step_type": "cross_constraint_violation",
@@ -1114,7 +1122,14 @@ class GovernedRouter:
                 question = f"请提供以下必需参数：{missing_names}"
             if not question:
                 return None
-            trace_friendly = [{"type": "clarification", "step_type": "clarification", "summary": question}]
+            trace_friendly = [
+                        make_friendly_entry(
+                            step_type=TraceStepType.CLARIFICATION.value,
+                            description=question,
+                            status="warning",
+                            title="需要确认 / Clarification Needed",
+                        )
+                    ]
             if trace is not None:
                 trace.setdefault("steps", []).append({
                     "step_type": "decision_field_clarify",
@@ -1140,7 +1155,14 @@ class GovernedRouter:
             ).strip()
             if not reasoning:
                 return None
-            trace_friendly = [{"type": "clarification", "step_type": "clarification", "summary": reasoning}]
+            trace_friendly = [
+                        make_friendly_entry(
+                            step_type=TraceStepType.CLARIFICATION.value,
+                            description=reasoning,
+                            status="warning",
+                            title="需要确认 / Clarification Needed",
+                        )
+                    ]
             if trace is not None:
                 trace.setdefault("steps", []).append({
                     "step_type": "decision_field_deliberate",

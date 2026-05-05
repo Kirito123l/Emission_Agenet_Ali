@@ -887,3 +887,69 @@ class TestTraceFriendlyFieldNaming:
         assert "latency_ms" not in friendly[1], (
             "latency_ms should be absent when duration_ms is None"
         )
+
+
+# ============================================================================
+# make_friendly_entry  (C.1 / C.2 / C.3 / C.4 unification helper)
+# ============================================================================
+
+
+from core.trace import make_friendly_entry  # noqa: E402
+
+
+class TestMakeFriendlyEntry:
+    def test_basic_minimal_input(self):
+        """Minimal call produces type, step_type, description, status."""
+        entry = make_friendly_entry("clarification", "please provide vehicle type")
+        assert entry["type"] == "clarification"
+        assert entry["step_type"] == "clarification"
+        assert entry["description"] == "please provide vehicle type"
+        assert entry["status"] == "success"
+        assert "latency_ms" not in entry
+        assert "title" not in entry
+
+    def test_with_latency(self):
+        """latency_ms is included as int when provided."""
+        entry = make_friendly_entry("clarification", "desc", latency_ms=2341)
+        assert "latency_ms" in entry
+        assert entry["latency_ms"] == 2341
+        assert isinstance(entry["latency_ms"], int)
+
+    def test_with_title(self):
+        """title is included when provided."""
+        entry = make_friendly_entry("clarification", "desc", title="需要确认 / Clarification Needed")
+        assert entry["title"] == "需要确认 / Clarification Needed"
+
+    def test_omits_none_optional_fields(self):
+        """latency_ms=None and title=None are omitted, not stored as None."""
+        entry = make_friendly_entry("test", "desc", latency_ms=None, title=None)
+        assert "latency_ms" not in entry
+        assert "title" not in entry
+
+    def test_cross_constraint_violation_full(self):
+        """GR-1 style: cross_constraint_violation with error status and bilingual title."""
+        entry = make_friendly_entry(
+            step_type="cross_constraint_violation",
+            description="参数组合存在冲突",
+            status="error",
+            title="交叉约束冲突 / Cross-Constraint Violation",
+        )
+        assert entry["type"] == "cross_constraint_violation"
+        assert entry["step_type"] == "cross_constraint_violation"
+        assert entry["description"] == "参数组合存在冲突"
+        assert entry["status"] == "error"
+        assert entry["title"] == "交叉约束冲突 / Cross-Constraint Violation"
+
+    def test_clarification_latency_title(self):
+        """CT-1..5 style: clarification with latency and title."""
+        entry = make_friendly_entry(
+            step_type="clarification",
+            description="请提供以下必需参数：model_year",
+            status="warning",
+            title="需要确认 / Clarification Needed",
+            latency_ms=1500,
+        )
+        assert entry["type"] == "clarification"
+        assert entry["description"] == "请提供以下必需参数：model_year"
+        assert entry["status"] == "warning"
+        assert entry["latency_ms"] == 1500
