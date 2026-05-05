@@ -106,6 +106,9 @@ class LLMClientService:
         self.max_tokens = assignment.max_tokens
         self._retry_sleep = time.sleep
 
+        # Phase 9.1.0 Step 2: per-instance LLM call telemetry log
+        self._telemetry_log: List[Dict[str, Any]] = []
+
     def _create_openai_client(self, use_proxy: bool) -> OpenAI:
         if not self._api_key:
             raise ValueError(
@@ -251,20 +254,45 @@ class LLMClientService:
                 payload[key] = value
         return payload or None
 
-    def _log_usage(self, response: Any, operation: str) -> Optional[Dict[str, Any]]:
+    def _log_usage(self, response: Any, operation: str, wall_time_ms: float = 0.0) -> Optional[Dict[str, Any]]:
         """Log token telemetry when the provider returns usage metadata."""
         usage = self._extract_usage(response)
         if usage:
             logger.info(
-                "[TOKEN_TELEMETRY] operation=%s purpose=%s model=%s prompt=%s completion=%s total=%s",
+                "[TOKEN_TELEMETRY] operation=%s purpose=%s model=%s prompt=%s completion=%s total=%s cache_hit=%s cache_miss=%s",
                 operation,
                 self.purpose,
                 self.model,
                 usage.get("prompt_tokens"),
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
+                usage.get("prompt_cache_hit_tokens", "N/A"),
+                usage.get("prompt_cache_miss_tokens", "N/A"),
             )
+            # Phase 9.1.0 Step 2: record full telemetry for trace observability
+            self._telemetry_log.append({
+                "operation": operation,
+                "model": self.model,
+                "provider": self.provider_name,
+                "purpose": self.purpose,
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+                "total_tokens": usage.get("total_tokens"),
+                "prompt_cache_hit_tokens": usage.get("prompt_cache_hit_tokens"),
+                "prompt_cache_miss_tokens": usage.get("prompt_cache_miss_tokens"),
+                "wall_time_ms": round(wall_time_ms, 1),
+            })
         return usage
+
+    def get_telemetry_log(self) -> List[Dict[str, Any]]:
+        """Return a snapshot of the accumulated telemetry log."""
+        return list(self._telemetry_log)
+
+    def drain_telemetry_log(self) -> List[Dict[str, Any]]:
+        """Return and clear the accumulated telemetry log (useful for per-turn snapshots)."""
+        entries = list(self._telemetry_log)
+        self._telemetry_log.clear()
+        return entries
 
     async def chat(
         self,
@@ -291,6 +319,7 @@ class LLMClientService:
         full_messages.extend(messages)
 
         try:
+            t0 = time.time()
             response = self._request_with_failover(
                 lambda cli: cli.chat.completions.create(
                     model=self.model,
@@ -302,7 +331,8 @@ class LLMClientService:
                 ),
                 operation="LLM chat"
             )
-            usage = self._log_usage(response, "chat")
+            wall_ms = (time.time() - t0) * 1000
+            usage = self._log_usage(response, "chat", wall_time_ms=wall_ms)
 
             content = response.choices[0].message.content
             finish_reason = response.choices[0].finish_reason
@@ -344,6 +374,7 @@ class LLMClientService:
         full_messages.extend(messages)
 
         try:
+            t0 = time.time()
             response = self._request_with_failover(
                 lambda cli: cli.chat.completions.create(
                     model=self.model,
@@ -357,7 +388,8 @@ class LLMClientService:
                 ),
                 operation="LLM chat with tools"
             )
-            usage = self._log_usage(response, "chat_with_tools")
+            wall_ms = (time.time() - t0) * 1000
+            usage = self._log_usage(response, "chat_with_tools", wall_time_ms=wall_ms)
 
             message = response.choices[0].message
             content = message.content or ""
@@ -417,6 +449,7 @@ class LLMClientService:
         full_messages.extend(messages)
 
         try:
+            t0 = time.time()
             response = self._request_with_failover(
                 lambda cli: cli.chat.completions.create(
                     model=self.model,
@@ -429,8 +462,8 @@ class LLMClientService:
                 ),
                 operation="LLM async JSON chat",
             )
-            self._log_usage(response, "chat_json")
-
+            wall_ms = (time.time() - t0) * 1000
+            self._log_usage(response, "chat_json", wall_time_ms=wall_ms)
             content = response.choices[0].message.content or "{}"
             return json.loads(content)
 
@@ -455,6 +488,7 @@ class LLMClientService:
         full_messages.extend(messages)
 
         try:
+            t0 = time.time()
             response = self._request_with_failover(
                 lambda cli: cli.chat.completions.create(
                     model=self.model,
@@ -467,7 +501,8 @@ class LLMClientService:
                 ),
                 operation="LLM async JSON chat",
             )
-            usage = self._log_usage(response, "chat_json")
+            wall_ms = (time.time() - t0) * 1000
+            usage = self._log_usage(response, "chat_json", wall_time_ms=wall_ms)
             content = response.choices[0].message.content or "{}"
             return {
                 "payload": json.loads(content),
