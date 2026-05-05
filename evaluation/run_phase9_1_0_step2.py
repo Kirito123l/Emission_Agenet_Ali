@@ -146,21 +146,37 @@ def _cleanup_session_state(session_id: str) -> Dict[str, Any]:
 
 
 def _collect_llm_telemetry(router: Any) -> List[Dict[str, Any]]:
-    """Drain LLM telemetry from the router's LLM client."""
-    try:
-        llm = None
-        # GovernedRouter -> inner_router.llm
-        inner = getattr(router, "inner_router", None)
-        if inner is not None:
-            llm = getattr(inner, "llm", None)
-        # NaiveRouter -> self.llm
-        if llm is None:
-            llm = getattr(router, "llm", None)
+    """Drain LLM telemetry from ALL cached LLM client instances.
+
+    GovernedRouter uses get_llm_client() which caches instances by (purpose, model) key.
+    NaiveRouter creates its own LLMClientService instance. We drain both the router's
+    direct client AND all cached instances to ensure complete coverage.
+    """
+    entries: List[Dict[str, Any]] = []
+    seen_ids = set()
+
+    def drain_one(llm):
         if llm is not None and hasattr(llm, "drain_telemetry_log"):
-            return llm.drain_telemetry_log()
+            eid = id(llm)
+            if eid not in seen_ids:
+                seen_ids.add(eid)
+                entries.extend(llm.drain_telemetry_log())
+
+    # 1. Router's direct LLM client
+    drain_one(getattr(router, "llm", None))
+    # 2. GovernedRouter inner router's LLM client
+    inner = getattr(router, "inner_router", None)
+    if inner is not None:
+        drain_one(getattr(inner, "llm", None))
+    # 3. All cached LLM client instances (get_llm_client cache)
+    try:
+        from services.llm_client import _client_instances
+        for llm in list(_client_instances.values()):
+            drain_one(llm)
     except Exception:
         pass
-    return []
+
+    return entries
 
 
 def _safe_serialize(obj: Any, max_depth: int = 4, _depth: int = 0) -> Any:
