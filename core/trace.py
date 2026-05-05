@@ -124,6 +124,7 @@ class TraceStepType(str, Enum):
     CROSS_CONSTRAINT_CHECK_SKIPPED = "cross_constraint_check_skipped"
     FAST_PATH_SKIPPED = "fast_path_skipped"
     CONTINUATION_OVERRIDDEN_TO_NEW_AO = "continuation_overridden_to_new_ao"
+    STANDARDIZATION_FAILED_BLOCKED_EXECUTION = "standardization_failed_blocked_execution"
 
 
 @dataclass
@@ -1132,6 +1133,14 @@ class Trace:
                 "title": "需要确认 / Clarification Needed",
                 "description": step.reasoning or "More information needed",
                 "status": "warning",
+                "step_type": step.step_type.value,
+            }
+
+        elif step.step_type == TraceStepType.STANDARDIZATION_FAILED_BLOCKED_EXECUTION:
+            return {
+                "title": "标准化阻断 / Standardization Blocked Execution",
+                "description": step.reasoning or step.error or "Parameter standardization failed and execution was blocked.",
+                "status": "error",
                 "step_type": step.step_type.value,
             }
 
