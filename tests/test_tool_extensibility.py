@@ -344,3 +344,41 @@ def test_dummy_tool_completion_keywords_secondary_plus_requires(
     # Cleanup
     tool_registry.clear()
     init_tools()
+
+
+class TestToolRegistrationError:
+    """E.3: registry collects errors and raises ToolRegistrationError."""
+
+    def test_raises_when_factory_fails(self, monkeypatch):
+        """Inject a failing tool factory and verify ToolRegistrationError is raised."""
+        from tools.registry import ToolRegistrationError, get_registry, register_tool, init_tools
+
+        registry = get_registry()
+
+        # Monkey-patch register_tool to fail for a specific name
+        original_register = register_tool
+
+        def failing_register(name, tool):
+            if name == "calculate_macro_emission":
+                raise RuntimeError("injected failure")
+            return original_register(name, tool)
+
+        monkeypatch.setattr("tools.registry.register_tool", failing_register)
+
+        raised = False
+        try:
+            init_tools()
+        except ToolRegistrationError as e:
+            raised = True
+            err_str = str(e)
+            assert "calculate_macro_emission" in err_str
+            assert "injected failure" in err_str
+            assert "1 tool(s) failed to register" in err_str
+
+        assert raised, "Expected ToolRegistrationError was not raised"
+
+        # Restore normal registration and verify recovery
+        monkeypatch.undo()
+        registry.clear()
+        init_tools()
+        assert len(registry.list_tools()) == 10

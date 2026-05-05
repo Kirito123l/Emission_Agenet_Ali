@@ -79,73 +79,66 @@ def register_tool(name: str, tool: BaseTool):
     _registry.register(name, tool)
 
 
+class ToolRegistrationError(Exception):
+    """Raised when one or more tools fail to register during startup."""
+
+
 def init_tools():
     """
     Initialize and register all tools
 
-    This should be called at application startup
+    This should be called at application startup.  If any tool fails to
+    register the error is logged but registration continues for the
+    remaining tools; all failures are collected and raised as a single
+    :class:`ToolRegistrationError` at the end.
     """
     logger.info("Initializing tools...")
 
+    errors: list[tuple[str, str]] = []
+
+    def _register(name, factory):
+        try:
+            register_tool(name, factory())
+        except Exception as e:
+            msg = f"Failed to register {name}: {e}"
+            logger.error(msg)
+            errors.append((name, str(e)))
+
     # Import and register tools
-    try:
-        from tools.emission_factors import EmissionFactorsTool
-        register_tool("query_emission_factors", EmissionFactorsTool())
-    except Exception as e:
-        logger.error(f"Failed to register emission_factors tool: {e}")
+    from tools.emission_factors import EmissionFactorsTool
+    _register("query_emission_factors", EmissionFactorsTool)
 
-    try:
-        from tools.micro_emission import MicroEmissionTool
-        register_tool("calculate_micro_emission", MicroEmissionTool())
-    except Exception as e:
-        logger.error(f"Failed to register micro_emission tool: {e}")
+    from tools.micro_emission import MicroEmissionTool
+    _register("calculate_micro_emission", MicroEmissionTool)
 
-    try:
-        from tools.macro_emission import MacroEmissionTool
-        register_tool("calculate_macro_emission", MacroEmissionTool())
-    except Exception as e:
-        logger.error(f"Failed to register macro_emission tool: {e}")
+    from tools.macro_emission import MacroEmissionTool
+    _register("calculate_macro_emission", MacroEmissionTool)
 
-    try:
-        from tools.file_analyzer import FileAnalyzerTool
-        register_tool("analyze_file", FileAnalyzerTool())
-    except Exception as e:
-        logger.error(f"Failed to register file_analyzer tool: {e}")
+    from tools.file_analyzer import FileAnalyzerTool
+    _register("analyze_file", FileAnalyzerTool)
 
-    try:
-        from tools.clean_dataframe import CleanDataFrameTool
-        register_tool("clean_dataframe", CleanDataFrameTool())
-    except Exception as e:
-        logger.error(f"Failed to register clean_dataframe tool: {e}")
+    from tools.clean_dataframe import CleanDataFrameTool
+    _register("clean_dataframe", CleanDataFrameTool)
 
-    try:
-        from tools.knowledge import KnowledgeTool
-        register_tool("query_knowledge", KnowledgeTool())
-    except Exception as e:
-        logger.error(f"Failed to register knowledge tool: {e}")
+    from tools.knowledge import KnowledgeTool
+    _register("query_knowledge", KnowledgeTool)
 
-    try:
-        from tools.dispersion import DispersionTool
-        register_tool("calculate_dispersion", DispersionTool())
-    except Exception as e:
-        logger.warning(f"Failed to register calculate_dispersion: {e}")
+    from tools.dispersion import DispersionTool
+    _register("calculate_dispersion", DispersionTool)
 
-    try:
-        from tools.hotspot import HotspotTool
-        register_tool("analyze_hotspots", HotspotTool())
-    except Exception as e:
-        logger.warning(f"Failed to register analyze_hotspots: {e}")
+    from tools.hotspot import HotspotTool
+    _register("analyze_hotspots", HotspotTool)
 
-    try:
-        from tools.spatial_renderer import SpatialRendererTool
-        register_tool("render_spatial_map", SpatialRendererTool())
-    except Exception as e:
-        logger.warning(f"Failed to register render_spatial_map: {e}")
+    from tools.spatial_renderer import SpatialRendererTool
+    _register("render_spatial_map", SpatialRendererTool)
 
-    try:
-        from tools.scenario_compare import ScenarioCompareTool
-        register_tool("compare_scenarios", ScenarioCompareTool())
-    except Exception as e:
-        logger.warning(f"Failed to register compare_scenarios: {e}")
+    from tools.scenario_compare import ScenarioCompareTool
+    _register("compare_scenarios", ScenarioCompareTool)
 
     logger.info(f"Initialized {len(_registry.list_tools())} tools: {_registry.list_tools()}")
+
+    if errors:
+        raise ToolRegistrationError(
+            f"{len(errors)} tool(s) failed to register: "
+            + "; ".join(f"{name}: {msg}" for name, msg in errors)
+        )
