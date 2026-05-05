@@ -121,13 +121,15 @@ async def run_shanghai_workflow(
     output_dir: Path,
     trial_id: Optional[int] = None,
     demo_file: str = "evaluation/file_tasks/data/macro_direct.csv",
+    session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Phase 9.1.0 Step 1: unique session per trial ────────────────────
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    trial_slug = f"trial_{trial_id}" if trial_id else "single"
-    session_id = f"shanghai_e2e_{trial_slug}_{ts}"
+    if session_id is None:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        trial_slug = f"trial_{trial_id}" if trial_id else "single"
+        session_id = f"shanghai_e2e_{trial_slug}_{ts}"
 
     # ── Write LLM config metadata BEFORE trial starts ───────────────────
     run_meta = {
@@ -261,6 +263,12 @@ def main():
         default="evaluation/file_tasks/data/macro_direct.csv",
         help="Demo CSV file path relative to project root",
     )
+    parser.add_argument(
+        "--session-id",
+        type=str,
+        default=None,
+        help="Override auto-generated session_id (for session isolation experiments)",
+    )
     args = parser.parse_args()
 
     trial_id = args.trial_id
@@ -281,6 +289,7 @@ def main():
         output_dir,
         trial_id=trial_id,
         demo_file=args.demo_file,
+        session_id=args.session_id,
     ))
 
 
