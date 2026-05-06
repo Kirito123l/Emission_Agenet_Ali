@@ -21,6 +21,7 @@ separately instantiated `purpose="synthesis"` client.
 import json
 import logging
 import time
+import uuid
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from openai import OpenAI
@@ -271,6 +272,7 @@ class LLMClientService:
             )
             # Phase 9.1.0 Step 2: record full telemetry for trace observability
             self._telemetry_log.append({
+                "call_id": uuid.uuid4().hex[:12],
                 "operation": operation,
                 "model": self.model,
                 "provider": self.provider_name,
@@ -538,6 +540,7 @@ class LLMClientService:
             messages.insert(0, {"role": "system", "content": system})
 
         try:
+            t0 = time.time()
             response = self._request_with_failover(
                 lambda cli: cli.chat.completions.create(
                     model=self.model,
@@ -548,6 +551,8 @@ class LLMClientService:
                 ),
                 operation="LLM sync chat"
             )
+            wall_ms = (time.time() - t0) * 1000
+            self._log_usage(response, "chat_sync", wall_time_ms=wall_ms)
 
             return response.choices[0].message.content
 
@@ -575,6 +580,7 @@ class LLMClientService:
             messages.insert(0, {"role": "system", "content": system})
 
         try:
+            t0 = time.time()
             response = self._request_with_failover(
                 lambda cli: cli.chat.completions.create(
                     model=self.model,
@@ -586,6 +592,8 @@ class LLMClientService:
                 ),
                 operation="LLM JSON chat"
             )
+            wall_ms = (time.time() - t0) * 1000
+            self._log_usage(response, "chat_json_sync", wall_time_ms=wall_ms)
 
             content = response.choices[0].message.content
             return json.loads(content)

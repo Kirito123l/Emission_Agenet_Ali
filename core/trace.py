@@ -125,6 +125,7 @@ class TraceStepType(str, Enum):
     FAST_PATH_SKIPPED = "fast_path_skipped"
     CONTINUATION_OVERRIDDEN_TO_NEW_AO = "continuation_overridden_to_new_ao"
     STANDARDIZATION_FAILED_BLOCKED_EXECUTION = "standardization_failed_blocked_execution"
+    LLM_TELEMETRY = "llm_telemetry"
 
 
 @dataclass
