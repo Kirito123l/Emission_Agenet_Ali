@@ -1361,7 +1361,7 @@ async def _run_router_task(
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
     """Run router mode, using bounded same-session follow-ups for expected multi-step chains."""
     run_ns = f"{eval_run_id}_" if eval_run_id else ""
-    router = build_router(session_id=f"eval_{run_ns}{task['id']}", router_mode="router")
+    router = build_router(session_id=f"eval_{run_ns}{task['id']}", router_mode="router", fresh_session=True)
     expected_chain = [str(item) for item in task.get("expected_tool_chain", []) if item]
     scripted_follow_up_count = len(task.get("follow_up_messages", []) or [])
     max_turns = max(1, min(len(expected_chain) + scripted_follow_up_count + 2, 8))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 import time
 from typing import Any, Dict, Optional
@@ -159,8 +160,10 @@ class _IdempotencyAwareExecutor:
 
 class GovernedRouter:
 
-    def __init__(self, session_id: str, memory_storage_dir: Optional[str | Path] = None):
+    def __init__(self, session_id: str, memory_storage_dir: Optional[str | Path] = None, *, fresh_session: bool = False):
         self.session_id = session_id
+        if fresh_session:
+            self._clean_session_files(session_id)
         self.runtime_config = get_config()
         self.inner_router = UnifiedRouter(
             session_id=session_id,
@@ -183,6 +186,25 @@ class GovernedRouter:
         )
         self.dependency_contract = DependencyContract()
         self._build_contracts()
+
+    @staticmethod
+    def _clean_session_files(session_id: str) -> None:
+        """Delete persisted state files for *session_id* so the next init is clean.
+
+        Per §10 (Component #13): fresh_session=True semantics — remove all
+        on-disk state that could leak across trials or across task runs.
+        """
+        project_root = Path(__file__).resolve().parents[1]
+        paths = [
+            project_root / "data" / "sessions" / "history" / f"{session_id}.json",
+            project_root / "data" / "sessions" / "router_state" / f"{session_id}.json",
+        ]
+        for p in paths:
+            try:
+                if p.exists():
+                    p.unlink()
+            except OSError:
+                pass
 
     def _build_contracts(self) -> None:
         self.contract_split_enabled = bool(getattr(self.runtime_config, "enable_contract_split", False))
@@ -1403,10 +1425,11 @@ def build_router(
     *,
     memory_storage_dir: Optional[str | Path] = None,
     router_mode: str = "router",
+    fresh_session: bool = False,
 ) -> Any:
     normalized_mode = str(router_mode or "router").strip().lower()
     if normalized_mode in {"full", "governed_v2", "router"}:
-        return GovernedRouter(session_id=session_id, memory_storage_dir=memory_storage_dir)
+        return GovernedRouter(session_id=session_id, memory_storage_dir=memory_storage_dir, fresh_session=fresh_session)
     if normalized_mode == "naive":
         raise ValueError("router_mode='naive' must construct NaiveRouter directly")
     raise ValueError(f"Unsupported router_mode: {router_mode}")
